@@ -1,0 +1,61 @@
+/* Fluxo de caixa — planilha editável, resumo e categorias */
+
+.mod-fluxo .rail{padding-bottom:8px}
+.mod-fluxo .cat-list{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
+.cat-chip{
+  display:inline-flex;align-items:center;gap:6px;background:#191509;border:1px solid #453E33;
+  border-radius:20px;padding:5px 8px 5px 12px;font-size:12.5px;color:var(--cream);
+}
+.cat-chip button{
+  background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;
+  width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+.cat-chip button:hover{color:#E59A9A;background:#2a1414}
+button.rm.wide{background:transparent;border:1px solid #5B2E2E;color:#E59A9A}
+button.rm.wide:hover{background:#241212;border-color:#7A3B3B}
+
+/* stage */
+.fx-wrap{max-width:1180px;margin:0 auto}
+.fx-toolbar{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+.fx-resumo{flex:1;min-width:280px}
+.fx-resumo .calc-chip{margin-bottom:0}
+.calc-row b.neg{color:#E59A9A}
+.calc-row.lucro.neg b{color:#E59A9A}
+
+.fx-card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.fx-scroll{overflow-x:auto}
+table.fx-tbl{width:100%;border-collapse:collapse;min-width:900px}
+table.fx-tbl th{
+  text-align:left;font-family:'Oswald';font-weight:400;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);padding:12px 10px;border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+table.fx-tbl td{padding:5px 6px;border-bottom:1px solid #221F1A;vertical-align:middle}
+table.fx-tbl tr:hover td{background:#15130F}
+table.fx-tbl tr.vazio td{color:var(--muted);padding:26px 12px;text-align:center;font-size:13.5px}
+table.fx-tbl input,table.fx-tbl select{
+  width:100%;background:transparent;border:1px solid transparent;border-radius:3px;
+  padding:8px 7px;color:var(--cream);font-size:13.5px;
+}
+table.fx-tbl input:hover,table.fx-tbl select:hover,
+table.fx-tbl input:focus,table.fx-tbl select:focus{border-color:var(--rule);background:var(--field)}
+table.fx-tbl input[type=date]{min-width:128px}
+table.fx-tbl input[type=number]{text-align:right;min-width:100px}
+table.fx-tbl td.vcell.entrada input{color:#8FD39C}
+table.fx-tbl td.vcell.saida input{color:#E59A9A}
+table.fx-tbl select[data-f="status"].st-pago{color:#8FD39C}
+table.fx-tbl select[data-f="status"].st-pendente{color:var(--warn)}
+table.fx-tbl .rm{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;
+  width:30px;height:30px;line-height:1;cursor:pointer}
+table.fx-tbl .rm:hover{border-color:#7A3B3B;color:#E59A9A}
+
+table.fx-cat{margin-top:2px}
+table.fx-cat td.v.entrada{color:#8FD39C}
+table.fx-cat td.v.saida{color:#E59A9A}
+#porcat{margin-top:22px;max-width:520px}
+#porcat .mini{color:var(--muted)}
+
+@media screen and (max-width:1100px){
+  .mod-fluxo.m-prev .rail{display:none}
+  .mod-fluxo.m-edit .stage{display:none}
+  .fx-toolbar{flex-direction:column}
+}

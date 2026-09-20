@@ -2,7 +2,8 @@
 
 Site estático (HTML + CSS + JS puro). Não precisa de build, Node, banco de dados ou servidor próprio.
 
-Hoje a plataforma tem uma ferramenta: o **Gerador de propostas**, que funciona como antes.
+Hoje a plataforma tem duas ferramentas: o **Gerador de propostas** (como antes) e o **Fluxo de caixa**,
+para lançar entradas e saídas, acompanhar o saldo por período e exportar para planilha.
 
 ## Estrutura
 
@@ -11,8 +12,10 @@ index.html                 casca da plataforma (barra lateral + área da ferrame
 css/base.css               cores, tipografia, campos e botões compartilhados
 css/platform.css           barra lateral, menu do celular e tela inicial
 css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão)
+css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
 js/platform.js             barra lateral, navegação (#/ e #/propostas), tela inicial e registro de módulos
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx)
+js/modules/fluxo.js        Fluxo de caixa (lançamentos, planilha, exportação .csv e backup .json)
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
 robots.txt                 bloqueia indexação por buscadores
@@ -63,8 +66,36 @@ A ferramenta aparece sozinha na barra lateral e na tela inicial.
 ## Observações
 
 - **Privacidade:** a ferramenta contém valores e margens internos. O site está com `noindex` (meta tag + robots.txt), mas isso não impede acesso por quem tiver o link. Se for de uso interno, proteja com senha (Cloudflare Access, Netlify Password Protection, ou `.htaccess` no cPanel). Para liberar a indexação, remova a meta `robots` do `index.html` e apague o `robots.txt`.
-- **Rascunhos:** os dados preenchidos ficam salvos no `localStorage` do navegador de cada usuário (não vão para o servidor). Trocar de navegador/computador ou de domínio começa do zero.
+- **Rascunhos e lançamentos:** os dados preenchidos (inclusive os lançamentos do Fluxo de caixa) ficam salvos no `localStorage` do navegador de cada usuário (não vão para o servidor). Trocar de navegador/computador ou de domínio começa do zero — no Fluxo de caixa, use "Salvar backup (.json)" e "Importar backup (.json)" para levar os dados de um lugar para o outro, ou para não perder nada ao limpar o navegador.
 - **Fontes:** Oswald e Barlow vêm do Google Fonts (precisa de internet).
 - **Imagens do Connect e do Flash:** ficam embutidas em `js/modules/propostas.js` (constantes `LOGO_CONNECT_PADRAO` e `LOGO_FLASH_PADRAO`), então aparecem mesmo sem a pasta `assets/`. Dentro da ferramenta dá para enviar outra imagem por proposta.
 - **Fotos de clientes padrão:** para trocar, substitua os arquivos em `assets/clientes/` mantendo o nome, ou edite `CLIENTES_PADRAO` no início de `js/modules/propostas.js`.
 - **HTTPS:** ative o certificado SSL na hospedagem.
+
+## Fluxo de caixa: sobre salvar os dados
+
+Por ser um site estático (sem servidor/banco de dados), os lançamentos ficam gravados no `localStorage`
+do navegador — ou seja, **por navegador/computador**, não em um lugar central que todo mundo acessa. Na prática:
+
+- Cada pessoa que usa o Fluxo de caixa em um computador diferente vê os próprios lançamentos, não os dos outros.
+- Limpar o cache do navegador, trocar de navegador ou reinstalar o computador apaga os dados salvos ali.
+- Por isso a ferramenta tem os botões **"Salvar backup (.json)"** e **"Importar backup (.json)"**: use o primeiro
+  de vez em quando (ex.: no fim do dia) para guardar um arquivo com tudo, e o segundo para recarregar esse arquivo
+  no mesmo navegador ou em outro. O botão **"Exportar para planilha (.csv)"** é para abrir os lançamentos no
+  Excel/Google Sheets/LibreOffice — é uma cópia para consulta, não volta a ser importada na ferramenta.
+
+Se no futuro for necessário que **várias pessoas lancem no mesmo fluxo de caixa e vejam os mesmos dados em tempo
+real** (de qualquer computador), isso exige um lugar central para guardar as informações — o que essa ferramenta,
+sendo um site estático, não tem hoje. As opções mais simples para isso, caso vire necessidade, seriam:
+
+- **Google Planilhas como "banco de dados":** o site passaria a ler e gravar em uma planilha do Google (via
+  Google Sheets API), então todo mundo enxergaria os mesmos lançamentos. Exige uma conta Google e uma chave de
+  acesso configurada.
+- **Um serviço de banco de dados gratuito na nuvem** (ex.: Firebase ou Supabase): dados compartilhados e em tempo
+  real entre todos os usuários, com plano gratuito suficiente para o volume de uma empresa pequena. Exige criar
+  uma conta no serviço escolhido e um pouco mais de configuração inicial.
+- **Um pequeno servidor próprio:** mais controle, mas sai do modelo "site estático sem manutenção" que a
+  plataforma usa hoje.
+
+Qualquer uma dessas é viável de adicionar depois, sem precisar refazer a tela — me avise se quiser seguir por
+esse caminho e eu integro.
