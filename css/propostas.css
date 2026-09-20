@@ -79,7 +79,7 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 .stagebar button:hover{border-color:var(--gold)}
 
 /* ---------- Paper ---------- */
-.papers{margin:0 auto;width:210mm;transform-origin:top center}
+.papers{margin:0 auto;width:210mm;transform-origin:top center;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .paper{
   width:210mm;min-height:297mm;background:var(--paper);color:var(--paper-ink);
   margin:0 auto 22px;padding:16mm 15mm 20mm;position:relative;
@@ -152,7 +152,6 @@ ol.dt li{margin-bottom:5px}
 .card-box h4{font-family:'Oswald';font-weight:600;font-size:17px;text-align:center;margin:0 0 16px;letter-spacing:.015em}
 .card-box ul{margin:0;padding-left:18px;font-size:13.5px}
 .card-box li{margin-bottom:8px;line-height:1.4}
-@media screen and (max-width:1100px){.card-grid{grid-template-columns:1fr}}
 .clientes{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;font-size:11px}
 .clientes div{border:1px solid #E4DFD3;border-top:2px solid var(--gold);border-radius:6px;padding:14px 10px;text-align:center;background:#FFFDF9}
 .clientes b{display:block;font-size:12.5px;margin:4px 0 3px;color:#161512}
@@ -172,11 +171,10 @@ ol.dt li{margin-bottom:5px}
   .app{flex-direction:column}
   .rail{width:100%;flex:none;height:auto;position:relative;top:auto;border-right:none;border-bottom:1px solid var(--rule)}
   .stage{padding:16px 10px 60px}
-  .papers{width:auto}
-  .paper{width:100%;min-height:0;padding:22px 20px 56px;box-shadow:none;border-radius:6px}
+  /* a folha continua A4 de verdade (210 mm) e o JS a reduz para caber na tela (ajustarEscala em propostas.js);
+     assim a prévia no celular é igual à impressão e ao Word */
+  .papers-fit{overflow:hidden;margin:0 auto}
   .stagebar{max-width:none}
-  .svcgrid,.clientes{grid-template-columns:repeat(2,1fr)}
-  table.dt{font-size:11px}
   .tabs{display:flex;position:sticky;top:var(--topbar);z-index:9;background:var(--panel);border-bottom:1px solid var(--rule)}
   .tabs button{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:13px;font-family:'Oswald';letter-spacing:.1em;text-transform:uppercase;font-size:12px;color:var(--muted);cursor:pointer}
   .tabs button.on{color:var(--gold);border-bottom-color:var(--gold)}
@@ -191,6 +189,7 @@ ol.dt li{margin-bottom:5px}
   .rail,.stagebar,.tabs{display:none !important}
   .app{min-height:0}
   .stage{padding:0;background:#fff;overflow:visible}
+  .papers-fit{width:auto !important;height:auto !important;overflow:visible !important;margin:0 !important}
   .papers{width:auto;transform:none !important;margin-bottom:0 !important}
   .paper{width:210mm;min-height:297mm;box-shadow:none;margin:0;page-break-after:always;break-after:page}
   .paper:last-child{page-break-after:auto;break-after:auto}
