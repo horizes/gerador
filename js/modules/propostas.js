@@ -6,25 +6,40 @@
 
 let root = null;          // elemento onde o módulo está montado
 let zoom = 1;
+let ro = null;            // observa a folha para reajustar a escala no celular
 let iniciado = false;     // o rascunho salvo é lido só na primeira abertura
 const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
 
-const PAD = {premio:200, insal:324.20, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33};
+/* insalubridade = % × base. Base padrão = salário mínimo de 2026 (R$ 1.621,00); 20% dá os R$ 324,20 de antes. */
+const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, salMin:1621, insalPct:20};
 
 /* Catálogo de cargos. confirmado:true = CBO retirado da sua proposta atual.
-   Os demais vêm do site/uso de mercado e ficam editáveis para conferência. */
+   Os demais vêm do site/uso de mercado e ficam editáveis para conferência.
+   gen = gênero padrão (nome/curto abaixo estão nessa forma); alt = a outra forma, quando o cargo varia
+   (cargos com o mesmo nome nos dois gêneros, como Recepcionista, não têm alt). */
 const CATALOGO = [
-  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Limpeza", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"limpeza e conservação"},
-  {id:"jard",  nome:"Jardineiro",                      curto:"Jardineiro",          cbo:"6220-10", conf:true,  salario:1886.00, posto:6700.00, escala:"6x1", turno:"Diurno", frente:"jardinagem"},
-  {id:"zel",   nome:"Zelador Predial",                   curto:"Zelador",             cbo:"5141-20", conf:true,  salario:2144.33, posto:6693.75, escala:"5x2", turno:"Diurno", frente:"zeladoria"},
-  {id:"port",  nome:"Porteiro e Controlador de Acesso",  curto:"Porteiro",            cbo:"5174-10", conf:false, salario:2144.33, posto:6700.00, escala:"12x36",turno:"Diurno", frente:"portaria e controle de acesso"},
-  {id:"recep", nome:"Recepcionista",                     curto:"Recepcionista",       cbo:"4221-05", conf:false, salario:2144.33, posto:6700.00, escala:"5x2", turno:"Diurno", frente:"recepção"},
-  {id:"manut", nome:"Manutencista Predial",              curto:"Manutencista",        cbo:"5143-10", conf:false, salario:2300.00, posto:7000.00, escala:"5x2", turno:"Diurno", frente:"manutenção predial"},
-  {id:"copa",  nome:"Copeira",                           curto:"Copeira",             cbo:"5134-25", conf:false, salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"copa"},
-  {id:"mens",  nome:"Mensageiro",                        curto:"Mensageiro",          cbo:"4122-05", conf:false, salario:1805.43, posto:5798.25, escala:"5x2", turno:"Diurno", frente:"mensageria"},
-  {id:"enc",   nome:"Encarregado / Supervisor",          curto:"Encarregado",         cbo:"4101-05", conf:false, salario:2600.00, posto:8000.00, escala:"5x2", turno:"Diurno", frente:"supervisão operacional"}
+  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Limpeza", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"limpeza e conservação", gen:"F"},
+  {id:"jard",  nome:"Jardineiro",                      curto:"Jardineiro",          cbo:"6220-10", conf:true,  salario:1886.00, posto:6700.00, escala:"6x1", turno:"Diurno", frente:"jardinagem", gen:"M",
+    alt:{nome:"Jardineira", curto:"Jardineira"}},
+  {id:"zel",   nome:"Zelador Predial",                   curto:"Zelador",             cbo:"5141-20", conf:true,  salario:2144.33, posto:6693.75, escala:"5x2", turno:"Diurno", frente:"zeladoria", gen:"M",
+    alt:{nome:"Zeladora Predial", curto:"Zeladora"}},
+  {id:"port",  nome:"Porteiro e Controlador de Acesso",  curto:"Porteiro",            cbo:"5174-10", conf:false, salario:2144.33, posto:6700.00, escala:"12x36",turno:"Diurno", frente:"portaria e controle de acesso", gen:"M",
+    alt:{nome:"Porteira e Controladora de Acesso", curto:"Porteira"}},
+  {id:"recep", nome:"Recepcionista",                     curto:"Recepcionista",       cbo:"4221-05", conf:false, salario:2144.33, posto:6700.00, escala:"5x2", turno:"Diurno", frente:"recepção", gen:"F"},
+  {id:"manut", nome:"Manutencista Predial",              curto:"Manutencista",        cbo:"5143-10", conf:false, salario:2300.00, posto:7000.00, escala:"5x2", turno:"Diurno", frente:"manutenção predial", gen:"M"},
+  {id:"copa",  nome:"Copeira",                           curto:"Copeira",             cbo:"5134-25", conf:false, salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"copa", gen:"F",
+    alt:{nome:"Copeiro", curto:"Copeiro"}},
+  {id:"mens",  nome:"Mensageiro",                        curto:"Mensageiro",          cbo:"4122-05", conf:false, salario:1805.43, posto:5798.25, escala:"5x2", turno:"Diurno", frente:"mensageria", gen:"M",
+    alt:{nome:"Mensageira", curto:"Mensageira"}},
+  {id:"enc",   nome:"Encarregado / Supervisor",          curto:"Encarregado",         cbo:"4101-05", conf:false, salario:2600.00, posto:8000.00, escala:"5x2", turno:"Diurno", frente:"supervisão operacional", gen:"M",
+    alt:{nome:"Encarregada / Supervisora", curto:"Encarregada"}}
 ];
+
+/* nome e nome curto de um cargo do catálogo no gênero pedido ("M" ou "F") */
+function formaCargo(base, g){
+  return (base.alt && g !== base.gen) ? base.alt : {nome:base.nome, curto:base.curto};
+}
 
 const SECOES = [
   {id:"capa",    rot:"Capa com serviços",                 fixo:true},
@@ -67,6 +82,7 @@ const ESTADO_INICIAL = () => ({
   assinante:"Cyriaco Wilson",
   cargoAssinante:"Diretor/Presidente",
   dias:PAD.dias,
+  salMin:PAD.salMin,
   secoes:{capa:true,carta:true,suporte:true,cbo:true,ponto:true,clientes:true,valores:true,aceite:true},
   difs:JSON.parse(JSON.stringify(DIF_PADRAO)),
   obs:"",
@@ -75,10 +91,15 @@ const ESTADO_INICIAL = () => ({
   extras:[]
 });
 
-function novoCargo(base){
-  return {on:false, acum:false, nome:base.nome, curto:base.curto, cbo:base.cbo, conf:base.conf, frente:base.frente,
+const r2 = v => Math.round((+v||0)*100)/100;
+const calcInsal = (base, pct) => r2((+base||0) * (+pct||0) / 100);
+const fmtPct = p => String(Math.round((+p||0)*100)/100);
+
+function novoCargo(base, salMin){
+  const sm = salMin > 0 ? salMin : PAD.salMin;
+  return {on:false, acum:false, genero:base.gen || "F", nome:base.nome, curto:base.curto, cbo:base.cbo, conf:base.conf, frente:base.frente,
     postos:1, func:1, escala:base.escala, turno:base.turno, posto:base.posto,
-    salario:base.salario, premio:PAD.premio, insal:PAD.insal, plr:PAD.plr,
+    salario:base.salario, premio:PAD.premio, insalPct:PAD.insalPct, insal:calcInsal(sm, PAD.insalPct), plr:PAD.plr,
     vr:PAD.vr, vt:PAD.vt, va:PAD.va};
 }
 
@@ -93,10 +114,20 @@ function carregar(){
     if(!raw) return;
     const v = JSON.parse(raw);
     if(v && v.cargos){
-      CATALOGO.forEach(c=>{ if(!v.cargos[c.id]) v.cargos[c.id]=novoCargo(c); });
+      CATALOGO.forEach(c=>{ if(!v.cargos[c.id]) v.cargos[c.id]=novoCargo(c, v.salMin); });
       S = Object.assign(ESTADO_INICIAL(), v);
+      migrar();
     }
   }catch(e){}
+}
+/* rascunhos salvos antes de existirem gênero e % de insalubridade: completa os campos sem mudar nenhum valor */
+function migrar(){
+  if(!(S.salMin > 0)) S.salMin = PAD.salMin;
+  CATALOGO.forEach(c=>{ const x=S.cargos[c.id]; if(x && !x.genero) x.genero = c.gen || "F"; });
+  S.extras.forEach(x=>{ if(!x.genero) x.genero = "F"; });
+  todosCargos().forEach(([k,x])=>{
+    if(typeof x.insalPct !== "number") x.insalPct = (+x.insal||0) / S.salMin * 100;
+  });
 }
 
 /* ---------- helpers ---------- */
@@ -115,6 +146,17 @@ function listaCargos(){
   CATALOGO.forEach(c=>{ const x=S.cargos[c.id]; if(x&&x.on) out.push(Object.assign({id:c.id},x)); });
   S.extras.forEach((x,i)=>{ if(x.on) out.push(Object.assign({id:"x"+i},x)); });
   return out;
+}
+function todosCargos(){
+  return [...CATALOGO.map(c=>[c.id, S.cargos[c.id]]), ...S.extras.map((x,i)=>["x"+i, x])];
+}
+/* como a proposta chama a pessoa contratada, conforme o gênero dos cargos marcados */
+function colab(){
+  const cs = listaCargos();
+  const m = cs.some(c=>c.genero==="M"), f = cs.some(c=>c.genero!=="M");
+  if(m && f) return {de:"dos Colaboradores", un:"colaborador"};
+  if(m)      return {de:"do Colaborador",    un:"colaborador"};
+  return           {de:"da Colaboradora",    un:"colaboradora"};
 }
 function nomeDoc(c){ return c.nome + (c.acum ? " com acúmulo de função" : ""); }
 function remun(c){ return (+c.salario||0)+(+c.premio||0)+(+c.insal||0)+(+c.plr||0); }
@@ -147,7 +189,7 @@ function cargoCard(key,c){
     <div class="head">
       <input type="checkbox" data-on="${key}" ${c.on?"checked":""}>
       <div class="nm">
-        <b>${esc(c.nome)}</b>
+        <b data-nm="${key}">${esc(c.nome)}</b>
         <small>CBO ${esc(c.cbo)}</small>
       </div>
       ${key.startsWith("x")?`<button class="rm" data-del="${key}">remover</button>`:""}
@@ -165,18 +207,28 @@ function cargoCard(key,c){
         <span>Com acúmulo de função</span>
       </div>
       <div class="grid2" style="margin-top:9px">
+        <label class="f"><span>Gênero</span>
+          <select data-c="${key}.genero">
+            <option value="M" ${c.genero==="M"?"selected":""}>Masculino</option>
+            <option value="F" ${c.genero!=="M"?"selected":""}>Feminino</option>
+          </select>
+        </label>
         <label class="f"><span>Turno</span>
           <select data-c="${key}.turno">${["Diurno","Noturno","Misto"].map(e=>`<option ${c.turno===e?"selected":""}>${e}</option>`).join("")}</select>
         </label>
-        <label class="f"><span>Valor por posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
       </div>
-      <div class="mini">Remuneração da colaboradora</div>
+      <label class="f" style="margin-top:9px"><span>Valor por posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
+      <div class="mini" data-rem="${key}">${c.genero==="M"?"Remuneração do colaborador":"Remuneração da colaboradora"}</div>
       <div class="grid2">
         <label class="f"><span>Salário</span><input type="number" step="0.01" data-c="${key}.salario" value="${c.salario}"></label>
         <label class="f"><span>Prêmio assid.</span><input type="number" step="0.01" data-c="${key}.premio" value="${c.premio}"></label>
-        <label class="f"><span>Insalub./acúmulo</span><input type="number" step="0.01" data-c="${key}.insal" value="${c.insal}"></label>
+      </div>
+      <div class="grid3" style="margin-top:9px">
+        <label class="f"><span>Insalub. %</span><input type="number" min="0" step="any" data-c="${key}.insalPct" value="${fmtPct(c.insalPct)}"></label>
+        <label class="f"><span>Insalub. R$</span><input type="number" step="0.01" data-c="${key}.insal" value="${(+c.insal||0).toFixed(2)}"></label>
         <label class="f"><span>PLR anual</span><input type="number" step="0.01" data-c="${key}.plr" value="${c.plr}"></label>
       </div>
+      <p class="hint">Mudar a % recalcula o R$ (base da insalubridade em "Cargos e quantidades"). Mudar o R$ recalcula a %. Serve também para o valor de acúmulo.</p>
       <div class="mini">Benefícios</div>
       <div class="grid3">
         <label class="f"><span>VR/dia</span><input type="number" step="0.01" data-c="${key}.vr" value="${c.vr}"></label>
@@ -237,6 +289,8 @@ function painel(){
 
   <details class="sec" open><summary>Cargos e quantidades <span class="chev">›</span></summary>
     <div class="body">
+      <label class="f"><span>Base da insalubridade (R$)</span><input type="number" step="0.01" min="0" data-p="salMin" value="${S.salMin}"></label>
+      <p class="hint" style="margin:-4px 0 14px">Salário mínimo vigente (R$ 1.621,00 em 2026). Ao mudar, o R$ de insalubridade de todos os cargos é recalculado pelas suas %.</p>
       ${CATALOGO.map(c=>cargoCard(c.id,S.cargos[c.id])).join("")}
       ${S.extras.map((c,i)=>cargoCard("x"+i,c)).join("")}
       <button class="btn ghost wide" id="addcargo">+ Cargo personalizado</button>
@@ -443,20 +497,20 @@ function pgClientes(){
 }
 
 function pgValores(){
-  const cs = listaCargos();
+  const cs = listaCargos(), co = colab();
   const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0;
   const iguais = cs.every(c=>Math.abs(benef(c)-benef(cs[0]||c))<0.01);
   return page(`${HEAD}
     <h2 class="dt" style="font-size:28px">Da Proposta</h2>
     <p style="font-size:16px;color:#444;margin-bottom:18px">${esc(S.base)}</p>
 
-    <p style="font-weight:700;margin-bottom:4px">Remuneração da Colaboradora</p>
+    <p style="font-weight:700;margin-bottom:4px">Remuneração ${co.de}</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>Salário</th><th>Prêmio Assiduidade</th><th>Insalubridade Acúmulo</th><th>PLR anual</th><th>Total mensal</th></tr></thead>
       <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.salario)}</td><td>${brl(c.premio)}</td><td>${brl(c.insal)}</td><td>${brl(c.plr)}</td><td>${brl(remun(c))}</td></tr>`).join("")}</tbody>
     </table>
 
-    <p style="font-weight:700;margin-bottom:4px">Benefícios mensais da Colaboradora</p>
+    <p style="font-weight:700;margin-bottom:4px">Benefícios mensais ${co.de}</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>VR/ Dia</th><th>VT/ Dia</th><th>VA Cesta</th><th>${iguais?"Média":"Total"}</th></tr></thead>
       <tbody>${cs.map((c,i)=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.vr)}</td><td>${brl(c.vt)}</td><td>${brl(c.va)}</td>${
@@ -503,14 +557,54 @@ function renderPapers(){
 /* ---------- eventos ---------- */
 function refCargo(key){ return key.startsWith("x") ? S.extras[+key.slice(1)] : S.cargos[key]; }
 
+/* muda o gênero do cargo: troca o nome pela forma correta (só se o nome ainda for o do catálogo) e atualiza o card */
+function trocarGenero(key, g){
+  const o = refCargo(key); if(!o) return;
+  o.genero = (g==="M") ? "M" : "F";
+  const base = CATALOGO.find(c=>c.id===key);
+  if(base){
+    const f = formaCargo(base, o.genero);
+    if(o.nome===base.nome  || (base.alt && o.nome===base.alt.nome))   o.nome  = f.nome;
+    if(o.curto===base.curto || (base.alt && o.curto===base.alt.curto)) o.curto = f.curto;
+  }
+  const card = root.querySelector(`[data-card="${key}"]`);
+  if(card){
+    const nm = card.querySelector("[data-nm]"); if(nm) nm.textContent = o.nome;
+    const inp = card.querySelector(`[data-c="${key}.nome"]`); if(inp) inp.value = o.nome;
+    const rem = card.querySelector("[data-rem]"); if(rem) rem.textContent = o.genero==="M" ? "Remuneração do colaborador" : "Remuneração da colaboradora";
+  }
+  renderPapers();
+}
+
+/* base da insalubridade mudou: recalcula o R$ de todos os cargos a partir das suas % */
+function recalcInsalTodos(){
+  todosCargos().forEach(([k,o])=>{
+    o.insal = calcInsal(S.salMin, o.insalPct);
+    const el = root.querySelector(`[data-c="${k}.insal"]`); if(el) el.value = o.insal.toFixed(2);
+  });
+}
+
 on("input", e=>{
   const t = e.target;
   if(t.type==="checkbox") return;
-  if(t.dataset.p){ let v=t.value; if(t.type==="number") v=parseFloat(v)||0; set(t.dataset.p,v); renderPapers(); return; }
+  if(t.dataset.p){
+    let v=t.value; if(t.type==="number") v=parseFloat(v)||0;
+    set(t.dataset.p,v);
+    if(t.dataset.p==="salMin") recalcInsalTodos();
+    renderPapers(); return;
+  }
   if(t.dataset.c){
     const [key,campo] = t.dataset.c.split(".");
     const o = refCargo(key); if(!o) return;
-    o[campo] = t.type==="number" ? (parseFloat(t.value)||0) : t.value;
+    const v = t.type==="number" ? (parseFloat(t.value)||0) : t.value;
+    o[campo] = v;
+    if(campo==="insalPct"){            // % manda: recalcula o R$
+      o.insal = calcInsal(S.salMin, v);
+      const el = root.querySelector(`[data-c="${key}.insal"]`); if(el) el.value = o.insal.toFixed(2);
+    }else if(campo==="insal"){         // R$ digitado: recalcula a %
+      o.insalPct = S.salMin > 0 ? v / S.salMin * 100 : 0;
+      const el = root.querySelector(`[data-c="${key}.insalPct"]`); if(el) el.value = fmtPct(o.insalPct);
+    }
     renderPapers(); return;
   }
   if(t.dataset.d){
@@ -552,6 +646,9 @@ on("change", e=>{
     const o=refCargo(k); if(o){ o[campo]=t.checked; renderPapers(); }
     return;
   }
+  if(t.dataset.c && t.tagName==="SELECT" && t.dataset.c.endsWith(".genero")){
+    trocarGenero(t.dataset.c.split(".")[0], t.value); return;
+  }
   if(t.dataset.p && (t.tagName==="SELECT"||t.type==="date")){ set(t.dataset.p,t.value); renderPapers(); }
   if(t.dataset.c && t.tagName==="SELECT"){
     const [key,campo]=t.dataset.c.split(".");
@@ -562,7 +659,7 @@ on("change", e=>{
 on("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
   if(b.id==="addcargo"){
-    S.extras.push(Object.assign(novoCargo(CATALOGO[0]),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));
+    S.extras.push(Object.assign(novoCargo(CATALOGO[0], S.salMin),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));
     painel(); renderPapers(); return;
   }
   if(b.dataset.del){ S.extras.splice(+b.dataset.del.slice(1),1); painel(); renderPapers(); return; }
@@ -578,10 +675,9 @@ on("click", e=>{
     painel(); renderPapers(); return;
   }
   if(b.id==="zin"||b.id==="zout"){
-    zoom = Math.min(1.2,Math.max(0.5, zoom + (b.id==="zin"?0.1:-0.1)));
-    const p=document.getElementById("papers");
-    p.style.transform = `scale(${zoom})`;
-    p.style.marginBottom = `${(zoom-1)*400}px`;
+    const passo = ehMobile() ? 0.25 : 0.1;
+    zoom = Math.round((zoom + (b.id==="zin" ? passo : -passo)) * 100) / 100;
+    ajustarEscala();      // aplica e respeita os limites de cada tela
     return;
   }
   if(b.dataset.tab){
@@ -589,10 +685,45 @@ on("click", e=>{
     b.classList.add("on");
     root.classList.remove("m-edit","m-prev");
     root.classList.add(b.dataset.tab==="prev" ? "m-prev" : "m-edit");
+    requestAnimationFrame(ajustarEscala);
     return;
   }
 });
 
+
+/* ---------- escala da folha A4 ----------
+   Desktop: zoom pelos botões (− / +).
+   Celular e tablet: a folha mantém o tamanho real de uma A4 (210 mm) e é reduzida para caber na largura da tela,
+   então a prévia fica idêntica à impressão e ao Word. Os botões ampliam a partir daí e dá para dar zoom com os dedos. */
+const ehMobile = () => window.matchMedia("(max-width:1100px)").matches;
+
+function ajustarEscala(){
+  if(!root) return;
+  const stage = root.querySelector(".stage"), fit = document.getElementById("fit"), papers = document.getElementById("papers");
+  if(!stage || !fit || !papers) return;
+  const mob = ehMobile();
+  const [mn, mx] = mob ? [1, 3] : [0.5, 1.2];
+  zoom = Math.min(mx, Math.max(mn, zoom));
+
+  if(!mob){
+    fit.style.width = fit.style.height = "";
+    papers.style.transformOrigin = "";
+    papers.style.transform = zoom===1 ? "" : `scale(${zoom})`;
+    papers.style.marginBottom = zoom===1 ? "" : `${(zoom-1)*400}px`;
+    return;
+  }
+  if(!stage.clientWidth) return;            // aba "Configurar" aberta: a folha está oculta
+  const cs = getComputedStyle(stage);
+  const disp = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const largura = papers.offsetWidth;       // 210 mm em px, sem escala
+  if(!largura) return;
+  const s = Math.min(1, disp / largura) * zoom;
+  papers.style.transformOrigin = "top left";
+  papers.style.marginBottom = "";
+  papers.style.transform = `scale(${s})`;
+  fit.style.width  = (largura * s) + "px";
+  fit.style.height = (papers.offsetHeight * s) + "px";
+}
 
 /* ---------- Exportação .docx ---------- */
 const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
@@ -727,18 +858,18 @@ function docBody(){
   }
 
   /* valores */
-  const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0;
+  const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0, co = colab();
   P_.push(BRK, MARCA(), H("Da Proposta",{sz:40}));
   P_.push(P([R(S.base,{sz:24,color:"444444"})],{after:200}));
 
-  P_.push(P([R("Remuneração da Colaboradora",{b:true})],{after:60}));
+  P_.push(P([R("Remuneração "+co.de,{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","Salário","Prêmio Assiduidade","Insalubridade Acúmulo","PLR anual","Total mensal"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
     .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(brl(c.salario)),TD(brl(c.premio)),TD(brl(c.insal)),TD(brl(c.plr)),TD(brl(remun(c)))])))));
 
-  P_.push(P([R("Benefícios mensais da Colaboradora",{b:true})],{after:60}));
+  P_.push(P([R("Benefícios mensais "+co.de,{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","VR/ Dia","VT/ Dia","VA Cesta","Total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
     .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(brl(c.vr)),TD(brl(c.vt)),TD(brl(c.va)),TD(brl(benef(c)))])))));
-  P_.push(P([R("Média mensal de benefícios por colaboradora: "+brl(mediaBen),{sz:19,color:"555555"})]));
+  P_.push(P([R("Média mensal de benefícios por "+co.un+": "+brl(mediaBen),{sz:19,color:"555555"})]));
 
   P_.push(P([R("Escopo e valores da proposta",{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","Escala","Turno","Postos","Pessoas","Valor por posto","Valor total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
@@ -819,7 +950,7 @@ const TEMPLATE = `
         <button id="print">Imprimir / salvar PDF</button>
       </div>
     </div>
-    <div class="papers" id="papers"></div>
+    <div class="papers-fit" id="fit"><div class="papers" id="papers"></div></div>
   </main>
 </div>`;
 
@@ -832,11 +963,16 @@ function mount(el){
   ouvintes.forEach(([t,fn]) => root.addEventListener(t, fn));
   painel();
   renderPapers();
+  if(window.ResizeObserver){ ro = new ResizeObserver(() => ajustarEscala()); ro.observe(document.getElementById("papers")); }
+  window.addEventListener("resize", ajustarEscala);
+  ajustarEscala();
 }
 
 function unmount(){
   if(!root) return;
   ouvintes.forEach(([t,fn]) => root.removeEventListener(t, fn));
+  if(ro){ ro.disconnect(); ro = null; }
+  window.removeEventListener("resize", ajustarEscala);
   root = null;
 }
 
