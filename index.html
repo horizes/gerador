@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imperium — Plataforma</title>
+<meta name="description" content="Plataforma interna da Imperium Terceirização e Serviços.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0A0A09">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/platform.css">
+<link rel="stylesheet" href="css/propostas.css">
+</head>
+<body>
+<div class="shell is-open" id="shell">
+
+  <header class="mobbar">
+    <button class="mb-menu" id="menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="side">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <a class="mb-brand" href="#/"><img src="assets/logo.jpg" alt=""><b>Imperium</b></a>
+  </header>
+
+  <aside class="side" id="side">
+    <div class="side-in">
+      <a class="sd-brand" href="#/" aria-label="Imperium — início">
+        <img src="assets/logo.jpg" alt="">
+        <span><b>Imperium</b><small>Plataforma</small></span>
+      </a>
+      <nav class="sd-nav" id="nav" aria-label="Principal"></nav>
+      <button class="sd-item sd-toggle" id="sidetoggle" type="button" aria-pressed="true">
+        <span class="sd-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></span>
+        <span class="sd-lbl">Recolher menu</span>
+      </button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="viewwrap"><div id="view"></div></div>
+</div>
+
+<script src="js/platform.js"></script>
+<script src="js/modules/propostas.js"></script>
+</body>
+</html>

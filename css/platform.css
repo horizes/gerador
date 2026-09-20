@@ -1,0 +1,143 @@
+/* Casca da plataforma: barra lateral, barra do celular e tela inicial */
+
+.shell{--side-full:236px;--side-w:68px;display:flex;min-height:100vh}
+.shell.is-open{--side-w:var(--side-full)}
+.viewwrap{flex:1;min-width:0}
+#view.enter{animation:vin .16s ease-out}
+@keyframes vin{from{opacity:0}to{opacity:1}}
+
+/* ---------- Barra lateral ---------- */
+.side{
+  position:sticky;top:0;align-self:flex-start;height:100vh;z-index:40;
+  flex:0 0 var(--side-w);width:var(--side-w);
+}
+.side-in{
+  position:absolute;top:0;left:0;bottom:0;width:var(--side-w);overflow:hidden;
+  display:flex;flex-direction:column;
+  background:var(--panel);border-right:1px solid var(--rule);
+}
+/* recolhida: abre por cima do conteúdo ao passar o mouse ou focar com o teclado */
+.side:hover .side-in,.side:focus-within .side-in{width:var(--side-full)}
+.shell:not(.is-open) .side:hover .side-in,
+.shell:not(.is-open) .side:focus-within .side-in{box-shadow:10px 0 36px rgba(0,0,0,.55)}
+
+.sd-brand{
+  display:flex;align-items:center;gap:12px;height:68px;flex:0 0 auto;padding:0 16px;
+  border-bottom:1px solid var(--rule);color:var(--cream);text-decoration:none;white-space:nowrap;
+}
+.sd-brand img{width:36px;height:36px;border-radius:4px;display:block;flex:0 0 36px}
+.sd-brand b{display:block;font-family:'Oswald';font-weight:500;font-size:16px;letter-spacing:.06em;text-transform:uppercase;line-height:1.1}
+.sd-brand small{display:block;font-family:'Oswald';font-weight:300;font-size:10.5px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+
+.sd-nav{flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden}
+.sd-nav .sep{height:1px;background:var(--rule);margin:10px 16px}
+
+.sd-item{
+  position:relative;display:flex;align-items:center;width:100%;height:46px;
+  background:none;border:none;padding:0;text-align:left;cursor:pointer;
+  color:var(--muted);text-decoration:none;white-space:nowrap;
+}
+.sd-item:hover{color:var(--cream);background:var(--panel-2)}
+.sd-ico{flex:0 0 68px;display:flex;align-items:center;justify-content:center}
+.sd-ico svg{width:22px;height:22px}
+.sd-lbl{font-family:'Oswald';font-weight:400;font-size:13px;letter-spacing:.09em;text-transform:uppercase}
+.sd-item[aria-current="page"]{color:var(--gold);background:#191509}
+.sd-item[aria-current="page"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:var(--gold);border-radius:0 2px 2px 0}
+.sd-item:focus-visible{outline-offset:-2px}
+
+.sd-toggle{flex:0 0 auto;height:52px;border-top:1px solid var(--rule)}
+.sd-toggle svg{transition:transform .2s}
+.shell:not(.is-open) .sd-toggle svg{transform:rotate(180deg)}
+
+/* nas telas médias, dentro de uma ferramenta, o menu fica sempre recolhido (a folha A4 precisa do espaço) */
+@media (min-width:1101px) and (max-width:1499px){
+  .shell.in-module.is-open{--side-w:68px}
+  .shell.in-module .sd-toggle{display:none}
+  .shell.in-module.is-open .side:hover .side-in,
+  .shell.in-module.is-open .side:focus-within .side-in{box-shadow:10px 0 36px rgba(0,0,0,.55)}
+}
+
+/* ---------- Barra do celular ---------- */
+.mobbar,.scrim{display:none}
+
+/* ---------- Tela inicial ---------- */
+.home{max-width:1000px;margin:0 auto;padding:72px 32px 96px}
+.home-motto{
+  margin:0;max-width:16ch;
+  font-family:'Oswald';font-weight:500;font-size:clamp(34px,5.6vw,60px);line-height:1.06;letter-spacing:.01em;
+  color:var(--cream);position:relative;padding-bottom:24px;
+}
+.home-motto::after{content:"";position:absolute;left:0;bottom:0;width:56px;height:2px;background:var(--gold)}
+.home-sub{margin:20px 0 0;max-width:52ch;font-size:16px;color:var(--muted)}
+.home-h{
+  margin:64px 0 14px;font-family:'Oswald';font-weight:400;font-size:13px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.home-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.home-list li{border-bottom:1px solid var(--rule)}
+.mod-row{
+  display:flex;align-items:center;gap:20px;padding:22px 16px;
+  color:var(--cream);text-decoration:none;
+}
+.mod-row:hover{background:var(--panel)}
+.mod-row:hover .mod-go{background:var(--panel-2);border-color:var(--gold)}
+.mod-ico{
+  flex:0 0 48px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+  border:1px solid #5B4B24;background:#191509;border-radius:6px;color:var(--gold);
+}
+.mod-ico svg{width:24px;height:24px}
+.mod-txt{flex:1;min-width:0}
+.mod-txt b{display:block;font-family:'Oswald';font-weight:500;font-size:21px;letter-spacing:.02em;line-height:1.2}
+.mod-txt small{display:block;margin-top:3px;font-size:14.5px;color:var(--muted);max-width:60ch}
+.mod-go{flex:0 0 auto}
+
+/* ---------- Celular e tablet: menu vira gaveta ---------- */
+@media (max-width:1100px){
+  :root{--topbar:56px}
+  .shell{display:block}
+  .mobbar{
+    display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:30;height:var(--topbar);
+    padding:0 10px;background:var(--panel);border-bottom:1px solid var(--rule);
+  }
+  .mb-menu{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--cream);cursor:pointer;border-radius:4px}
+  .mb-menu:hover{background:var(--panel-2)}
+  .mb-menu svg{width:24px;height:24px}
+  .mb-brand{display:flex;align-items:center;gap:10px;color:var(--cream);text-decoration:none}
+  .mb-brand img{width:32px;height:32px;border-radius:4px;display:block}
+  .mb-brand b{font-family:'Oswald';font-weight:500;font-size:16px;letter-spacing:.06em;text-transform:uppercase}
+
+  .side{position:fixed;top:0;left:0;height:100vh;height:100dvh;align-self:auto;width:264px;flex:none;z-index:60;transform:translateX(-102%);visibility:hidden}
+  .side-in{width:264px !important;box-shadow:none !important}
+  .sd-toggle{display:none}
+  .shell.drawer-open .side{transform:none;visibility:visible}
+  .scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);opacity:0;pointer-events:none}
+  .shell.drawer-open .scrim{display:block;opacity:1;pointer-events:auto}
+  body.no-scroll{overflow:hidden}
+
+  .home{padding:44px 20px 64px}
+  .home-h{margin-top:44px}
+}
+@media (max-width:560px){
+  .mod-row{flex-wrap:wrap;gap:14px}
+  .mod-txt{flex-basis:calc(100% - 68px)}
+  .mod-go{margin-left:68px}
+}
+@media (max-width:1100px) and (prefers-reduced-motion:no-preference){
+  .side{transition:transform .2s ease,visibility 0s linear .2s}
+  .shell.drawer-open .side{transition:transform .2s ease,visibility 0s}
+  .scrim{transition:opacity .2s}
+}
+@media (min-width:1101px) and (prefers-reduced-motion:no-preference){
+  .side,.side-in{transition:flex-basis .18s ease,width .18s ease,box-shadow .18s ease}
+}
+@media (prefers-reduced-motion:reduce){
+  #view.enter{animation:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .mod-row,.mod-go,.sd-item{transition:background-color .15s,border-color .15s,color .15s}
+}
+
+@media print{
+  .side,.mobbar,.scrim{display:none !important}
+  .shell{display:block;min-height:0}
+}
