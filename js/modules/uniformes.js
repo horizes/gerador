@@ -343,7 +343,7 @@ const SOL = (function(){
     const t = k.tipo;
     const campo = t.tamanhos.length
       ? `<label class="f"><span>Tamanho</span><select data-tam="${t.id}" aria-label="Tamanho de ${esc(t.nome)}">
-           <option value="">Selecione</option>
+           <option value="">Não solicitar</option>
            ${t.tamanhos.map(s => `<option value="${esc(s)}" ${tamanhos[t.id] === s ? "selected" : ""}>${esc(s)}</option>`).join("")}
          </select></label>`
       : `<span class="uni-unico">Tamanho único</span>`;
@@ -370,15 +370,21 @@ const SOL = (function(){
       const its = kit.filter(k => catDe(k.tipo) === c);
       return its.length ? `<div class="uni-grupo">${CATS[c]}</div>${its.map(linhaKit).join("")}` : "";
     };
-    el.innerHTML = `<p class="uni-cargo-tit">Seu cargo: <b>${esc(cargo.nome)}</b></p>${grupo("uniforme")}${grupo("epi")}`;
+    el.innerHTML = `<p class="uni-cargo-tit">Seu cargo: <b>${esc(cargo.nome)}</b></p>
+      <p class="uni-hint" style="margin:6px 0 0">Escolha o tamanho dos itens de que você precisa. Item sem tamanho escolhido não entra no pedido.</p>
+      ${grupo("uniforme")}${grupo("epi")}`;
     form.hidden = false;
     atualizarEnvio();
   }
+  // itens que vão no pedido: os de tamanho único (sempre) e os que tiveram tamanho escolhido
+  const escolhidos = () => kit.filter(k => !k.tipo.tamanhos.length || tamanhos[k.tipo.id]);
   function atualizarEnvio(){
     const btn = $("uniEnviar"), av = $("uniPend"); if(!btn) return;
     const pend = temPendente();
     btn.disabled = pend;
     av.hidden = !pend;
+    const r = $("uniResumo");
+    if(r) r.textContent = `Itens neste pedido: ${escolhidos().length} de ${kit.length}`;
   }
   function erroForm(msg){
     const el = $("uniErro"); if(!el) return;
@@ -388,12 +394,11 @@ const SOL = (function(){
   async function enviar(){
     erroForm("");
     if(temPendente()) return;
+    // só vão os itens com tamanho escolhido (e os de tamanho único); os outros ficam de fora
+    const itens = escolhidos();
+    if(!itens.length){ erroForm("Escolha o tamanho de pelo menos um item para fazer o pedido."); return; }
     const mapa = {};
-    for(const k of kit){
-      const t = k.tipo;
-      if(t.tamanhos.length && !tamanhos[t.id]){ erroForm(`Escolha o tamanho de ${t.nome}.`); return; }
-      mapa[t.id] = t.tamanhos.length ? tamanhos[t.id] : "Único";
-    }
+    itens.forEach(k => { mapa[k.tipo.id] = k.tipo.tamanhos.length ? tamanhos[k.tipo.id] : "Único"; });
     const btn = $("uniEnviar"); btn.disabled = true; btn.textContent = "Enviando…";
     const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapa });
     btn.textContent = "Enviar solicitação";
@@ -661,7 +666,7 @@ const SOL = (function(){
   /* ----- eventos da tela ----- */
   on("change", e => {
     const t = e.target;
-    if(t.dataset.tam) tamanhos[t.dataset.tam] = t.value;
+    if(t.dataset.tam){ tamanhos[t.dataset.tam] = t.value; atualizarEnvio(); }
   });
   on("input", e => { if(e.target.id === "uniObs") obsPedido = e.target.value; });
   on("click", e => {
@@ -683,6 +688,7 @@ const SOL = (function(){
       <div id="uniForm" hidden>
         <label class="f" style="margin-top:18px"><span>Observação (opcional)</span>
           <textarea id="uniObs" maxlength="500" placeholder="Ex.: o tamanho da calça mudou, preciso de uma numeração diferente"></textarea></label>
+        <p class="uni-resumo" id="uniResumo"></p>
         <p class="uni-info" id="uniPend" hidden>Você já tem um pedido aguardando atendimento. Quando ele for atendido, você poderá fazer outro.</p>
         <p class="uni-erro" id="uniErro" hidden></p>
         <button class="btn" type="button" id="uniEnviar">Enviar solicitação</button>

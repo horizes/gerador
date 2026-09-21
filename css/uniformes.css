@@ -44,6 +44,7 @@
 .uni-kit-nome{display:flex;align-items:baseline;gap:12px;font-size:15px}
 .uni-kit-nome b{font-weight:600}
 .uni-unico{color:var(--muted);font-size:13.5px;text-align:right}
+.uni-resumo{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 .uni-info{margin:0 0 14px;padding:10px 12px;border:1px solid #6B5620;background:#191509;color:var(--cream);border-radius:4px;font-size:13.5px}
 #uniEnviar{min-width:220px}
 

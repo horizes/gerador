@@ -78,7 +78,7 @@ cargo no perfil e cada cargo tem um kit fixo** de uniformes e EPIs. Quem solicit
 só o **tamanho** de cada item.
 
 - **Solicitar uniforme e EPI** (id `uniforme_solicitar`): mostra o cargo da pessoa e o kit dele (uniformes e EPIs, com a
-  quantidade de cada um). Ela escolhe os tamanhos, envia e acompanha em **Meus pedidos**. Quando o pedido fica pronto,
+  quantidade de cada um). Ela escolhe os tamanhos (item deixado sem tamanho não entra no pedido), envia e acompanha em **Meus pedidos**. Quando o pedido fica pronto,
   toca em **Recebi uniforme e EPI**, marca o que recebeu (ou tudo) e assina com uma foto.
 - **Solicitações de uniforme e EPI** (id `uniforme_gestao`): é a tela do responsável, com três abas.
   - **Solicitações:** quem pediu, o cargo e os itens (tipo, tamanho, quantidade). Permite **marcar como pronto para
@@ -103,8 +103,9 @@ só o **tamanho** de cada item.
    ferramenta marcada) e **Solicitações de uniforme e EPI** para o responsável. Admin tem as duas automaticamente.
    Pessoa sem cargo (ou com cargo desativado, ou cujo kit está vazio) vê um aviso em vez do formulário.
 
-**Regras do pedido:** o servidor monta o pedido com o kit do cargo no momento do envio e confere se cada item que tem
-tamanho recebeu um tamanho válido. Cada pedido guarda uma cópia do cargo, dos nomes e das quantidades, então mudar
+**Regras do pedido:** o servidor monta o pedido com o kit do cargo no momento do envio. Item que tem tamanhos e ficou
+em "Não solicitar" (sem tamanho escolhido) **não entra no pedido**; itens de tamanho único entram sempre. Se sobrar
+nenhum item, o pedido não é enviado. O servidor também confere se cada tamanho escolhido é válido. Cada pedido guarda uma cópia do cargo, dos nomes e das quantidades, então mudar
 um kit depois não altera pedidos já feitos. Enquanto a pessoa tem um pedido **aguardando** atendimento, não consegue
 enviar outro (evita duplicidade); depois que o responsável atende, ela pode pedir de novo.
 
@@ -143,7 +144,7 @@ responsável enxerga todos; quem pediu só consegue cancelar (e só enquanto agu
 passam por funções do banco que conferem cargo, kit, tamanhos, dono do pedido, itens ainda não recebidos e se a foto
 realmente foi enviada. O cargo de cada pessoa só pode ser alterado por admin.
 
-**Limites atuais:** todos os itens do kit vão em cada pedido (não dá para pedir só uma parte); a lista mostra os 300
+**Limites atuais:** itens de tamanho único sempre entram no pedido (não há campo para deixá-los de fora); a lista mostra os 300
 pedidos mais recentes; não existe exclusão de pedidos pela tela (para limpar pedidos de teste, use o **Table Editor** do
 Supabase); o solicitante é sempre a própria pessoa logada.
 
