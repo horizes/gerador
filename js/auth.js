@@ -58,16 +58,27 @@ function entrar(){
   }
 }
 
+// Guarda se já tivemos uma sessão válida nesta aba. Isso evita que um evento inicial
+// do Supabase com sessão ainda vazia (antes de carregar o que estava salvo) seja
+// confundido com um logout de verdade e fique recarregando a página sem parar.
+let sessaoAtual = null;
+function aplicarSessao(sessao){
+  if(sessao){
+    sessaoAtual = sessao;
+    entrar();
+  }else if(sessaoAtual){
+    sessaoAtual = null;
+    location.reload(); // logout de verdade: recarrega para zerar o estado dos módulos
+  }else{
+    mostrar("login");
+  }
+}
+
 async function iniciar(){
   ligarFormulario();
-
+  sb.auth.onAuthStateChange((_evento, sessao)=> aplicarSessao(sessao));
   const { data: { session } } = await sb.auth.getSession();
-  if(session) entrar(); else mostrar("login");
-
-  sb.auth.onAuthStateChange((_evento, sessao)=>{
-    if(sessao) entrar();
-    else location.reload(); // logout: recarrega para zerar o estado dos módulos
-  });
+  aplicarSessao(session);
 }
 
 document.addEventListener("DOMContentLoaded", iniciar);
