@@ -19,7 +19,7 @@ function register(m){ modulos.push(m); }
 const CATEGORIAS = [
   { id: "geradores",     nome: "Geradores" },
   { id: "financeiro",    nome: "Financeiro" },
-  { id: "uniformes",     nome: "Uniformes" },
+  { id: "uniformes",     nome: "Uniformes e EPI" },
   { id: "configuracoes", nome: "Configurações" }
 ];
 const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };

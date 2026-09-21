@@ -20,6 +20,8 @@ let root = null;
 let niveis = [];        // [{id,nome}]
 let nivelModulos = {};  // { nivel_id: Set(modulo_id) }
 let pessoas = [];       // [{id,email,nome,papel,nivel_id,ativo,criado_em,ultimo_acesso,email_confirmado_em,suspenso_ate,diretos:Set}]
+let cargos = [];        // [{id,nome,ativo}] — cargos do módulo de uniformes/EPI (vazio até rodar supabase-schema-uniformes.sql)
+let cargosOk = false;   // a tabela de cargos existe e pôde ser lida?
 let filtro = "todos";   // todos | logam | bloqueados | admins
 let busca = "";
 let toastTimer = null;
@@ -138,6 +140,13 @@ function optsNiveis(selecionado){
     niveis.map(n => `<option value="${n.id}" ${n.id === selecionado ? "selected" : ""}>${esc(n.nome)}</option>`).join("");
 }
 
+// só cargos ativos, mais o cargo atual da pessoa (mesmo desativado, para não parecer que ela ficou sem cargo)
+function optsCargos(selecionado){
+  return `<option value="">— sem cargo —</option>` +
+    cargos.filter(c => c.ativo || c.id === selecionado)
+      .map(c => `<option value="${c.id}" ${c.id === selecionado ? "selected" : ""}>${esc(c.nome)}${c.ativo ? "" : " (desativado)"}</option>`).join("");
+}
+
 function htmlFerramenta(p, m){
   const a = acesso(p, m.id);
   const trava = a.origem === "admin" || a.origem === "nivel";
@@ -182,7 +191,7 @@ function htmlPessoa(p){
       </label>
     </header>
 
-    <div class="usr-p-body">
+    <div class="usr-p-body ${cargosOk ? "com-cargo" : ""}">
       <div class="usr-campo">
         <label for="papel-${p.id}">Papel</label>
         <select id="papel-${p.id}" data-f="papel"${lockSelf}>
@@ -194,6 +203,10 @@ function htmlPessoa(p){
         <label for="nivel-${p.id}">Nível</label>
         <select id="nivel-${p.id}" data-f="nivel_id" ${p.papel === "admin" ? "disabled title='Admin já vê tudo'" : ""}>${optsNiveis(p.nivel_id)}</select>
       </div>
+      ${cargosOk ? `<div class="usr-campo">
+        <label for="cargo-${p.id}">Cargo</label>
+        <select id="cargo-${p.id}" data-f="cargo_id" title="Define o kit de uniforme e EPI que a pessoa pode solicitar">${optsCargos(p.cargo_id)}</select>
+      </div>` : ""}
       <div class="usr-campo usr-ferr">
         <label>Ferramentas que ela pode usar</label>
         <div class="usr-ferr-lista">
@@ -253,7 +266,23 @@ async function carregarPessoas(){
     av.innerHTML = "";
   }
   pessoas = (data || []).map(r => ({ ...r, diretos: new Set(r.modulos || []) }));
+  await carregarCargos();
+  if(!root) return;
   renderPessoas();
+}
+
+// Cargo de cada pessoa (módulo de uniformes e EPI). Se o SQL dos uniformes ainda não foi rodado, o campo
+// "Cargo" simplesmente não aparece e o resto da tela funciona igual.
+async function carregarCargos(){
+  cargosOk = false; cargos = [];
+  const [c, pf] = await Promise.all([
+    sb().from("cargos").select("id,nome,ativo").order("nome"),
+    sb().from("perfis").select("id,cargo_id")
+  ]);
+  if(c.error || pf.error) return;
+  cargosOk = true; cargos = c.data || [];
+  const mapa = {}; (pf.data || []).forEach(r => { mapa[r.id] = r.cargo_id; });
+  pessoas.forEach(p => { p.cargo_id = mapa[p.id] || null; });
 }
 
 /* ---------- ações sobre uma pessoa (todas salvam na hora) ---------- */
@@ -311,6 +340,9 @@ async function aoMudarPessoa(el){
       el.value = p.papel; return;
     }
     return atualizarPerfil(p, { papel: el.value }, el.value === "admin" ? "Agora é admin" : "Agora é usuário comum");
+  }
+  if(f === "cargo_id"){
+    return atualizarPerfil(p, { cargo_id: el.value || null }, "Cargo atualizado");
   }
   if(f === "nivel_id"){
     return atualizarPerfil(p, { nivel_id: el.value || null }, "Nível atualizado");

@@ -1,14 +1,15 @@
-/* Uniformes — duas ferramentas ligadas pelo mesmo banco (Supabase):
+/* Uniformes e EPI — duas ferramentas ligadas pelo mesmo banco (Supabase):
 
-   "Solicitar uniforme"      (id uniforme_solicitar) — qualquer pessoa liberada pede uniforme (tipo, tamanho,
-                             quantidade) e, quando o pedido fica pronto, confirma o recebimento com uma foto do
-                             rosto carimbada com local, data e hora (assinatura digital).
-   "Solicitações de uniforme" (id uniforme_gestao)   — o responsável vê os pedidos, marca como pronto ou recusa,
-                             confere as assinaturas e edita os tipos de uniforme.
+   "Solicitar uniforme e EPI"       (id uniforme_solicitar) — cada pessoa tem um CARGO no perfil (definido na tela
+                                    "Usuários") e cada cargo tem um KIT fixo de uniformes e EPIs. Quem pede só escolhe
+                                    o tamanho de cada item. Quando o pedido fica pronto, confirma o recebimento com uma
+                                    foto do rosto carimbada com local, data e hora (assinatura digital).
+   "Solicitações de uniforme e EPI" (id uniforme_gestao)   — o responsável vê os pedidos, marca como pronto ou recusa,
+                                    confere as assinaturas e edita os itens, os cargos e o kit de cada cargo.
 
    Quem vê cada uma é definido na tela "Usuários". Tabelas, regras de segurança e funções:
    supabase-schema-uniformes.sql. As fotos ficam num bucket PRIVADO ("uniforme-assinaturas") e são abertas
-   por links temporários. */
+   por links temporários. (Os ids das ferramentas não mudam para não perder as permissões já liberadas.) */
 (function(){
 "use strict";
 
@@ -22,12 +23,19 @@ const MOD_GES = "uniforme_gestao";
 const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const dh = iso => iso ? new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
 const curto = id => String(id||"").replace(/-/g,"").slice(0,4).toUpperCase();
-const ordemItens = (a,b) => String(a.tipo_nome).localeCompare(String(b.tipo_nome),"pt-BR") || String(a.tamanho).localeCompare(String(b.tamanho),"pt-BR",{numeric:true});
+const cmp = (a,b) => String(a).localeCompare(String(b),"pt-BR",{numeric:true});
+
+const CATS = { uniforme: "Uniforme", epi: "EPI" };
+const catDe = x => (x && x.categoria) === "epi" ? "epi" : "uniforme";
+const ordemCat = c => c === "epi" ? 1 : 0;
+const ordemItens = (a,b) => ordemCat(catDe(a)) - ordemCat(catDe(b)) || cmp(a.tipo_nome, b.tipo_nome) || cmp(a.tamanho, b.tamanho);
+const ordemTipos = (a,b) => ordemCat(catDe(a)) - ordemCat(catDe(b)) || (a.ordem||0) - (b.ordem||0) || cmp(a.nome, b.nome);
+const tagEpi = t => catDe(t) === "epi" ? `<span class="uni-tag epi">EPI</span>` : "";
 
 function msgErro(e){
   const m = (e && e.message) || String(e);
   if(/schema cache|does not exist|Could not find|relation .* does not exist/i.test(m)){
-    return "O banco ainda não tem as tabelas de uniformes. Rode o arquivo supabase-schema-uniformes.sql no SQL Editor do Supabase (veja o README).";
+    return "O banco ainda não está com as tabelas de uniformes e EPI atualizadas. Rode o arquivo supabase-schema-uniformes.sql no SQL Editor do Supabase (veja o README).";
   }
   if(/row-level security|violates row/i.test(m)) return "Sem permissão para essa ação.";
   return m;
@@ -60,6 +68,35 @@ async function lerPedidos(apenasMeus){
   if(error) throw error;
   (data||[]).forEach(p => { p.itens = (p.itens||[]).sort(ordemItens); p.recebimentos = p.recebimentos||[]; });
   return data || [];
+}
+
+// cargo da pessoa logada + kit desse cargo (itens ativos, com quantidade e tamanhos possíveis)
+async function lerMeuKit(){
+  const { data: pf, error: e1 } = await sb().from("perfis").select("cargo_id").eq("id", perfil().id).maybeSingle();
+  if(e1) throw e1;
+  if(!pf || !pf.cargo_id) return { cargo: null, itens: [] };
+  const [c, k] = await Promise.all([
+    sb().from("cargos").select("id,nome,ativo").eq("id", pf.cargo_id).maybeSingle(),
+    sb().from("cargo_itens").select("quantidade, tipo:uniforme_tipos(*)").eq("cargo_id", pf.cargo_id)
+  ]);
+  if(c.error) throw c.error;
+  if(k.error) throw k.error;
+  const itens = (k.data||[]).filter(r => r.tipo && r.tipo.ativo)
+    .map(r => ({ tipo: { ...r.tipo, tamanhos: r.tipo.tamanhos || [] }, quantidade: r.quantidade }))
+    .sort((a,b) => ordemTipos(a.tipo, b.tipo));
+  return { cargo: c.data || null, itens };
+}
+
+async function lerCargos(){
+  const [c, k] = await Promise.all([
+    sb().from("cargos").select("*").order("nome"),
+    sb().from("cargo_itens").select("*")
+  ]);
+  if(c.error) throw c.error;
+  if(k.error) throw k.error;
+  const kits = {};
+  (k.data||[]).forEach(r => { (kits[r.cargo_id] = kits[r.cargo_id] || []).push(r); });
+  return { cargos: c.data || [], kits };
 }
 
 // as fotos são privadas: cada uma é aberta por um link temporário (1 hora)
@@ -101,10 +138,10 @@ function iniciarAvisos(){
       .on("postgres_changes", { event:"*", schema:"public", table:"uniforme_pedidos" }, payload => {
         const n = payload.new || {};
         if(payload.eventType === "INSERT" && n.solicitante_id !== P.id && P.podeVer(MOD_GES)){
-          window.Platform.toast(`Nova solicitação de uniforme de ${n.solicitante_nome || "um colaborador"}.`, "#/" + MOD_GES);
+          window.Platform.toast(`Nova solicitação de uniforme e EPI de ${n.solicitante_nome || "um colaborador"}.`, "#/" + MOD_GES);
         }
         if(payload.eventType === "UPDATE" && n.solicitante_id === P.id && n.status === "pronto"){
-          window.Platform.toast("Seu uniforme está pronto para retirada. Depois de retirar, confirme o recebimento.", "#/" + MOD_SOL);
+          window.Platform.toast("Seu pedido está pronto para retirada. Depois de retirar, confirme o recebimento.", "#/" + MOD_SOL);
         }
         atualizarBadges();
         emitirMudanca();
@@ -153,6 +190,14 @@ function itemHtml(it){
   </li>`;
 }
 
+// itens do pedido; quando há uniforme E EPI, cada grupo ganha seu título
+function itensHtml(itens){
+  const cats = [...new Set(itens.map(catDe))].sort((a,b) => ordemCat(a) - ordemCat(b));
+  if(cats.length < 2) return `<ul class="uni-itens">${itens.map(itemHtml).join("")}</ul>`;
+  return cats.map(c => `<div class="uni-grupo">${CATS[c]}</div>
+    <ul class="uni-itens">${itens.filter(i => catDe(i) === c).map(itemHtml).join("")}</ul>`).join("");
+}
+
 function rotuloItem(i){
   return `${esc(i.tipo_nome)}${i.tamanho && i.tamanho !== "Único" ? " " + esc(i.tamanho) : ""} × ${i.quantidade}`;
 }
@@ -184,12 +229,14 @@ function pedidoHtml(p, modo, urls){
   const st = STATUS[p.status] || STATUS.pendente;
   const pendentes = p.itens.filter(i => !i.recebimento_id);
   const titulo = modo === "gestao" ? esc(p.solicitante_nome || "Sem nome") : `Pedido #${curto(p.id)}`;
-  const sub = modo === "gestao" ? `Pedido #${curto(p.id)} · ${dh(p.criado_em)}` : dh(p.criado_em);
+  const sub = modo === "gestao"
+    ? `${p.cargo_nome ? esc(p.cargo_nome) + " · " : ""}Pedido #${curto(p.id)} · ${dh(p.criado_em)}`
+    : `${p.cargo_nome ? esc(p.cargo_nome) + " · " : ""}${dh(p.criado_em)}`;
 
   let acoes = "";
   if(modo === "meu"){
     if((p.status === "pronto" || p.status === "parcial") && pendentes.length){
-      acoes += `<button class="btn" type="button" data-receber="${p.id}">Recebi o uniforme</button>`;
+      acoes += `<button class="btn" type="button" data-receber="${p.id}">Recebi uniforme e EPI</button>`;
     }
     if(p.status === "pendente") acoes += `<button class="btn ghost" type="button" data-cancelar="${p.id}">Cancelar pedido</button>`;
   }else{
@@ -205,7 +252,7 @@ function pedidoHtml(p, modo, urls){
   if(p.status === "pronto" || p.status === "parcial"){
     situacao = modo === "gestao"
       ? `<p class="uni-nota">Aguardando ${esc(p.solicitante_nome || "o solicitante")} confirmar o recebimento${p.status === "parcial" ? " dos itens restantes" : ""}.</p>`
-      : `<p class="uni-nota">Retire seu uniforme e toque em <b>Recebi o uniforme</b> para confirmar${p.status === "parcial" ? " o que faltava" : ""}.</p>`;
+      : `<p class="uni-nota">Retire seus itens e toque em <b>Recebi uniforme e EPI</b> para confirmar${p.status === "parcial" ? " o que faltava" : ""}.</p>`;
   }
 
   return `<article class="uni-ped st-${p.status}" data-ped="${p.id}">
@@ -213,7 +260,7 @@ function pedidoHtml(p, modo, urls){
       <div><b>${titulo}</b><small>${sub}</small></div>
       <span class="uni-badge ${st.cls}">${st.rotulo}</span>
     </header>
-    <ul class="uni-itens">${p.itens.map(itemHtml).join("")}</ul>
+    ${itensHtml(p.itens)}
     ${p.observacao ? `<p class="uni-obs"><span>Observação${modo === "gestao" ? " do solicitante" : ""}:</span> ${esc(p.observacao)}</p>` : ""}
     ${p.resposta ? `<p class="uni-obs resp"><span>${modo === "gestao" ? "Sua resposta" : "Resposta do responsável"}:</span> ${esc(p.resposta)}</p>` : ""}
     ${situacao}
@@ -273,45 +320,65 @@ function carimbar(g, w, h, linhas){
 }
 
 /* =====================================================================================================
-   Ferramenta 1 — Solicitar uniforme
+   Ferramenta 1 — Solicitar uniforme e EPI
    ===================================================================================================== */
 const SOL = (function(){
   let root = null;
-  let tipos = [], pedidos = [], urls = {};
-  let linhas = [], obsPedido = "";
+  let cargo = null, kit = [], pedidos = [], urls = {};
+  let tamanhos = {}, obsPedido = "";   // tamanhos: { idDoItem: "M" }
   const ouvintes = [];
   const on = (t, fn) => ouvintes.push([t, fn]);
   const $ = id => root && root.querySelector("#" + id);
 
-  const tipoDe = id => tipos.find(t => t.id === id);
-  const novaLinha = () => ({ tipo_id: "", tamanho: "", quantidade: 1, obs: "" });
+  const temPendente = () => pedidos.some(p => p.status === "pendente");
 
   async function carregar(){
-    const [t, p] = await Promise.all([lerTipos(true), lerPedidos(true)]);
-    tipos = t; pedidos = p;
+    const [k, p] = await Promise.all([lerMeuKit(), lerPedidos(true)]);
+    cargo = k.cargo; kit = k.itens; pedidos = p;
     urls = await assinarFotos(pedidos);
   }
 
-  /* ----- formulário do novo pedido ----- */
-  function opcoesTipo(sel){
-    return `<option value="">Selecione</option>` + tipos.map(t => `<option value="${t.id}" ${t.id===sel?"selected":""}>${esc(t.nome)}</option>`).join("");
+  /* ----- kit do cargo: a pessoa só escolhe o tamanho ----- */
+  function linhaKit(k){
+    const t = k.tipo;
+    const campo = t.tamanhos.length
+      ? `<label class="f"><span>Tamanho</span><select data-tam="${t.id}" aria-label="Tamanho de ${esc(t.nome)}">
+           <option value="">Selecione</option>
+           ${t.tamanhos.map(s => `<option value="${esc(s)}" ${tamanhos[t.id] === s ? "selected" : ""}>${esc(s)}</option>`).join("")}
+         </select></label>`
+      : `<span class="uni-unico">Tamanho único</span>`;
+    return `<div class="uni-kit-linha">
+      <div class="uni-kit-nome"><b>${esc(t.nome)}</b><span class="uni-it-qtd">× ${k.quantidade}</span></div>
+      ${campo}
+    </div>`;
   }
-  function opcoesTamanho(l){
-    const t = tipoDe(l.tipo_id);
-    if(!t) return `<option value="">—</option>`;
-    if(!t.tamanhos.length) return `<option value="Único">Tamanho único</option>`;
-    return `<option value="">Selecione</option>` + t.tamanhos.map(s => `<option ${s===l.tamanho?"selected":""}>${esc(s)}</option>`).join("");
+  function renderKit(){
+    const el = $("uniKit"), form = $("uniForm"); if(!el) return;
+    if(!cargo){
+      el.innerHTML = `<p class="uni-alerta">Seu cargo ainda não foi definido no seu perfil. Fale com o administrador para ele cadastrar o seu cargo.</p>`;
+      form.hidden = true; return;
+    }
+    if(!cargo.ativo){
+      el.innerHTML = `<p class="uni-alerta">O cargo do seu perfil (${esc(cargo.nome)}) está desativado. Fale com o administrador.</p>`;
+      form.hidden = true; return;
+    }
+    if(!kit.length){
+      el.innerHTML = `<p class="uni-alerta">O kit do cargo <b>${esc(cargo.nome)}</b> ainda não foi cadastrado. Fale com o responsável pelos uniformes e EPIs.</p>`;
+      form.hidden = true; return;
+    }
+    const grupo = c => {
+      const its = kit.filter(k => catDe(k.tipo) === c);
+      return its.length ? `<div class="uni-grupo">${CATS[c]}</div>${its.map(linhaKit).join("")}` : "";
+    };
+    el.innerHTML = `<p class="uni-cargo-tit">Seu cargo: <b>${esc(cargo.nome)}</b></p>${grupo("uniforme")}${grupo("epi")}`;
+    form.hidden = false;
+    atualizarEnvio();
   }
-  function renderLinhas(){
-    const el = $("uniLinhas"); if(!el) return;
-    el.innerHTML = linhas.map((l, i) => `
-      <div class="uni-linha" data-i="${i}">
-        <label class="f"><span>Tipo</span><select data-f="tipo_id">${opcoesTipo(l.tipo_id)}</select></label>
-        <label class="f"><span>Tamanho</span><select data-f="tamanho" ${tipoDe(l.tipo_id)?"":"disabled"}>${opcoesTamanho(l)}</select></label>
-        <label class="f uni-qtd"><span>Qtde</span><input type="number" min="1" max="99" inputmode="numeric" data-f="quantidade" value="${l.quantidade}"></label>
-        <label class="f uni-linha-obs"><span>Observação</span><input type="text" maxlength="120" data-f="obs" value="${esc(l.obs)}" placeholder="Opcional (ex.: manga longa)"></label>
-        <button class="rm" type="button" data-rmlinha="${i}" aria-label="Remover item" ${linhas.length===1?"disabled":""}>✕</button>
-      </div>`).join("");
+  function atualizarEnvio(){
+    const btn = $("uniEnviar"), av = $("uniPend"); if(!btn) return;
+    const pend = temPendente();
+    btn.disabled = pend;
+    av.hidden = !pend;
   }
   function erroForm(msg){
     const el = $("uniErro"); if(!el) return;
@@ -320,25 +387,22 @@ const SOL = (function(){
 
   async function enviar(){
     erroForm("");
-    if(!tipos.length){ erroForm("Ainda não há tipos de uniforme cadastrados. Fale com o responsável."); return; }
-    const itens = [];
-    for(let i = 0; i < linhas.length; i++){
-      const l = linhas[i], t = tipoDe(l.tipo_id);
-      if(!t){ erroForm(`Item ${i+1}: escolha o tipo de uniforme.`); return; }
-      if(t.tamanhos.length && !l.tamanho){ erroForm(`Item ${i+1}: escolha o tamanho de ${t.nome}.`); return; }
-      const q = parseInt(l.quantidade, 10);
-      if(!(q >= 1 && q <= 99)){ erroForm(`Item ${i+1}: informe uma quantidade de 1 a 99.`); return; }
-      itens.push({ tipo_id: t.id, tamanho: l.tamanho, quantidade: q, observacao: l.obs.trim() });
+    if(temPendente()) return;
+    const mapa = {};
+    for(const k of kit){
+      const t = k.tipo;
+      if(t.tamanhos.length && !tamanhos[t.id]){ erroForm(`Escolha o tamanho de ${t.nome}.`); return; }
+      mapa[t.id] = t.tamanhos.length ? tamanhos[t.id] : "Único";
     }
     const btn = $("uniEnviar"); btn.disabled = true; btn.textContent = "Enviando…";
-    const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_itens: itens });
-    btn.disabled = false; btn.textContent = "Enviar solicitação";
-    if(error){ erroForm(msgErro(error)); return; }
-    linhas = [novaLinha()]; obsPedido = "";
+    const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapa });
+    btn.textContent = "Enviar solicitação";
+    if(error){ atualizarEnvio(); erroForm(msgErro(error)); return; }
+    tamanhos = {}; obsPedido = "";
     if($("uniObs")) $("uniObs").value = "";
-    renderLinhas();
     window.Platform.toast("Solicitação enviada. O responsável já foi avisado.");
     await recarregar();
+    renderKit();
     const meus = $("uniMeusCard"); if(meus) meus.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -347,12 +411,12 @@ const SOL = (function(){
     const el = $("uniMeus"); if(!el) return;
     el.innerHTML = pedidos.length
       ? pedidos.map(p => pedidoHtml(p, "meu", urls)).join("")
-      : `<p class="uni-vazio">Você ainda não fez nenhum pedido. Preencha o formulário acima para pedir seu uniforme.</p>`;
+      : `<p class="uni-vazio">Você ainda não fez nenhum pedido. Escolha os tamanhos acima e envie a solicitação.</p>`;
     const prontos = pedidos.filter(p => (p.status === "pronto" || p.status === "parcial") && p.itens.some(i => !i.recebimento_id));
     const av = $("uniAviso");
     if(av) av.innerHTML = prontos.length
       ? `<div class="uni-destaque"><b>${prontos.length === 1 ? "Você tem um pedido pronto para retirada." : `Você tem ${prontos.length} pedidos prontos para retirada.`}</b>
-         <span>Depois de retirar, toque em “Recebi o uniforme” no pedido para confirmar.</span></div>`
+         <span>Depois de retirar, toque em “Recebi uniforme e EPI” no pedido para confirmar.</span></div>`
       : "";
   }
   async function recarregar(){
@@ -361,6 +425,7 @@ const SOL = (function(){
       urls = await assinarFotos(pedidos);
     }catch(e){ return; }
     renderMeus();
+    atualizarEnvio();
     atualizarBadges();
   }
 
@@ -384,14 +449,14 @@ const SOL = (function(){
     };
 
     const el = abrirModal(`
-      <h2 class="uni-m-h">Recebi o uniforme</h2>
+      <h2 class="uni-m-h">Recebi uniforme e EPI</h2>
       <p class="uni-m-sub">Pedido #${curto(pedido.id)}. Marque o que você recebeu. O que ficar desmarcado continua pendente e você confirma depois.</p>
 
       <div class="uni-m-sec">
         <div class="uni-m-top"><span class="mini">Itens recebidos</span><button class="uni-link" type="button" data-todos>Marcar todos</button></div>
         <ul class="uni-sel">${pend.map(i => `
           <li><label class="tg"><input type="checkbox" data-item="${i.id}" checked>
-            <span><b>${esc(i.tipo_nome)}</b>${i.tamanho && i.tamanho !== "Único" ? " " + esc(i.tamanho) : ""} × ${i.quantidade}</span></label></li>`).join("")}
+            <span><b>${esc(i.tipo_nome)}</b>${i.tamanho && i.tamanho !== "Único" ? " " + esc(i.tamanho) : ""} × ${i.quantidade} ${tagEpi(i)}</span></label></li>`).join("")}
         </ul>
       </div>
 
@@ -506,7 +571,7 @@ const SOL = (function(){
       const agora = R.capturadoEm;
       const dataHora = agora.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit" });
       return [
-        `Imperium · Recebimento de uniforme · Pedido #${curto(pedido.id)}`,
+        `Imperium · Recebimento de uniforme/EPI · Pedido #${curto(pedido.id)}`,
         perfil().nome || "",
         dataHora,
         R.local,
@@ -517,8 +582,8 @@ const SOL = (function(){
     async function fixarFoto(fonte, w, h, metodo){
       if(!R.pos){ erro("Ainda sem localização. Aguarde ou tente de novo."); return; }
       R.capturadoEm = new Date();
-      const esc1 = Math.min(1, 1000 / Math.max(w, h));
-      const cw = Math.round(w * esc1), ch = Math.round(h * esc1);
+      const escala = Math.min(1, 1000 / Math.max(w, h));
+      const cw = Math.round(w * escala), ch = Math.round(h * escala);
       const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
       const g = cv.getContext("2d");
       g.drawImage(fonte, 0, 0, cw, ch);
@@ -595,28 +660,12 @@ const SOL = (function(){
 
   /* ----- eventos da tela ----- */
   on("change", e => {
-    const t = e.target, linha = t.closest("[data-i]");
-    if(!linha || !t.dataset.f) return;
-    const l = linhas[+linha.dataset.i]; if(!l) return;
-    if(t.dataset.f === "tipo_id"){
-      l.tipo_id = t.value;
-      const tp = tipoDe(t.value);
-      l.tamanho = tp && !tp.tamanhos.length ? "Único" : "";
-      renderLinhas();
-    }else if(t.dataset.f === "tamanho") l.tamanho = t.value;
-  });
-  on("input", e => {
     const t = e.target;
-    if(t.id === "uniObs"){ obsPedido = t.value; return; }
-    const linha = t.closest("[data-i]"); if(!linha || !t.dataset.f) return;
-    const l = linhas[+linha.dataset.i]; if(!l) return;
-    if(t.dataset.f === "quantidade") l.quantidade = t.value;
-    if(t.dataset.f === "obs") l.obs = t.value;
+    if(t.dataset.tam) tamanhos[t.dataset.tam] = t.value;
   });
+  on("input", e => { if(e.target.id === "uniObs") obsPedido = e.target.value; });
   on("click", e => {
     const b = e.target.closest("button"); if(!b) return;
-    if(b.dataset.rmlinha !== undefined){ if(linhas.length > 1){ linhas.splice(+b.dataset.rmlinha, 1); renderLinhas(); } return; }
-    if(b.id === "uniAddLinha"){ linhas.push(novaLinha()); renderLinhas(); return; }
     if(b.id === "uniEnviar"){ enviar(); return; }
     if(b.dataset.receber){ const p = pedidos.find(x => x.id === b.dataset.receber); if(p) abrirRecebimento(p); return; }
     if(b.dataset.cancelar){ cancelar(b.dataset.cancelar); return; }
@@ -624,18 +673,20 @@ const SOL = (function(){
 
   const TEMPLATE = `
   <div class="uni-wrap">
-    <h1 class="uni-h">Solicitar uniforme</h1>
-    <p class="uni-sub">Peça o uniforme que você precisa. A pessoa responsável é avisada assim que você enviar.</p>
+    <h1 class="uni-h">Solicitar uniforme e EPI</h1>
+    <p class="uni-sub">Cada cargo tem um kit de uniformes e EPIs já definido. Escolha só o seu tamanho e envie: o responsável é avisado assim que você enviar.</p>
     <div id="uniAviso"></div>
 
     <section class="uni-card">
       <h2 class="uni-h2">Novo pedido</h2>
-      <div id="uniLinhas"></div>
-      <button class="btn ghost" type="button" id="uniAddLinha">Adicionar outro item</button>
-      <label class="f" style="margin-top:18px"><span>Observação do pedido (opcional)</span>
-        <textarea id="uniObs" maxlength="500" placeholder="Ex.: preciso para o posto do cliente"></textarea></label>
-      <p class="uni-erro" id="uniErro" hidden></p>
-      <button class="btn" type="button" id="uniEnviar">Enviar solicitação</button>
+      <div id="uniKit"></div>
+      <div id="uniForm" hidden>
+        <label class="f" style="margin-top:18px"><span>Observação (opcional)</span>
+          <textarea id="uniObs" maxlength="500" placeholder="Ex.: o tamanho da calça mudou, preciso de uma numeração diferente"></textarea></label>
+        <p class="uni-info" id="uniPend" hidden>Você já tem um pedido aguardando atendimento. Quando ele for atendido, você poderá fazer outro.</p>
+        <p class="uni-erro" id="uniErro" hidden></p>
+        <button class="btn" type="button" id="uniEnviar">Enviar solicitação</button>
+      </div>
     </section>
 
     <section class="uni-card" id="uniMeusCard">
@@ -651,9 +702,9 @@ const SOL = (function(){
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;   // a pessoa já saiu da tela antes de terminar de carregar
     root.innerHTML = TEMPLATE;
-    linhas = [novaLinha()]; obsPedido = "";
+    tamanhos = {}; obsPedido = "";
     ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
-    renderLinhas(); renderMeus();
+    renderKit(); renderMeus();
     escutas.add(recarregar);
   }
   function unmount(){
@@ -666,20 +717,25 @@ const SOL = (function(){
 })();
 
 /* =====================================================================================================
-   Ferramenta 2 — Solicitações de uniforme (responsável)
+   Ferramenta 2 — Solicitações de uniforme e EPI (responsável)
    ===================================================================================================== */
 const GES = (function(){
   let root = null;
-  let pedidos = [], tipos = [], urls = {};
+  let pedidos = [], tipos = [], cargos = [], kits = {}, urls = {};
   let aba = "pedidos", filtro = "pendente", busca = "";
+  const abertos = new Set();   // cargos com o cartão aberto na aba "Cargos e kits"
   const ouvintes = [];
-  const on = (t, fn) => ouvintes.push([t, fn]);
+  const on = (t, fn, captura) => ouvintes.push([t, fn, !!captura]);
   const $ = id => root && root.querySelector("#" + id);
 
   async function carregar(){
-    const [p, t] = await Promise.all([lerPedidos(false), lerTipos(false)]);
-    pedidos = p; tipos = t;
+    const [p, t, c] = await Promise.all([lerPedidos(false), lerTipos(false), lerCargos()]);
+    pedidos = p; tipos = t.sort(ordemTipos); cargos = c.cargos; kits = c.kits;
     urls = await assinarFotos(pedidos);
+  }
+  function renderAba(){
+    renderAbas();
+    if(aba === "pedidos") renderPedidos(); else if(aba === "cargos") renderCargos(); else renderItens();
   }
   let recTimer = null;
   function recarregar(){   // chamado quando chega pedido novo: espera um instante para juntar várias mudanças
@@ -688,11 +744,19 @@ const GES = (function(){
       if(!root) return;
       try{ await carregar(); }catch(e){ return; }
       if(!root) return;
-      if(aba === "pedidos") renderPedidos(); else renderTipos();
+      if(aba === "pedidos") renderPedidos();   // nas abas de edição não mexe na tela, para não atrapalhar quem está digitando
       renderAbas();
       atualizarBadges();
     }, 350);
   }
+
+  function salvo(){
+    const el = $("gesSalvo"); if(!el) return;
+    el.textContent = "Salvo";
+    clearTimeout(salvo.t); salvo.t = setTimeout(() => { el.textContent = ""; }, 2000);
+  }
+  function erroAba(msg){ const e = $("gesErro"); if(e){ e.textContent = msg || ""; e.hidden = !msg; } }
+  const msgUnico = (e, txt) => e && e.code === "23505" ? txt : msgErro(e);
 
   /* ----- pedidos ----- */
   const FILTROS = [
@@ -709,13 +773,13 @@ const GES = (function(){
   function resumoSeparacao(){
     const m = new Map();
     pedidos.filter(p => p.status === "pendente").forEach(p => p.itens.forEach(i => {
-      const k = i.tipo_nome + "|" + (i.tamanho === "Único" ? "" : i.tamanho);
+      const k = catDe(i) + "|" + i.tipo_nome + "|" + (i.tamanho === "Único" ? "" : i.tamanho);
       m.set(k, (m.get(k) || 0) + i.quantidade);
     }));
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR", { numeric: true })).map(([k, n]) => {
-      const [nome, tam] = k.split("|");
-      return { rotulo: nome + (tam ? " " + tam : ""), n };
-    });
+    return [...m.entries()].map(([k, n]) => {
+      const [cat, nome, tam] = k.split("|");
+      return { cat, rotulo: nome + (tam ? " " + tam : ""), n };
+    }).sort((a, b) => ordemCat(a.cat) - ordemCat(b.cat) || cmp(a.rotulo, b.rotulo));
   }
 
   function renderPedidos(){
@@ -729,11 +793,11 @@ const GES = (function(){
           <b>${pedidos.filter(f.conta).length}</b><span>${f.rotulo}</span></button>`).join("")}
       </div>
       ${resumo.length ? `<details class="uni-det"><summary>O que separar para os pedidos aguardando<span class="chev">▸</span></summary>
-        <div class="uni-chips">${resumo.map(r => `<span class="uni-chip">${esc(r.rotulo)} <b>× ${r.n}</b></span>`).join("")}</div></details>` : ""}
+        <div class="uni-chips">${resumo.map(r => `<span class="uni-chip">${esc(r.rotulo)}${r.cat === "epi" ? ` <span class="uni-tag epi">EPI</span>` : ""} <b>× ${r.n}</b></span>`).join("")}</div></details>` : ""}
       <div class="uni-busca"><input type="search" id="gesBusca" placeholder="Buscar por nome do solicitante" value="${esc(busca)}" aria-label="Buscar por nome"></div>
       <div class="uni-lista">${lista.length
         ? lista.map(p => pedidoHtml(p, "gestao", urls)).join("")
-        : `<p class="uni-vazio">${pedidos.length ? "Nenhum pedido neste filtro." : "Nenhuma solicitação de uniforme ainda. Quando alguém pedir, ela aparece aqui e o número no menu avisa."}</p>`}
+        : `<p class="uni-vazio">${pedidos.length ? "Nenhum pedido neste filtro." : "Nenhuma solicitação ainda. Quando alguém pedir, ela aparece aqui e o número no menu avisa."}</p>`}
       </div>`;
     if(foco){ const b = $("gesBusca"); if(b){ b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }
   }
@@ -754,7 +818,7 @@ const GES = (function(){
         ? `${esc(p.solicitante_nome || "O solicitante")} verá o motivo em “Meus pedidos”.`
         : `${esc(p.solicitante_nome || "O solicitante")} será avisado(a) e poderá confirmar o recebimento depois de retirar.`}</p>
       <label class="f"><span>${recusa ? "Motivo (obrigatório)" : "Mensagem para o solicitante (opcional)"}</span>
-        <textarea id="rsTxt" maxlength="300" data-foco placeholder="${recusa ? "Ex.: já foi entregue um uniforme este mês" : "Ex.: retirar no RH até sexta-feira"}"></textarea></label>
+        <textarea id="rsTxt" maxlength="300" data-foco placeholder="${recusa ? "Ex.: já foi entregue um kit este mês" : "Ex.: retirar no RH até sexta-feira"}"></textarea></label>
       <p class="uni-erro" id="rsErro" hidden></p>
       <div class="uni-m-act">
         <button class="btn ghost" type="button" data-fechar>Voltar</button>
@@ -779,108 +843,253 @@ const GES = (function(){
     await carregar(); renderPedidos(); renderAbas(); atualizarBadges();
   }
 
-  /* ----- tipos de uniforme ----- */
+  /* ----- itens (catálogo de uniformes e EPIs) ----- */
   const lerTamanhos = s => [...new Set(String(s).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean))];
-  function salvo(){
-    const el = $("tpStatus"); if(!el) return;
-    el.textContent = "Salvo";
-    clearTimeout(salvo.t); salvo.t = setTimeout(() => { el.textContent = ""; }, 2000);
-  }
-  function tipoLinha(t){
+  const optsCategoria = sel => Object.keys(CATS).map(c => `<option value="${c}" ${c === sel ? "selected" : ""}>${CATS[c]}</option>`).join("");
+
+  function itemLinha(t){
     return `<div class="uni-tipo" data-tipo="${t.id}">
       <label class="f"><span>Nome</span><input type="text" data-tf="nome" maxlength="60" value="${esc(t.nome)}"></label>
+      <label class="f"><span>Categoria</span><select data-tf="categoria">${optsCategoria(catDe(t))}</select></label>
       <label class="f"><span>Tamanhos</span><input type="text" data-tf="tamanhos" value="${esc(t.tamanhos.join(", "))}" placeholder="Em branco = tamanho único"></label>
       <label class="uni-sw"><input type="checkbox" data-tf="ativo" ${t.ativo ? "checked" : ""}><span>Disponível</span></label>
-      <button class="rm" type="button" data-rmtipo="${t.id}" aria-label="Apagar tipo ${esc(t.nome)}">✕</button>
+      <button class="rm" type="button" data-rmtipo="${t.id}" aria-label="Apagar ${esc(t.nome)}">✕</button>
     </div>`;
   }
-  function renderTipos(){
+  function renderItens(){
     const el = $("gesConteudo"); if(!el) return;
     el.innerHTML = `
       <section class="uni-card">
-        <div class="uni-card-top"><h2 class="uni-h2">Tipos de uniforme</h2><span class="uni-salvo" id="tpStatus" aria-live="polite"></span></div>
-        <p class="uni-hint">Estes são os itens que as pessoas veem ao solicitar. Separe os tamanhos por vírgula e deixe em branco para tamanho único. As alterações são salvas na hora. Para tirar um tipo da lista sem perder o histórico, desmarque “Disponível”.</p>
-        <div id="tpLista">${tipos.length ? tipos.map(tipoLinha).join("") : `<p class="uni-vazio">Nenhum tipo cadastrado ainda.</p>`}</div>
+        <h2 class="uni-h2">Uniformes e EPIs</h2>
+        <p class="uni-hint">Este é o catálogo de tudo o que pode entrar no kit de um cargo. Separe os tamanhos por vírgula (ex.: P, M, G ou 38, 40, 42) e deixe em branco para tamanho único. As alterações são salvas na hora. Para tirar um item de circulação sem perder o histórico, desmarque “Disponível”. A quantidade de cada item fica no kit do cargo, na aba <b>Cargos e kits</b>.</p>
+        <div id="tpLista">${tipos.length ? tipos.map(itemLinha).join("") : `<p class="uni-vazio">Nenhum item cadastrado ainda.</p>`}</div>
         <div class="uni-tipo novo">
-          <label class="f"><span>Novo tipo</span><input type="text" id="tpNome" maxlength="60" placeholder="Ex.: Colete"></label>
+          <label class="f"><span>Novo item</span><input type="text" id="tpNome" maxlength="60" placeholder="Ex.: Colete refletivo"></label>
+          <label class="f"><span>Categoria</span><select id="tpCat">${optsCategoria("uniforme")}</select></label>
           <label class="f"><span>Tamanhos</span><input type="text" id="tpTam" placeholder="Ex.: P, M, G, GG"></label>
-          <button class="btn" type="button" id="tpAdd">Adicionar tipo</button>
+          <button class="btn" type="button" id="tpAdd">Adicionar item</button>
         </div>
-        <p class="uni-erro" id="tpErro" hidden></p>
       </section>`;
   }
-  function erroTipos(msg){ const e = $("tpErro"); if(e){ e.textContent = msg || ""; e.hidden = !msg; } }
-  const msgTipo = e => e && e.code === "23505" ? "Já existe um tipo com esse nome." : msgErro(e);
 
-  async function adicionarTipo(){
-    erroTipos("");
+  async function adicionarItem(){
+    erroAba("");
     const nome = $("tpNome").value.trim();
-    if(!nome){ erroTipos("Digite o nome do tipo de uniforme."); return; }
+    if(!nome){ erroAba("Digite o nome do item."); return; }
     const ordem = tipos.reduce((m, t) => Math.max(m, t.ordem || 0), 0) + 1;
-    const { data, error } = await sb().from("uniforme_tipos").insert({ nome, tamanhos: lerTamanhos($("tpTam").value), ordem }).select().single();
-    if(error){ erroTipos(msgTipo(error)); return; }
-    tipos.push(data); renderTipos(); salvo();
+    const { data, error } = await sb().from("uniforme_tipos")
+      .insert({ nome, categoria: $("tpCat").value, tamanhos: lerTamanhos($("tpTam").value), ordem }).select().single();
+    if(error){ erroAba(msgUnico(error, "Já existe um item com esse nome.")); return; }
+    tipos.push(data); tipos.sort(ordemTipos); renderItens(); salvo();
   }
-  async function salvarCampo(t, campo, valor, input){
+  async function salvarItem(t, campo, valor, input){
     const patch = {}; patch[campo] = valor;
     const { error } = await sb().from("uniforme_tipos").update(patch).eq("id", t.id);
     if(error){
-      erroTipos(msgTipo(error));
-      if(input){ if(campo === "ativo") input.checked = t.ativo; else input.value = campo === "tamanhos" ? t.tamanhos.join(", ") : t.nome; }
+      erroAba(msgUnico(error, "Já existe um item com esse nome."));
+      if(input){
+        if(campo === "ativo") input.checked = t.ativo;
+        else if(campo === "tamanhos") input.value = t.tamanhos.join(", ");
+        else if(campo === "categoria") input.value = catDe(t);
+        else input.value = t.nome;
+      }
       return;
     }
-    erroTipos(""); t[campo] = valor; salvo();
+    erroAba(""); t[campo] = valor; salvo();
+    if(campo === "categoria"){ tipos.sort(ordemTipos); renderItens(); }
   }
-  async function apagarTipo(id){
+  async function apagarItem(id){
     const t = tipos.find(x => x.id === id); if(!t) return;
-    if(!confirm(`Apagar o tipo “${t.nome}”? Os pedidos antigos continuam mostrando o nome. Se só quer tirá-lo da lista de pedidos, prefira desmarcar “Disponível”.`)) return;
+    if(!confirm(`Apagar “${t.nome}”? Ele também sai do kit de todos os cargos, e os pedidos antigos continuam mostrando o nome. Se só quer parar de usar, prefira desmarcar “Disponível”.`)) return;
     const { error } = await sb().from("uniforme_tipos").delete().eq("id", id);
-    if(error){ erroTipos(msgErro(error)); return; }
-    tipos = tipos.filter(x => x.id !== id); renderTipos(); salvo();
+    if(error){ erroAba(msgErro(error)); return; }
+    tipos = tipos.filter(x => x.id !== id);
+    Object.keys(kits).forEach(cid => { kits[cid] = kits[cid].filter(k => k.tipo_id !== id); });
+    renderItens(); salvo();
+  }
+
+  /* ----- cargos e kits ----- */
+  const kitDe = cid => (kits[cid] || [])
+    .map(k => ({ ...k, tipo: tipos.find(t => t.id === k.tipo_id) })).filter(k => k.tipo)
+    .sort((a, b) => ordemTipos(a.tipo, b.tipo));
+
+  function cargoHtml(c){
+    const kit = kitDe(c.id);
+    const livres = tipos.filter(t => t.ativo && !kit.some(k => k.tipo_id === t.id));
+    const n = kit.length;
+    return `<details class="uni-cargo ${c.ativo ? "" : "off"}" data-cargo="${c.id}" ${abertos.has(c.id) ? "open" : ""}>
+      <summary>
+        <span class="uni-cargo-nome">${esc(c.nome)}</span>
+        <span class="uni-cargo-info">${n} ${n === 1 ? "item" : "itens"}${c.ativo ? "" : " · desativado"}</span>
+        <span class="chev">▸</span>
+      </summary>
+      <div class="uni-cargo-body">
+        <div class="uni-cargo-cfg">
+          <label class="f"><span>Nome do cargo</span><input type="text" data-cf="nome" maxlength="60" value="${esc(c.nome)}"></label>
+          <label class="uni-sw"><input type="checkbox" data-cf="ativo" ${c.ativo ? "checked" : ""}><span>Ativo</span></label>
+          <button class="rm" type="button" data-rmcargo aria-label="Apagar cargo ${esc(c.nome)}">✕</button>
+        </div>
+        <div class="mini">Kit deste cargo</div>
+        ${kit.length ? `<ul class="uni-kit-lista">${kit.map(k => `
+          <li data-kit="${k.tipo_id}">
+            <span class="uni-kit-n"><b>${esc(k.tipo.nome)}</b>${tagEpi(k.tipo)}${k.tipo.ativo ? "" : `<em>indisponível: não aparece nos pedidos</em>`}</span>
+            <label class="uni-kit-q">Qtde <input type="number" min="1" max="99" data-kitqtd value="${k.quantidade}"></label>
+            <button class="rm" type="button" data-rmkit="${k.tipo_id}" aria-label="Tirar ${esc(k.tipo.nome)} do kit">✕</button>
+          </li>`).join("")}</ul>`
+          : `<p class="uni-hint">Kit vazio. Adicione abaixo os uniformes e EPIs deste cargo.</p>`}
+        ${livres.length ? `<div class="uni-kit-add">
+          <label class="f"><span>Adicionar ao kit</span><select data-kitsel>${livres.map(t => `<option value="${t.id}">${esc(t.nome)} (${CATS[catDe(t)]})</option>`).join("")}</select></label>
+          <label class="f"><span>Qtde</span><input type="number" min="1" max="99" value="1" data-kitnew></label>
+          <button class="btn ghost" type="button" data-addkit>Adicionar</button>
+        </div>` : `<p class="uni-hint">Todos os itens disponíveis já estão neste kit.</p>`}
+      </div>
+    </details>`;
+  }
+  function renderCargos(){
+    const el = $("gesConteudo"); if(!el) return;
+    el.innerHTML = `
+      <section class="uni-card">
+        <h2 class="uni-h2">Cargos e kits</h2>
+        <p class="uni-hint">Cada cargo tem um kit fixo. Quem tem o cargo no perfil vê esse kit ao solicitar e escolhe só o tamanho. O cargo de cada pessoa é definido na tela <b>Usuários</b> (só administradores). Alterações no kit valem para os próximos pedidos; pedidos já feitos não mudam.</p>
+        <div id="cgLista">${cargos.length ? cargos.map(cargoHtml).join("") : `<p class="uni-vazio">Nenhum cargo cadastrado ainda.</p>`}</div>
+        <div class="uni-cargo-novo">
+          <label class="f"><span>Novo cargo</span><input type="text" id="cgNome" maxlength="60" placeholder="Ex.: Porteiro"></label>
+          <button class="btn" type="button" id="cgAdd">Adicionar cargo</button>
+        </div>
+      </section>`;
+  }
+
+  async function adicionarCargo(){
+    erroAba("");
+    const nome = $("cgNome").value.trim();
+    if(!nome){ erroAba("Digite o nome do cargo."); return; }
+    const { data, error } = await sb().from("cargos").insert({ nome }).select().single();
+    if(error){ erroAba(msgUnico(error, "Já existe um cargo com esse nome.")); return; }
+    cargos.push(data); cargos.sort((a, b) => cmp(a.nome, b.nome)); kits[data.id] = []; abertos.add(data.id);
+    renderCargos(); salvo();
+  }
+  async function salvarCargo(c, campo, valor, input){
+    const patch = {}; patch[campo] = valor;
+    const { error } = await sb().from("cargos").update(patch).eq("id", c.id);
+    if(error){
+      erroAba(msgUnico(error, "Já existe um cargo com esse nome."));
+      if(campo === "ativo") input.checked = c.ativo; else input.value = c.nome;
+      return;
+    }
+    erroAba(""); c[campo] = valor; salvo();
+    cargos.sort((a, b) => cmp(a.nome, b.nome)); renderCargos();
+  }
+  async function apagarCargo(id){
+    const c = cargos.find(x => x.id === id); if(!c) return;
+    if(!confirm(`Apagar o cargo “${c.nome}”? As pessoas que têm esse cargo ficam sem cargo até o administrador definir outro, e o kit é apagado. Se só quer parar de usar, prefira desmarcar “Ativo”.`)) return;
+    const { error } = await sb().from("cargos").delete().eq("id", id);
+    if(error){ erroAba(msgErro(error)); return; }
+    cargos = cargos.filter(x => x.id !== id); delete kits[id]; abertos.delete(id);
+    renderCargos(); salvo();
+  }
+  async function adicionarAoKit(cid, card){
+    erroAba("");
+    const tipoId = card.querySelector("[data-kitsel]").value;
+    const qtd = parseInt(card.querySelector("[data-kitnew]").value, 10);
+    if(!tipoId) return;
+    if(!(qtd >= 1 && qtd <= 99)){ erroAba("Informe uma quantidade de 1 a 99."); return; }
+    const { error } = await sb().from("cargo_itens").insert({ cargo_id: cid, tipo_id: tipoId, quantidade: qtd });
+    if(error){ erroAba(msgUnico(error, "Esse item já está no kit.")); return; }
+    (kits[cid] = kits[cid] || []).push({ cargo_id: cid, tipo_id: tipoId, quantidade: qtd });
+    renderCargos(); salvo();
+  }
+  async function tirarDoKit(cid, tipoId){
+    const { error } = await sb().from("cargo_itens").delete().eq("cargo_id", cid).eq("tipo_id", tipoId);
+    if(error){ erroAba(msgErro(error)); return; }
+    kits[cid] = (kits[cid] || []).filter(k => k.tipo_id !== tipoId);
+    renderCargos(); salvo();
+  }
+  async function mudarQtdKit(cid, tipoId, input){
+    const k = (kits[cid] || []).find(x => x.tipo_id === tipoId); if(!k) return;
+    const qtd = parseInt(input.value, 10);
+    if(!(qtd >= 1 && qtd <= 99)){ input.value = k.quantidade; erroAba("Informe uma quantidade de 1 a 99."); return; }
+    if(qtd === k.quantidade) return;
+    const { error } = await sb().from("cargo_itens").update({ quantidade: qtd }).eq("cargo_id", cid).eq("tipo_id", tipoId);
+    if(error){ input.value = k.quantidade; erroAba(msgErro(error)); return; }
+    erroAba(""); k.quantidade = qtd; salvo();
   }
 
   /* ----- eventos ----- */
   on("click", e => {
     const b = e.target.closest("button"); if(!b) return;
-    if(b.dataset.aba){ aba = b.dataset.aba; renderAbas(); aba === "pedidos" ? renderPedidos() : renderTipos(); return; }
+    if(b.dataset.aba){ aba = b.dataset.aba; erroAba(""); renderAba(); return; }
     if(b.dataset.filtro){ filtro = b.dataset.filtro; renderPedidos(); return; }
     const acha = id => pedidos.find(p => p.id === id);
     if(b.dataset.pronto){ const p = acha(b.dataset.pronto); if(p) abrirResposta(p, false); return; }
     if(b.dataset.recusar){ const p = acha(b.dataset.recusar); if(p) abrirResposta(p, true); return; }
     if(b.dataset.voltar){ const p = acha(b.dataset.voltar); if(p) voltar(p); return; }
-    if(b.id === "tpAdd"){ adicionarTipo(); return; }
-    if(b.dataset.rmtipo){ apagarTipo(b.dataset.rmtipo); return; }
+    if(b.id === "tpAdd"){ adicionarItem(); return; }
+    if(b.dataset.rmtipo){ apagarItem(b.dataset.rmtipo); return; }
+    if(b.id === "cgAdd"){ adicionarCargo(); return; }
+    const card = b.closest("[data-cargo]");
+    if(card){
+      const cid = card.dataset.cargo;
+      if(b.hasAttribute("data-rmcargo")){ apagarCargo(cid); return; }
+      if(b.hasAttribute("data-addkit")){ adicionarAoKit(cid, card); return; }
+      if(b.dataset.rmkit){ tirarDoKit(cid, b.dataset.rmkit); return; }
+    }
   });
   on("input", e => { if(e.target.id === "gesBusca"){ busca = e.target.value; renderPedidos(); } });
   on("change", e => {
-    const t = e.target, linha = t.closest("[data-tipo]");
-    if(!linha || !t.dataset.tf) return;
-    const tp = tipos.find(x => x.id === linha.dataset.tipo); if(!tp) return;
-    if(t.dataset.tf === "nome"){
-      const nome = t.value.trim();
-      if(!nome){ t.value = tp.nome; return; }
-      if(nome !== tp.nome) salvarCampo(tp, "nome", nome, t);
-    }else if(t.dataset.tf === "tamanhos"){
-      const tam = lerTamanhos(t.value);
-      t.value = tam.join(", ");
-      if(tam.join("|") !== tp.tamanhos.join("|")) salvarCampo(tp, "tamanhos", tam, t);
-    }else if(t.dataset.tf === "ativo") salvarCampo(tp, "ativo", t.checked, t);
+    const t = e.target;
+    const linha = t.closest("[data-tipo]");
+    if(linha && t.dataset.tf){
+      const tp = tipos.find(x => x.id === linha.dataset.tipo); if(!tp) return;
+      if(t.dataset.tf === "nome"){
+        const nome = t.value.trim();
+        if(!nome){ t.value = tp.nome; return; }
+        if(nome !== tp.nome) salvarItem(tp, "nome", nome, t);
+      }else if(t.dataset.tf === "tamanhos"){
+        const tam = lerTamanhos(t.value);
+        t.value = tam.join(", ");
+        if(tam.join("|") !== tp.tamanhos.join("|")) salvarItem(tp, "tamanhos", tam, t);
+      }else if(t.dataset.tf === "categoria"){
+        if(t.value !== catDe(tp)) salvarItem(tp, "categoria", t.value, t);
+      }else if(t.dataset.tf === "ativo") salvarItem(tp, "ativo", t.checked, t);
+      return;
+    }
+    const card = t.closest("[data-cargo]");
+    if(card){
+      const c = cargos.find(x => x.id === card.dataset.cargo); if(!c) return;
+      if(t.dataset.cf === "nome"){
+        const nome = t.value.trim();
+        if(!nome){ t.value = c.nome; return; }
+        if(nome !== c.nome) salvarCargo(c, "nome", nome, t);
+      }else if(t.dataset.cf === "ativo") salvarCargo(c, "ativo", t.checked, t);
+      else if(t.hasAttribute("data-kitqtd")) mudarQtdKit(c.id, t.closest("[data-kit]").dataset.kit, t);
+    }
   });
-  on("keydown", e => { if(e.key === "Enter" && (e.target.id === "tpNome" || e.target.id === "tpTam")){ e.preventDefault(); adicionarTipo(); } });
+  on("keydown", e => {
+    if(e.key !== "Enter") return;
+    if(e.target.id === "tpNome" || e.target.id === "tpTam"){ e.preventDefault(); adicionarItem(); }
+    else if(e.target.id === "cgNome"){ e.preventDefault(); adicionarCargo(); }
+  });
+  // lembra quais cargos estão abertos (o evento "toggle" não sobe na árvore, por isso a captura)
+  on("toggle", e => {
+    const d = e.target;
+    if(d.matches && d.matches("details[data-cargo]")){ d.open ? abertos.add(d.dataset.cargo) : abertos.delete(d.dataset.cargo); }
+  }, true);
 
   function renderAbas(){
     const el = $("gesAbas"); if(!el) return;
     const aguardando = pedidos.filter(p => p.status === "pendente").length;
     el.innerHTML = `
       <button type="button" class="${aba === "pedidos" ? "on" : ""}" data-aba="pedidos">Solicitações${aguardando ? ` <i>${aguardando}</i>` : ""}</button>
-      <button type="button" class="${aba === "tipos" ? "on" : ""}" data-aba="tipos">Tipos de uniforme</button>`;
+      <button type="button" class="${aba === "cargos" ? "on" : ""}" data-aba="cargos">Cargos e kits</button>
+      <button type="button" class="${aba === "itens" ? "on" : ""}" data-aba="itens">Uniformes e EPIs</button>`;
   }
 
   const TEMPLATE = `
   <div class="uni-wrap">
-    <h1 class="uni-h">Solicitações de uniforme</h1>
-    <p class="uni-sub">Pedidos de uniforme da equipe. Quando alguém solicitar, o número no menu e um aviso na tela chamam sua atenção.</p>
-    <div class="uni-abas" id="gesAbas"></div>
+    <h1 class="uni-h">Solicitações de uniforme e EPI</h1>
+    <p class="uni-sub">Pedidos de uniforme e EPI da equipe. Quando alguém solicitar, o número no menu e um aviso na tela chamam sua atenção.</p>
+    <div class="uni-abas-linha"><div class="uni-abas" id="gesAbas"></div><span class="uni-salvo" id="gesSalvo" aria-live="polite"></span></div>
+    <p class="uni-erro" id="gesErro" hidden></p>
     <div id="gesConteudo"></div>
   </div>`;
 
@@ -891,9 +1100,9 @@ const GES = (function(){
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;
     root.innerHTML = TEMPLATE;
-    ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
+    ouvintes.forEach(([t, fn, cap]) => root.addEventListener(t, fn, cap));
     aba = "pedidos";
-    renderAbas(); renderPedidos();
+    renderAba();
     escutas.add(recarregar);
     atualizarBadges();
   }
@@ -901,7 +1110,7 @@ const GES = (function(){
     fecharModal();
     clearTimeout(recTimer);
     escutas.delete(recarregar);
-    if(root) ouvintes.forEach(([t, fn]) => root.removeEventListener(t, fn));
+    if(root) ouvintes.forEach(([t, fn, cap]) => root.removeEventListener(t, fn, cap));
     root = null;
   }
   return { mount, unmount };
@@ -911,9 +1120,9 @@ const GES = (function(){
 window.Platform.register({
   id: MOD_SOL,
   categoria: "uniformes",
-  menu: "Solicitar uniforme",
-  nome: "Solicitar uniforme",
-  descricao: "Peça camiseta, calça, sapato, bata e outros uniformes e confirme o recebimento com uma foto.",
+  menu: "Solicitar uniforme e EPI",
+  nome: "Solicitar uniforme e EPI",
+  descricao: "Peça o kit de uniforme e EPI do seu cargo escolhendo só o tamanho e confirme o recebimento com uma foto.",
   icone: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
   aoIniciar: iniciarAvisos,
   mount: SOL.mount, unmount: SOL.unmount
@@ -922,9 +1131,9 @@ window.Platform.register({
 window.Platform.register({
   id: MOD_GES,
   categoria: "uniformes",
-  menu: "Solicitações de uniforme",
-  nome: "Solicitações de uniforme",
-  descricao: "Veja os pedidos de uniforme, marque como pronto ou recuse, confira as assinaturas e edite os tipos de uniforme.",
+  menu: "Solicitações de uniforme e EPI",
+  nome: "Solicitações de uniforme e EPI",
+  descricao: "Atenda os pedidos, confira as assinaturas e edite os cargos, os kits e os uniformes e EPIs.",
   icone: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
   aoIniciar: iniciarAvisos,
   mount: GES.mount, unmount: GES.unmount
