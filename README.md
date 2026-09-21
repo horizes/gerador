@@ -3,7 +3,8 @@
 Site estático (HTML + CSS + JS puro). Não precisa de build, Node, banco de dados ou servidor próprio.
 
 Hoje a plataforma tem duas ferramentas: o **Gerador de propostas** (como antes) e o **Fluxo de caixa**,
-para lançar entradas e saídas, acompanhar o saldo por período e exportar para planilha.
+para lançar entradas e saídas, acompanhar o saldo por período e exportar para planilha. A tela inicial
+também mostra um **painel (dashboard)** com o resumo do Fluxo de Caixa.
 
 ## Estrutura
 
@@ -13,9 +14,11 @@ css/base.css               cores, tipografia, campos e botões compartilhados
 css/platform.css           barra lateral, menu do celular e tela inicial
 css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão)
 css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
+css/dashboard.css          painel (dashboard) da tela inicial
 js/platform.js             barra lateral, navegação (#/ e #/propostas), tela inicial e registro de módulos
+js/dashboard.js            painel da tela inicial: lê o localStorage do Fluxo de Caixa e monta o resumo/gráfico
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx)
-js/modules/fluxo.js        Fluxo de caixa (lançamentos, planilha, exportação .csv e backup .json)
+js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json)
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
 robots.txt                 bloqueia indexação por buscadores
@@ -67,6 +70,8 @@ A ferramenta aparece sozinha na barra lateral e na tela inicial.
 
 - **Privacidade:** a ferramenta contém valores e margens internos. O site está com `noindex` (meta tag + robots.txt), mas isso não impede acesso por quem tiver o link. Se for de uso interno, proteja com senha (Cloudflare Access, Netlify Password Protection, ou `.htaccess` no cPanel). Para liberar a indexação, remova a meta `robots` do `index.html` e apague o `robots.txt`.
 - **Rascunhos e lançamentos:** os dados preenchidos (inclusive os lançamentos do Fluxo de caixa) ficam salvos no `localStorage` do navegador de cada usuário (não vão para o servidor). Trocar de navegador/computador ou de domínio começa do zero — no Fluxo de caixa, use "Salvar backup (.json)" e "Importar backup (.json)" para levar os dados de um lugar para o outro, ou para não perder nada ao limpar o navegador.
+- **Painel da tela inicial:** o dashboard (`js/dashboard.js`) lê o mesmo `localStorage` do Fluxo de Caixa, então mostra os lançamentos daquele navegador/computador — a mesma limitação de "por navegador" descrita abaixo. Sem nenhum lançamento ainda, ele mostra uma mensagem convidando a lançar o primeiro.
+- **Anexo de nota fiscal/foto:** cada lançamento pode ter uma foto ou PDF anexado (só pelo formulário "Novo lançamento" ou pelo botão "+" na coluna Anexo da planilha, para um lançamento já existente). Fotos são reduzidas automaticamente antes de salvar; ainda assim, como tudo fica no `localStorage` do navegador (que costuma ter uns 5–10 MB de limite no total), anexar muitas fotos ao longo do tempo pode aproximar desse limite. Exportar backups (.json) com frequência também serve para não perder os anexos.
 - **Fontes:** Oswald e Barlow vêm do Google Fonts (precisa de internet).
 - **Imagens do Connect e do Flash:** ficam embutidas em `js/modules/propostas.js` (constantes `LOGO_CONNECT_PADRAO` e `LOGO_FLASH_PADRAO`), então aparecem mesmo sem a pasta `assets/`. Dentro da ferramenta dá para enviar outra imagem por proposta.
 - **Fotos de clientes padrão:** para trocar, substitua os arquivos em `assets/clientes/` mantendo o nome, ou edite `CLIENTES_PADRAO` no início de `js/modules/propostas.js`.

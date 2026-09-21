@@ -9,6 +9,7 @@
 
 let root = null;
 let iniciado = false;
+let anexoPendente = null; // anexo (nota fiscal/foto) já processado, aguardando o próximo "Adicionar lançamento"
 const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
 
@@ -101,12 +102,71 @@ function novoLancamento(base){
   return Object.assign({
     id: uid(), data: hoje(), tipo: "saida",
     categoria: S.categorias.saida[0] || "",
-    descricao: "", forma: "Pix", status: "pendente", valor: 0
+    descricao: "", forma: "Pix", status: "pendente", valor: 0,
+    anexo: null // { nome, tipo, dataUrl } — nota fiscal/comprovante, guardado como imagem/arquivo embutido
   }, base||{});
 }
 function excluir(id){
   S.lancamentos = S.lancamentos.filter(l=>l.id!==id);
   salvar(); renderStage(); renderResumo();
+}
+
+/* ---------- anexo (nota fiscal / foto do comprovante) ----------
+   Guardado embutido no próprio lançamento (dataURL em base64), já que o site é
+   estático e não tem servidor de arquivos. Fotos são comprimidas antes de salvar
+   para não estourar o limite do localStorage do navegador; PDFs são anexados como estão. */
+const ANEXO_TAMANHO_MAX = 8*1024*1024; // 8 MB no arquivo original enviado
+
+function lerArquivo(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    r.readAsDataURL(file);
+  });
+}
+function comprimirImagem(file, maxLado, qualidade){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Não foi possível abrir a imagem."));
+      img.onload = () => {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if(w > maxLado || h > maxLado){
+          const escala = Math.min(maxLado/w, maxLado/h);
+          w = Math.round(w*escala); h = Math.round(h*escala);
+        }
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL("image/jpeg", qualidade));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+async function processarAnexo(file){
+  if(!file) return null;
+  if(file.size > ANEXO_TAMANHO_MAX){ alert("Arquivo muito grande (máximo 8 MB)."); return null; }
+  let dataUrl;
+  if(file.type.startsWith("image/")){
+    try{ dataUrl = await comprimirImagem(file, 1600, 0.72); }
+    catch(e){ dataUrl = await lerArquivo(file); }
+  }else if(file.type === "application/pdf"){
+    dataUrl = await lerArquivo(file);
+  }else{
+    alert("Envie uma foto (JPG/PNG) ou um PDF.");
+    return null;
+  }
+  return { nome: file.name, tipo: file.type, dataUrl };
+}
+function anexoIconeHtml(a){
+  return a.tipo.startsWith("image/")
+    ? `<img src="${a.dataUrl}" alt="">`
+    : `<span class="anexo-ico">PDF</span>`;
 }
 
 /* ---------- exportação ---------- */
@@ -121,11 +181,11 @@ function csvEsc(s){
   return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
 }
 function exportarCSV(){
-  const linhas = [["Data","Tipo","Categoria","Descrição","Forma","Status","Valor"].join(";")];
+  const linhas = [["Data","Tipo","Categoria","Descrição","Forma","Status","Valor","Anexo"].join(";")];
   filtrados().slice().reverse().forEach(l=>{
     linhas.push([
       l.data, l.tipo==="entrada"?"Entrada":"Saída", csvEsc(l.categoria), csvEsc(l.descricao),
-      l.forma, l.status==="pago"?"Pago":"Pendente", n2(l.valor)
+      l.forma, l.status==="pago"?"Pago":"Pendente", n2(l.valor), l.anexo ? "Sim" : "Não"
     ].join(";"));
   });
   baixar(new Blob(["\uFEFF"+linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}), "fluxo-de-caixa.csv");
@@ -158,6 +218,15 @@ function categoriasChips(tipo){
   ).join("") || `<span class="hint" style="margin:0">Nenhuma categoria cadastrada.</span>`;
 }
 
+function anexoPendentePreviewHtml(){
+  if(!anexoPendente) return "";
+  return `<div class="anexo-prev">
+    <div class="anexo-thumb">${anexoIconeHtml(anexoPendente)}</div>
+    <span class="anexo-nome">${esc(anexoPendente.nome)}</span>
+    <button type="button" class="anexo-rm" id="qzAnexoRm" aria-label="Remover anexo">×</button>
+  </div>`;
+}
+
 const TEMPLATE_RAIL = () => `
 <div class="brand"><h1>Fluxo de Caixa<span>Lançamentos e planilha</span></h1></div>
 
@@ -185,6 +254,13 @@ const TEMPLATE_RAIL = () => `
       <label class="f"><span>Forma</span><select id="qzForma">${opcoes(FORMAS)}</select></label>
       <label class="f"><span>Valor (R$)</span><input type="number" id="qzValor" step="0.01" min="0" value="0"></label>
     </div>
+    <label class="f" for="qzAnexo"><span>Nota fiscal / comprovante</span>
+      <div class="anexo-input">
+        <input type="file" id="qzAnexo" accept="image/*,application/pdf" capture="environment">
+        <span id="qzAnexoLabel">${anexoPendente ? "Trocar arquivo" : "Anexar foto ou PDF"}</span>
+      </div>
+    </label>
+    <div id="qzAnexoPrev">${anexoPendentePreviewHtml()}</div>
     <button class="btn wide" id="qzAdd" type="button">Adicionar lançamento</button>
   </div>
 </details>
@@ -270,6 +346,15 @@ function linhaHtml(l){
       <option value="pago" ${l.status==="pago"?"selected":""}>Pago</option>
     </select></td>
     <td class="vcell ${l.tipo}"><input type="number" data-f="valor" step="0.01" value="${+l.valor||0}"></td>
+    <td class="anexo-cell">${l.anexo ? `
+      <a class="anexo-thumb" href="${l.anexo.dataUrl}" target="_blank" rel="noopener" title="${esc(l.anexo.nome)}">${anexoIconeHtml(l.anexo)}</a>
+      <button type="button" class="anexo-rm" data-rmanexo="${l.id}" aria-label="Remover anexo">×</button>
+    ` : `
+      <label class="anexo-add" title="Anexar nota fiscal ou foto">
+        <input type="file" accept="image/*,application/pdf" capture="environment" data-anexorow="${l.id}">
+        <span>+</span>
+      </label>
+    `}</td>
     <td><button class="rm" data-del="${l.id}" aria-label="Excluir">✕</button></td>
   </tr>`;
 }
@@ -277,7 +362,7 @@ function linhaHtml(l){
 function renderStage(){
   const f = filtrados();
   $("tbody").innerHTML = f.length ? f.map(linhaHtml).join("") :
-    `<tr class="vazio"><td colspan="8">Nenhum lançamento neste filtro ainda.</td></tr>`;
+    `<tr class="vazio"><td colspan="9">Nenhum lançamento neste filtro ainda.</td></tr>`;
 }
 
 function renderResumo(){
@@ -291,13 +376,16 @@ function renderResumo(){
       <div class="calc-row lucro ${t.saldo<0?"neg":""}"><span>Saldo do período</span><b>${brl(t.saldo)}</b></div>
     </div>`;
   const cats = porCategoria();
+  const maxCat = Math.max(1, ...cats.map(c=>c.total));
   $("porcat").innerHTML = !cats.length ? "" : `
     <div class="mini">Por categoria — ${esc(rotulo)}</div>
-    <table class="dt fx-cat">
-      <tbody>
-        ${cats.map(c=>`<tr><td class="l">${esc(c.categoria)}</td><td>${c.tipo==="entrada"?"Entrada":"Saída"}</td><td class="v ${c.tipo}">${brl(c.total)}</td></tr>`).join("")}
-      </tbody>
-    </table>`;
+    ${cats.map(c=>{
+      const pct = Math.max(4, Math.round((c.total/maxCat)*100));
+      return `<div class="dash-cat">
+        <div class="dash-cat-top"><span>${esc(c.categoria)}</span><b class="${c.tipo}">${brl(c.total)}</b></div>
+        <div class="dash-cat-bar"><i class="${c.tipo}" style="width:${pct}%"></i></div>
+      </div>`;
+    }).join("")}`;
 }
 
 /* ---------- eventos ---------- */
@@ -330,6 +418,28 @@ on("change", e=>{
   if(t.id==="fCategoria"){ S.filtro.categoria = t.value; salvar(); renderStage(); renderResumo(); return; }
   if(t.id==="qzTipo"){ $("qzCategoria").innerHTML = opcoes(S.categorias[t.value]); return; }
   if(t.id==="impJson" && t.files[0]){ importarBackup(t.files[0]); t.value=""; return; }
+
+  if(t.id==="qzAnexo" && t.files[0]){
+    const arquivo = t.files[0];
+    processarAnexo(arquivo).then(a=>{
+      if(!a) { t.value=""; return; }
+      anexoPendente = a;
+      if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Trocar arquivo";
+      $("qzAnexoPrev").innerHTML = anexoPendentePreviewHtml();
+    });
+    return;
+  }
+
+  if(t.dataset.anexorow){
+    const id = t.dataset.anexorow, arquivo = t.files[0];
+    if(!arquivo) return;
+    processarAnexo(arquivo).then(a=>{
+      if(!a) return;
+      const l = achar(id);
+      if(l){ l.anexo = a; salvar(); renderStage(); }
+    });
+    return;
+  }
 });
 
 on("click", e=>{
@@ -358,20 +468,30 @@ on("click", e=>{
       descricao: $("qzDescricao").value.trim(),
       forma: $("qzForma").value,
       status: $("qzStatus").value,
-      valor: +$("qzValor").value || 0
+      valor: +$("qzValor").value || 0,
+      anexo: anexoPendente
     });
     S.lancamentos.push(l);
+    anexoPendente = null;
     salvar(); renderStage(); renderResumo();
     $("qzDescricao").value = ""; $("qzValor").value = "0"; $("qzDescricao").focus();
+    if($("qzAnexo")) $("qzAnexo").value = "";
+    if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Anexar foto ou PDF";
+    $("qzAnexoPrev").innerHTML = "";
     return;
   }
 
-  if(b.id==="addrow"){
-    const l = novoLancamento();
-    S.lancamentos.push(l);
-    salvar(); renderStage(); renderResumo();
-    const novaLinha = root.querySelector(`[data-row="${l.id}"] [data-f="descricao"]`);
-    if(novaLinha) novaLinha.focus();
+  if(b.id==="qzAnexoRm"){
+    anexoPendente = null;
+    if($("qzAnexo")) $("qzAnexo").value = "";
+    if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Anexar foto ou PDF";
+    $("qzAnexoPrev").innerHTML = "";
+    return;
+  }
+
+  if(b.dataset.rmanexo){
+    const l = achar(b.dataset.rmanexo);
+    if(l){ l.anexo = null; salvar(); renderStage(); }
     return;
   }
 
@@ -404,12 +524,11 @@ const TEMPLATE = `
         <div class="fx-scroll">
           <table class="fx-tbl">
             <thead><tr>
-              <th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Status</th><th>Valor</th><th></th>
+              <th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Status</th><th>Valor</th><th>Anexo</th><th></th>
             </tr></thead>
             <tbody id="tbody"></tbody>
           </table>
         </div>
-        <button class="btn ghost" id="addrow" type="button" style="margin:16px">+ Novo lançamento</button>
       </div>
       <div id="porcat"></div>
     </div>

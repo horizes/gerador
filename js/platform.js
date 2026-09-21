@@ -61,6 +61,7 @@ function telaInicial(){
   <section class="home">
     <h1 class="home-motto">A pessoa certa no lugar certo faz a diferença</h1>
     <p class="home-sub">Ferramentas internas da Imperium Terceirização e Serviços.</p>
+    ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ""}
     <h2 class="home-h">Ferramentas</h2>
     <ul class="home-list">
       ${modulos.map(m => `

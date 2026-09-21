@@ -24,7 +24,7 @@ button.rm.wide:hover{background:#241212;border-color:#7A3B3B}
 
 .fx-card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
 .fx-scroll{overflow-x:auto}
-table.fx-tbl{width:100%;border-collapse:collapse;min-width:900px}
+table.fx-tbl{width:100%;border-collapse:collapse;min-width:970px}
 table.fx-tbl th{
   text-align:left;font-family:'Oswald';font-weight:400;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted);padding:12px 10px;border-bottom:1px solid var(--rule);white-space:nowrap;
@@ -48,11 +48,41 @@ table.fx-tbl .rm{background:none;border:1px solid var(--rule);color:var(--muted)
   width:30px;height:30px;line-height:1;cursor:pointer}
 table.fx-tbl .rm:hover{border-color:#7A3B3B;color:#E59A9A}
 
-table.fx-cat{margin-top:2px}
-table.fx-cat td.v.entrada{color:#8FD39C}
-table.fx-cat td.v.saida{color:#E59A9A}
-#porcat{margin-top:22px;max-width:520px}
+#porcat{margin-top:22px;max-width:560px}
 #porcat .mini{color:var(--muted)}
+
+/* anexo (nota fiscal / foto) — no formulário de novo lançamento */
+.anexo-input{
+  display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  background:var(--field);border:1px dashed var(--rule);border-radius:3px;
+  padding:10px;font-size:12.5px;color:var(--muted);text-align:center;
+}
+.anexo-input:hover{border-color:var(--gold);color:var(--cream)}
+.anexo-input input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.anexo-prev{display:flex;align-items:center;gap:10px;margin:8px 0 12px;padding:7px 9px;background:#191509;border:1px solid #453E33;border-radius:4px}
+.anexo-prev .anexo-thumb{flex:0 0 auto;width:34px;height:34px;border-radius:3px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0E0D0B}
+.anexo-prev .anexo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.anexo-prev .anexo-nome{flex:1;min-width:0;font-size:12.5px;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.anexo-prev .anexo-rm{flex:0 0 auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;width:20px;height:20px}
+.anexo-prev .anexo-rm:hover{color:#E59A9A}
+
+/* anexo — coluna na planilha */
+table.fx-tbl td.anexo-cell{display:flex;align-items:center;gap:6px;padding:8px 6px}
+.anexo-cell .anexo-thumb{
+  flex:0 0 auto;width:30px;height:30px;border-radius:3px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;background:#0E0D0B;border:1px solid var(--rule);
+}
+.anexo-cell .anexo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.anexo-cell .anexo-ico{font-family:'Oswald';font-size:8.5px;letter-spacing:.04em;color:var(--gold)}
+.anexo-cell .anexo-rm{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:50%;
+  width:20px;height:20px;line-height:1;cursor:pointer;font-size:13px;flex:0 0 auto}
+.anexo-cell .anexo-rm:hover{border-color:#7A3B3B;color:#E59A9A}
+.anexo-add{
+  display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;
+  border:1px dashed var(--rule);border-radius:3px;color:var(--muted);cursor:pointer;font-size:15px;
+}
+.anexo-add:hover{border-color:var(--gold);color:var(--gold)}
+.anexo-add input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 
 @media screen and (max-width:1100px){
   .mod-fluxo.m-prev .rail{display:none}
