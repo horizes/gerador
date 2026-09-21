@@ -19,6 +19,7 @@ function register(m){ modulos.push(m); }
 const CATEGORIAS = [
   { id: "geradores",     nome: "Geradores" },
   { id: "financeiro",    nome: "Financeiro" },
+  { id: "uniformes",     nome: "Uniformes" },
   { id: "configuracoes", nome: "Configurações" }
 ];
 const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };
@@ -51,11 +52,53 @@ const icone = (paths) =>
 
 const ICO_INICIO = '<path d="M4 11l8-7 8 7"/><path d="M6 10v10h4v-6h4v6h4V10"/>';
 
+/* ---------- avisos: número no menu e mensagem que aparece por cima da tela ---------- */
+const badges = {};   // { idDoModulo: quantidade } — o módulo chama Platform.setBadge(id, n)
+const textoBadge = n => n > 99 ? "99+" : String(n);
+
+function setBadge(id, n){
+  badges[id] = n > 0 ? n : 0;
+  const a = document.querySelector(`.sd-item[data-mod="${id}"]`);
+  if(a){
+    let b = a.querySelector(".sd-badge");
+    if(!badges[id]){ if(b) b.remove(); a.removeAttribute("data-badge"); }
+    else{
+      if(!b){ b = document.createElement("span"); b.className = "sd-badge"; a.appendChild(b); }
+      b.textContent = textoBadge(badges[id]);
+      a.setAttribute("data-badge", "1");
+    }
+  }
+  const mb = $("menu");
+  if(mb) mb.classList.toggle("has-badge", Object.values(badges).some(v => v > 0));
+}
+
+// Mensagem rápida no canto da tela. Com `href`, vira um link (ex.: "#/uniforme_gestao"). Some sozinha em 8 s.
+function toast(texto, href){
+  let box = $("toasts");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "toasts"; box.className = "toasts";
+    box.setAttribute("aria-live", "polite");
+    document.body.appendChild(box);
+  }
+  const t = document.createElement(href ? "a" : "div");
+  t.className = "toast";
+  if(href) t.href = href;
+  t.textContent = texto;
+  box.appendChild(t);
+  const sumir = () => { t.classList.add("out"); setTimeout(() => t.remove(), 300); };
+  const timer = setTimeout(sumir, 8000);
+  t.addEventListener("click", () => { clearTimeout(timer); t.remove(); });
+}
+
 /* ---------- barra lateral ---------- */
 function renderNav(id){
-  const item = (rota, paths, rotulo, ativo) =>
-    `<a class="sd-item" href="#/${rota}"${ativo ? ' aria-current="page"' : ""}>` +
-    `<span class="sd-ico">${icone(paths)}</span><span class="sd-lbl">${rotulo}</span></a>`;
+  const item = (rota, paths, rotulo, ativo) => {
+    const n = badges[rota] || 0;
+    return `<a class="sd-item" href="#/${rota}" data-mod="${rota}"${n ? ' data-badge="1"' : ""}${ativo ? ' aria-current="page"' : ""}>` +
+      `<span class="sd-ico">${icone(paths)}</span><span class="sd-lbl">${rotulo}</span>` +
+      (n ? `<span class="sd-badge">${textoBadge(n)}</span>` : "") + `</a>`;
+  };
   const grupos = agrupar(modulosVisiveis());
   $("nav").innerHTML =
     item("", ICO_INICIO, "Início", id === "") +
@@ -165,6 +208,8 @@ function iniciar(){
     if(e.key === "Escape" && $("shell").classList.contains("drawer-open")){ gaveta(false); $("menu").focus(); }
   });
   window.addEventListener("hashchange", ir);
+  // módulos que precisam de algo assim que a pessoa entra (ex.: contar pedidos novos para o número do menu)
+  modulosVisiveis().forEach(m => { if(m.aoIniciar){ try{ m.aoIniciar(); }catch(e){} } });
   ir();
 }
 
@@ -175,5 +220,5 @@ function modulosConfiguraveis(){
     .flatMap(g => g.itens.map(m => ({ id: m.id, nome: m.nome, categoria: g.cat.nome })));
 }
 
-window.Platform = { register, iniciar, modulosConfiguraveis };
+window.Platform = { register, iniciar, modulosConfiguraveis, setBadge, toast };
 })();

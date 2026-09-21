@@ -166,6 +166,48 @@
   .mod-row,.mod-go,.sd-item{transition:background-color .15s,border-color .15s,color .15s}
 }
 
+/* ---------- Avisos: número no menu e mensagens rápidas ---------- */
+/* nomes longos de ferramenta (ex.: "Solicitações de uniforme") quebram em duas linhas em vez de cortar */
+.sd-lbl{line-height:1.15;min-width:0}
+@container side (min-width:141px){
+  .sd-lbl{white-space:normal}
+  .sd-item[data-badge] .sd-lbl{padding-right:38px}
+}
+.sd-badge{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--gold);color:#17130A;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald';font-weight:600;font-size:12px;letter-spacing:.02em;line-height:1;
+}
+/* menu recolhido (só ícones): o número vira uma bolinha no canto do ícone */
+@container side (max-width:140px){
+  .sd-badge{right:12px;top:8px;transform:none;min-width:17px;height:17px;padding:0 4px;font-size:10px;border-radius:9px}
+}
+@media (max-width:1100px){
+  .mb-menu{position:relative}
+  .mb-menu.has-badge::after{
+    content:"";position:absolute;top:9px;right:9px;width:10px;height:10px;border-radius:50%;
+    background:var(--gold);border:2px solid var(--panel);
+  }
+}
+
+.toasts{
+  position:fixed;right:18px;bottom:18px;z-index:120;display:flex;flex-direction:column;gap:10px;
+  width:min(360px,calc(100vw - 36px));pointer-events:none;
+}
+.toast{
+  pointer-events:auto;display:block;padding:13px 16px;border-radius:6px;cursor:pointer;
+  background:var(--panel-2);border:1px solid #6B5620;border-left:3px solid var(--gold);
+  color:var(--cream);font-size:14px;line-height:1.4;text-decoration:none;
+  box-shadow:0 12px 32px rgba(0,0,0,.55);
+}
+a.toast:hover{background:#26221A}
+.toast.out{opacity:0;transform:translateY(6px)}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:toast-in .2s ease-out;transition:opacity .25s,transform .25s}
+}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px)}}
+
 @media print{
   .side,.mobbar,.scrim{display:none !important}
   .shell{display:block;min-height:0}

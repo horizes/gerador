@@ -1,0 +1,214 @@
+/* Uniformes — "Solicitar uniforme" e "Solicitações de uniforme" (mesmas cores e fontes do resto da plataforma) */
+
+.mod-uni [hidden],.uni-modal [hidden]{display:none !important}
+
+.uni-wrap{max-width:1040px;margin:0 auto;padding:44px 26px 96px}
+.uni-h{margin:0;font-family:'Oswald';font-weight:500;font-size:clamp(26px,4vw,36px);color:var(--cream)}
+.uni-sub{margin:10px 0 26px;color:var(--muted);font-size:15px;max-width:62ch}
+.uni-h2{margin:0;font-family:'Oswald';font-weight:400;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream)}
+
+.uni-card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:20px 22px;margin-bottom:22px}
+.uni-card>.uni-h2{margin-bottom:16px}
+.uni-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.uni-hint{margin:0 0 18px;color:var(--muted);font-size:13px;line-height:1.5;max-width:70ch}
+.uni-salvo{font-size:12.5px;color:#8FD39C;min-height:1em}
+.uni-vazio{margin:22px 0;text-align:center;color:var(--muted);font-size:14px}
+.uni-alerta{
+  background:#2A1F0E;border:1px solid #6B4E1A;color:#EBCB8B;border-radius:8px;
+  padding:12px 16px;margin:24px 0;font-size:13.5px;line-height:1.55;
+}
+.uni-erro{margin:0 0 14px;padding:10px 12px;border:1px solid #6B2F2A;background:#231110;color:#E59A9A;border-radius:4px;font-size:13.5px}
+
+/* aviso de pedido pronto para retirada */
+.uni-destaque{
+  display:flex;flex-direction:column;gap:2px;margin:0 0 22px;padding:14px 18px;
+  background:#191509;border:1px solid #6B5620;border-left:3px solid var(--gold);border-radius:6px;
+}
+.uni-destaque b{font-family:'Oswald';font-weight:500;font-size:16px;color:var(--gold-hi)}
+.uni-destaque span{font-size:14px;color:var(--cream)}
+
+/* ---------- formulário de itens ---------- */
+.uni-linha{
+  display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(120px,.8fr) 84px minmax(170px,1.5fr) 38px;
+  gap:10px;align-items:end;margin-bottom:12px;
+}
+.uni-linha label.f{margin:0}
+.uni-linha .rm{height:38px;width:38px;padding:0;font-size:13px}
+.uni-linha .rm:disabled{opacity:.35;cursor:not-allowed}
+.uni-linha select:disabled{opacity:.55}
+#uniAddLinha{margin-top:4px}
+#uniEnviar{min-width:220px}
+
+/* ---------- cartão de pedido ---------- */
+.uni-ped{background:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin-bottom:14px}
+.uni-ped.st-pendente{border-left:3px solid var(--warn)}
+.uni-ped.st-pronto,.uni-ped.st-parcial{border-left:3px solid var(--gold)}
+.uni-ped.st-concluido{border-left:3px solid var(--ok)}
+.uni-ped.st-recusado{border-left:3px solid #8C4A42}
+.uni-ped.st-cancelado{opacity:.6}
+.uni-ped-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.uni-ped-h b{display:block;font-family:'Oswald';font-weight:500;font-size:17px;letter-spacing:.02em;color:var(--cream)}
+.uni-ped-h small{display:block;color:var(--muted);font-size:13px}
+
+.uni-badge{
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;
+  border:1px solid var(--rule);color:var(--muted);white-space:nowrap;
+}
+.uni-badge.ok{color:#8FD39C;border-color:#2F5A3A;background:#12200F}
+.uni-badge.warn{color:#EBCB8B;border-color:#6B4E1A;background:#231A0B}
+.uni-badge.bad{color:#E59A9A;border-color:#6B2F2A;background:#231110}
+.uni-badge.gold{color:var(--gold-hi);border-color:#6B5620;background:#1F190A}
+
+.uni-itens{list-style:none;margin:14px 0 0;padding:0;border-top:1px solid #221F1A}
+.uni-itens li{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #221F1A;font-size:14.5px}
+.uni-chk{
+  flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:1px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;color:#17130A;
+}
+.uni-itens li.rec .uni-chk{background:var(--ok);border-color:var(--ok)}
+.uni-itens li.rec .uni-it-nome{color:var(--muted)}
+.uni-it-nome{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.uni-it-nome b{font-weight:600}
+.uni-it-nome em{font-style:normal;color:var(--muted);font-size:13px}
+.uni-tag{
+  font-family:'Oswald';font-size:12px;letter-spacing:.06em;padding:1px 8px;border-radius:3px;
+  background:#191509;border:1px solid #453E33;color:var(--gold-hi);
+}
+.uni-it-qtd{flex:0 0 auto;font-family:'Oswald';font-size:15px;color:var(--cream)}
+
+.uni-obs{margin:12px 0 0;font-size:14px;color:var(--cream);line-height:1.5}
+.uni-obs span{color:var(--muted)}
+.uni-obs.resp{padding:9px 12px;background:#191509;border-left:2px solid var(--gold);border-radius:0 4px 4px 0}
+.uni-nota{margin:12px 0 0;font-size:13.5px;color:var(--muted)}
+.uni-nota b{color:var(--cream);font-weight:600}
+.uni-ped-f{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #221F1A}
+
+/* assinaturas de recebimento (foto + local) */
+.uni-recs{margin-top:16px}
+.uni-recs .mini{margin:0 0 8px}
+.uni-rec{display:flex;gap:14px;padding:10px 0;border-top:1px solid #221F1A}
+.uni-rec-foto{
+  flex:0 0 96px;width:96px;height:96px;border-radius:6px;overflow:hidden;background:#0E0D0B;border:1px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;
+}
+.uni-rec-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.uni-rec-txt{display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--cream);min-width:0}
+.uni-rec-txt b{font-weight:600}
+.uni-rec-txt a{color:var(--gold);width:max-content}
+.uni-atencao{color:#EBCB8B;font-size:12.5px}
+
+/* ---------- Solicitações: abas, filtros, resumo, busca ---------- */
+.uni-abas{display:flex;gap:4px;margin-bottom:22px;border-bottom:1px solid var(--rule)}
+.uni-abas button{
+  background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:12px 18px;cursor:pointer;
+  font-family:'Oswald';font-weight:400;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.uni-abas button:hover{color:var(--cream)}
+.uni-abas button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.uni-abas i{
+  font-style:normal;display:inline-block;min-width:20px;padding:1px 6px;margin-left:6px;border-radius:10px;
+  background:var(--gold);color:#17130A;font-size:11.5px;font-weight:600;text-align:center;letter-spacing:0;
+}
+
+.uni-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.uni-stat{
+  text-align:left;background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+  padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:2px;
+}
+.uni-stat:hover{background:var(--panel-2);border-color:#4A4235}
+.uni-stat.on{border-color:var(--gold);background:var(--panel-2)}
+.uni-stat b{font-family:'Oswald';font-weight:500;font-size:28px;line-height:1.1;color:var(--cream)}
+.uni-stat span{font-size:12.5px;color:var(--muted)}
+
+.uni-det{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin-bottom:18px}
+.uni-det>summary{
+  list-style:none;cursor:pointer;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;
+  font-family:'Oswald';font-weight:400;letter-spacing:.09em;text-transform:uppercase;font-size:13px;color:var(--cream);
+}
+.uni-det>summary::-webkit-details-marker{display:none}
+.uni-det>summary:hover{background:var(--panel-2)}
+.uni-det>summary .chev{color:var(--gold);font-size:11px;transition:transform .18s}
+.uni-det[open]>summary .chev{transform:rotate(90deg)}
+.uni-chips{display:flex;flex-wrap:wrap;gap:8px;padding:6px 16px 16px}
+.uni-chip{
+  display:inline-flex;gap:6px;align-items:baseline;background:#191509;border:1px solid #453E33;border-radius:20px;
+  padding:5px 12px;font-size:13.5px;color:var(--cream);
+}
+.uni-chip b{font-family:'Oswald';font-weight:500;color:var(--gold-hi)}
+
+.uni-busca{margin-bottom:16px}
+.uni-busca input[type=search]{
+  width:100%;background:var(--field);border:1px solid var(--rule);border-radius:3px;padding:10px 12px;color:var(--cream);
+}
+.uni-busca input[type=search]:hover{border-color:#453E33}
+
+/* ---------- tipos de uniforme ---------- */
+.uni-tipo{
+  display:grid;grid-template-columns:minmax(140px,1fr) minmax(200px,1.8fr) 130px 38px;gap:10px;align-items:end;
+  padding:12px 0;border-top:1px solid #221F1A;
+}
+.uni-tipo label.f{margin:0}
+.uni-tipo .rm{height:38px;width:38px;padding:0;font-size:13px}
+.uni-tipo.novo{grid-template-columns:minmax(140px,1fr) minmax(200px,1.8fr) auto;margin-top:8px;padding-top:18px;border-top:1px solid var(--rule)}
+.uni-sw{display:flex;align-items:center;gap:8px;height:38px;font-size:14px;cursor:pointer}
+.uni-sw input{accent-color:var(--gold);width:16px;height:16px}
+
+/* ---------- janela de confirmação ---------- */
+.uni-modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.uni-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.72)}
+.uni-modal-box{
+  position:relative;width:100%;max-width:540px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;
+  background:var(--panel);border:1px solid #4A4235;border-radius:10px;padding:24px 24px 20px;
+  box-shadow:0 24px 60px rgba(0,0,0,.7);
+}
+.uni-m-h{margin:0;font-family:'Oswald';font-weight:500;font-size:22px;color:var(--cream)}
+.uni-m-sub{margin:8px 0 18px;color:var(--muted);font-size:14px;line-height:1.5}
+.uni-m-sec{margin-bottom:18px;padding-top:16px;border-top:1px solid #221F1A}
+.uni-m-sec .mini{margin:0 0 8px}
+.uni-m-top{display:flex;justify-content:space-between;align-items:center}
+.uni-m-top .mini{margin:0}
+.uni-link{background:none;border:none;padding:0;cursor:pointer;color:var(--gold);font-size:13px;text-decoration:underline;text-underline-offset:2px}
+.uni-link:hover{color:var(--gold-hi)}
+.uni-sel{list-style:none;margin:6px 0 0;padding:0}
+.uni-m-act{
+  display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;padding-top:14px;
+  position:sticky;bottom:-20px;background:var(--panel);border-top:1px solid #221F1A;  /* botões sempre à vista, mesmo com a janela rolando */
+}
+.uni-modal .uni-erro{margin-top:14px}
+.uni-modal textarea{min-height:90px}
+
+.uni-cam-vid,.uni-cam-prev{width:100%;aspect-ratio:4/3;border-radius:8px;background:#000;overflow:hidden;display:block;object-fit:cover;border:1px solid var(--rule)}
+.uni-cam-vid video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}  /* espelhado só na tela, como um espelho */
+.uni-cam-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.uni-cam-btns label.btn{cursor:pointer}
+.uni-cam-msg{margin:10px 0 0;font-size:13.5px;color:#EBCB8B;line-height:1.5}
+.uni-loc{margin:10px 0 0;font-size:13.5px;color:var(--cream);line-height:1.5;min-height:1.5em}
+.uni-consent{align-items:flex-start;margin:4px 0 0;padding:12px 0;border-top:1px solid #221F1A;border-bottom:none}
+.uni-consent input{margin-top:3px}
+.uni-consent span{font-size:13.5px;line-height:1.5;color:var(--cream)}
+
+@media (max-width:860px){
+  .uni-wrap{padding:28px 16px 72px}
+  .uni-linha{grid-template-columns:1fr 1fr;align-items:end}
+  .uni-linha>label:first-child,.uni-linha .uni-linha-obs{grid-column:1 / -1}
+  .uni-linha .uni-qtd{grid-column:auto}
+  .uni-linha{padding-bottom:14px;border-bottom:1px solid #221F1A}
+  .uni-linha .rm{width:100%;grid-column:1 / -1}
+  .uni-stats{grid-template-columns:1fr 1fr}
+  .uni-tipo,.uni-tipo.novo{grid-template-columns:1fr 1fr}
+  .uni-tipo>label.f:nth-child(2){grid-column:1 / -1}
+  .uni-tipo.novo .btn{grid-column:1 / -1}
+  .uni-tipo .rm{width:100%}
+  .uni-abas button{padding:12px 12px}
+}
+@media (max-width:520px){
+  .uni-modal{padding:0;align-items:flex-end}
+  .uni-modal-box{max-width:none;border-radius:12px 12px 0 0;max-height:94dvh}
+  .uni-m-act .btn{flex:1}
+  .uni-rec-foto{flex-basis:78px;width:78px;height:78px}
+  #uniEnviar{width:100%}
+}
+
+/* campos da mesma altura nas linhas de item e de tipo */
+.uni-linha select,.uni-linha input[type=text],.uni-linha input[type=number],
+.uni-tipo select,.uni-tipo input[type=text]{height:38px}

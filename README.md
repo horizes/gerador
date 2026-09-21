@@ -4,7 +4,7 @@ Site estático (HTML + CSS + JS puro) — não precisa de build nem de Node. Ago
 e um **banco de dados compartilhado** (Supabase): os lançamentos do Fluxo de Caixa não ficam mais presos a
 um navegador, qualquer pessoa da equipe que fizer login vê e edita os mesmos dados.
 
-Hoje a plataforma tem duas ferramentas: o **Gerador de propostas** (como antes, com o rascunho salvo só no
+Hoje a plataforma tem quatro ferramentas (o grupo **Uniformes** tem duas, veja a seção **Uniformes**, abaixo): o **Gerador de propostas** (como antes, com o rascunho salvo só no
 navegador de quem está editando) e o **Fluxo de caixa**, para lançar entradas e saídas, acompanhar o saldo
 por período e exportar para planilha — agora com os dados no banco. A tela inicial também mostra um
 **painel (dashboard)** com o resumo do Fluxo de Caixa.
@@ -32,7 +32,9 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    e senha e marque **Auto Confirm User** (assim a pessoa já entra sem precisar confirmar e-mail). Não há
    cadastro público no site — só o administrador cria contas por aqui. A pessoa aparece sozinha na tela
    **Usuários** do site, sem acesso a nada até você configurar o nível dela.
-5. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
+5. **Uniformes (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run, depois dos
+   três scripts acima) e libere as ferramentas na tela **Usuários** — veja a seção **Uniformes**, abaixo.
+6. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
    projeto Supabase, atualize as duas constantes no topo desse arquivo.
 
 ## Hierarquia de acesso
@@ -68,6 +70,61 @@ são salvas na hora, sem botão "Salvar":
 Pronto — publicando os arquivos normalmente (veja "Como publicar" abaixo), a tela de login aparece antes
 da plataforma.
 
+## Uniformes
+
+Duas ferramentas ligadas pelo mesmo banco, no grupo **Uniformes** do menu:
+
+- **Solicitar uniforme** (id `uniforme_solicitar`): a pessoa monta o pedido (tipo, tamanho, quantidade e observação de
+  cada item, quantos itens quiser) e acompanha o andamento em **Meus pedidos**. Quando o pedido fica pronto, ela
+  toca em **Recebi o uniforme**, marca o que recebeu (ou tudo) e assina com uma foto.
+- **Solicitações de uniforme** (id `uniforme_gestao`): é a tela do responsável. Mostra quem pediu, o que pediu
+  (tipo, tamanho, quantidade), permite **marcar como pronto para retirada** (com mensagem opcional, ex.: "retirar no RH")
+  ou **recusar** (com motivo), mostra as assinaturas de recebimento e tem a aba **Tipos de uniforme**, onde quem tem
+  acesso à tela cria, renomeia, define os tamanhos, desativa ou apaga tipos (salva na hora). Também tem um resumo
+  "O que separar", somando os itens dos pedidos aguardando.
+
+**Configurar (uma vez):** rode `supabase-schema-uniformes.sql` no SQL Editor (depois dos outros scripts; pode rodar de
+novo sem problema). Ele cria as tabelas, as regras de segurança, o bucket **privado** `uniforme-assinaturas` (não precisa
+criar à mão) e os tipos iniciais (Camiseta, Calça, Sapato, Bata, Jaqueta e Boné). Depois, na tela **Usuários**, libere
+**Solicitar uniforme** para os colaboradores (dica: crie um nível "Colaborador" com essa ferramenta marcada) e
+**Solicitações de uniforme** para a pessoa responsável. Admin tem as duas automaticamente.
+
+**Avisos:** quando alguém faz um pedido, o responsável vê na hora um aviso no canto da tela e um número no item do
+menu (pedidos aguardando). Quando o pedido fica pronto, quem pediu recebe o aviso e o número no menu dele. Usa o
+Realtime do Supabase; se o projeto não tiver Realtime, o número do menu se atualiza sozinho a cada 2 minutos e ao voltar
+para a aba.
+
+**Andamento do pedido:** Aguardando → Pronto para retirada → (Entrega parcial) → Concluído. Também pode ficar Recusado
+(pelo responsável) ou Cancelado (por quem pediu, só enquanto está aguardando). "Recebi o uniforme" só aparece depois
+que o responsável marca como pronto. Se a pessoa marcar só parte dos itens, o pedido vira "Entrega parcial" e ela
+confirma o restante depois, com outra assinatura. O pedido só fica Concluído quando todos os itens foram recebidos.
+
+**Assinatura digital (foto):** a janela abre a câmera frontal e pede a localização. A foto sai com uma faixa gravada na
+própria imagem: pedido, nome, data, hora e local (endereço e coordenadas). Detalhes:
+
+- A câmera e a localização só funcionam em **https** (a hospedagem precisa estar com o certificado ativo) e a pessoa
+  precisa permitir os dois acessos no navegador. Sem a localização não dá para assinar.
+- Se o navegador não abrir a câmera (ex.: navegador dentro de outro aplicativo), aparece o botão "Tirar foto pelo
+  aparelho". Nesse caso o sistema registra que a foto veio do seletor de arquivos e a tela do responsável mostra um
+  aviso, porque esse caminho não garante que a foto foi tirada na hora.
+- O **endereço** vem do serviço gratuito Nominatim (OpenStreetMap), consultado pelo navegador. Se ele estiver fora do ar,
+  a faixa mostra só as coordenadas. A data e a hora que **valem** são as do servidor, gravadas no banco (a do aparelho
+  aparece só na foto e é informativa).
+- As fotos ficam no bucket privado, em `<id da pessoa>/arquivo.jpg`. Só a própria pessoa e quem tem acesso à tela de
+  solicitações conseguem ver, por links temporários de 1 hora. Não há botão nem regra para apagar ou trocar uma
+  assinatura já enviada.
+- **LGPD:** foto do rosto e localização são dados pessoais. A janela traz o texto de autorização que a pessoa marca
+  antes de confirmar, mas vale avisar a equipe sobre essa coleta e definir por quanto tempo as fotos ficam guardadas.
+
+**Segurança:** as regras (RLS) valem no banco, não só na tela. Cada pessoa só enxerga os próprios pedidos; o
+responsável enxerga todos; quem pediu só consegue cancelar (e só enquanto aguarda). Criar pedido e confirmar recebimento
+passam por funções do banco que conferem tipo, tamanho, quantidade, dono do pedido, itens ainda não recebidos e se a
+foto realmente foi enviada.
+
+**Limites atuais:** a lista mostra os 300 pedidos mais recentes; não existe exclusão de pedidos pela tela (para limpar
+pedidos de teste, use **Table Editor** do Supabase); o solicitante é sempre a própria pessoa logada (ninguém pede em nome
+de outra).
+
 ## Estrutura
 
 ```
@@ -75,6 +132,7 @@ index.html                 casca da plataforma (tela de login + barra lateral + 
 supabase-schema.sql        script para rodar uma vez no SQL Editor do Supabase (tabelas, segurança, categorias)
 supabase-schema-permissoes.sql  script da hierarquia de acesso (perfis, níveis de permissão, RLS por módulo)
 supabase-schema-usuarios.sql    permissões por pessoa (perfil_modulos) e listagem completa da tela Usuários
+supabase-schema-uniformes.sql   uniformes: tabelas, segurança (RLS), funções, bucket privado das assinaturas e tipos iniciais
 css/base.css               cores, tipografia, campos e botões compartilhados
 css/auth.css                tela de login
 css/platform.css           barra lateral, menu do celular e tela inicial
@@ -82,6 +140,7 @@ css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão
 css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
 css/dashboard.css          painel (dashboard) da tela inicial
 css/usuarios.css           tela "Usuários" (pessoas, permissões por ferramenta e níveis)
+css/uniformes.css          "Solicitar uniforme" e "Solicitações de uniforme" (formulário, pedidos, janela de recebimento)
 js/supabase.js              conexão com o Supabase (URL + chave do projeto)
 js/perfil.js                carrega o papel/nível/módulos permitidos da pessoa logada
 js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
@@ -90,6 +149,7 @@ js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caix
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
 js/modules/usuarios.js     tela "Usuários" (só para admin): lista as contas, mostra quem pode logar e libera ferramentas por pessoa/nível
+js/modules/uniformes.js    as duas ferramentas de uniforme (pedido, atendimento, tipos, assinatura por foto) e os avisos do menu
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
 robots.txt                 bloqueia indexação por buscadores
@@ -147,6 +207,7 @@ O menu lateral e a tela inicial separam as ferramentas por classificação, cada
 | --- | --- | --- |
 | Geradores | `geradores` | Gerador de propostas |
 | Financeiro | `financeiro` | Fluxo de caixa |
+| Uniformes | `uniformes` | Solicitar uniforme, Solicitações de uniforme |
 | Configurações | `configuracoes` | Usuários |
 
 - A lista e a ordem dos grupos ficam em `CATEGORIAS`, no início de `js/platform.js`. Para criar um grupo novo
