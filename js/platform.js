@@ -13,6 +13,16 @@ const CHAVE_MENU = "imperium_menu";   // "open" | "closed" (preferência do menu
 
 function register(m){ modulos.push(m); }
 
+// Só mostra o módulo se: for admin (vê tudo), ou o nível da pessoa liberar esse módulo,
+// ou for uma ferramenta marcada soAdmin (ex.: "Usuários") — aí só admin mesmo vê.
+function podeVer(m){
+  const perfil = window.Imperium && window.Imperium.perfil;
+  if(!perfil) return false;
+  if(m.soAdmin) return perfil.admin;
+  return perfil.podeVer(m.id);
+}
+function modulosVisiveis(){ return modulos.filter(podeVer); }
+
 function rotaAtual(){
   return location.hash.replace(/^#\/?/, "").split("/")[0];
 }
@@ -27,10 +37,11 @@ function renderNav(id){
   const item = (rota, paths, rotulo, ativo) =>
     `<a class="sd-item" href="#/${rota}"${ativo ? ' aria-current="page"' : ""}>` +
     `<span class="sd-ico">${icone(paths)}</span><span class="sd-lbl">${rotulo}</span></a>`;
+  const visiveis = modulosVisiveis();
   $("nav").innerHTML =
     item("", ICO_INICIO, "Início", id === "") +
-    (modulos.length ? '<div class="sep"></div>' : "") +
-    modulos.map(m => item(m.id, m.icone, m.menu, id === m.id)).join("");
+    (visiveis.length ? '<div class="sep"></div>' : "") +
+    visiveis.map(m => item(m.id, m.icone, m.menu, id === m.id)).join("");
 }
 
 function lerPreferencia(){
@@ -65,7 +76,7 @@ function telaInicial(){
     ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ""}
     <h2 class="home-h">Ferramentas</h2>
     <ul class="home-list">
-      ${modulos.map(m => `
+      ${modulosVisiveis().map(m => `
       <li>
         <a class="mod-row" href="#/${m.id}">
           <span class="mod-ico">${icone(m.icone)}</span>
@@ -80,7 +91,7 @@ function telaInicial(){
 /* ---------- rotas ---------- */
 function ir(){
   const id = rotaAtual();
-  const m = modulos.find(x => x.id === id) || null;
+  const m = modulosVisiveis().find(x => x.id === id) || null; // também barra acesso direto pela URL
   if(id && !m) history.replaceState(null, "", "#/");
 
   if(atual && atual.unmount) atual.unmount();
@@ -126,5 +137,9 @@ function iniciar(){
   ir();
 }
 
-window.Platform = { register, iniciar };
+// para a tela "Usuários" montar as checkboxes de cada nível (só as ferramentas de verdade,
+// não a própria tela de admin)
+function modulosConfiguraveis(){ return modulos.filter(m => !m.soAdmin).map(m => ({ id: m.id, nome: m.nome })); }
+
+window.Platform = { register, iniciar, modulosConfiguraveis };
 })();

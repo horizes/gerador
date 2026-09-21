@@ -71,12 +71,23 @@ function entrar(){
 // do Supabase com sessão ainda vazia (antes de carregar o que estava salvo) seja
 // confundido com um logout de verdade e fique recarregando a página sem parar.
 let sessaoAtual = null;
-function aplicarSessao(sessao){
+let perfilValidado = false; // já conferimos o perfil (papel/nível) desta sessão?
+async function aplicarSessao(sessao){
   if(sessao){
     sessaoAtual = sessao;
+    if(perfilValidado){ return; } // sessão já validada e plataforma já aberta
+    const perfil = await window.Imperium.carregarPerfil();
+    if(!perfil){
+      // login certo, mas sem permissão configurada (ou conta desativada): não deixa entrar
+      sessaoAtual = null;
+      await sb.auth.signOut();
+      erro("Seu acesso ainda não foi liberado, ou foi desativado. Fale com o administrador.");
+      return;
+    }
+    perfilValidado = true;
     entrar();
-  }else if(sessaoAtual){
-    sessaoAtual = null;
+  }else if(sessaoAtual || perfilValidado){
+    sessaoAtual = null; perfilValidado = false;
     location.reload(); // logout de verdade: recarrega para zerar o estado dos módulos
   }else{
     mostrar("login");

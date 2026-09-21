@@ -19,11 +19,38 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    o link — não aparecem em nenhuma lista pública). Depois disso, rode de novo só a parte final do
    `supabase-schema.sql` (as 3 políticas de `storage.objects`), caso o bucket ainda não existisse na
    primeira vez que você rodou o script.
-3. **Crie uma conta para cada pessoa da equipe:** em **Authentication > Users > Add user**, informe e-mail
+3. **Rode o SQL da hierarquia de acesso:** ainda no SQL Editor, cole o conteúdo de
+   `supabase-schema-permissoes.sql` e clique em **Run**. Isso cria os "níveis de permissão" e a tabela de
+   perfis (veja a seção **Hierarquia de acesso**, abaixo). Depois de rodar, torne a si mesmo admin: no
+   final do arquivo há uma linha comentada `update perfis set papel = 'admin' where id = ...` — troque o
+   e-mail e rode só essa linha (você precisa fazer isso manualmente uma vez; depois, tudo o resto — criar
+   níveis, promover outras pessoas a admin — é feito pela tela **Usuários** dentro do site).
+4. **Crie uma conta para cada pessoa da equipe:** em **Authentication > Users > Add user**, informe e-mail
    e senha e marque **Auto Confirm User** (assim a pessoa já entra sem precisar confirmar e-mail). Não há
-   cadastro público no site — só o administrador cria contas por aqui.
-4. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
+   cadastro público no site — só o administrador cria contas por aqui. A pessoa aparece sozinha na tela
+   **Usuários** do site, sem acesso a nada até você configurar o nível dela.
+5. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
    projeto Supabase, atualize as duas constantes no topo desse arquivo.
+
+## Hierarquia de acesso
+
+Existe uma tela **Usuários** (só aparece para quem é admin) para configurar quem vê o quê:
+
+- **Níveis de permissão:** você cria os nomes que quiser (ex.: "Financeiro", "Comercial") e marca, com
+  uma caixinha por ferramenta, quais delas aquele nível libera. Pode ter quantos níveis quiser, e mudar
+  as ferramentas de um nível a qualquer momento — some/aparece no menu de quem tem esse nível na hora.
+- **Pessoas:** depois que você cria o login de alguém no Supabase (passo 4 acima), a pessoa aparece
+  automaticamente na lista. Ali você escolhe: o **nível** dela (o que ela vê), se é **admin** (admin vê
+  todas as ferramentas, sem precisar de nível — inclusive a própria tela Usuários), e se está **ativa**
+  (desmarcar bloqueia o login na hora, sem precisar apagar a conta no Supabase).
+- A restrição não é só visual: as regras de segurança do banco (RLS) também checam o nível antes de
+  deixar ler ou gravar os dados do Fluxo de Caixa — então mesmo alguém tentando acessar direto pela URL
+  ou pela API não vê dados de um módulo que o nível dela não libera.
+- **Limitação atual:** o Gerador de propostas não usa banco de dados (o rascunho fica só no navegador de
+  quem está editando), então a permissão dele controla apenas se a ferramenta aparece no menu daquela
+  pessoa — não há dado compartilhado nesse módulo para proteger.
+- Veja `supabase-schema-permissoes.sql` para os detalhes técnicos (tabelas `perfis`, `niveis`,
+  `nivel_modulos`).
 
 Pronto — publicando os arquivos normalmente (veja "Como publicar" abaixo), a tela de login aparece antes
 da plataforma.
@@ -33,18 +60,22 @@ da plataforma.
 ```
 index.html                 casca da plataforma (tela de login + barra lateral + área da ferramenta)
 supabase-schema.sql        script para rodar uma vez no SQL Editor do Supabase (tabelas, segurança, categorias)
+supabase-schema-permissoes.sql  script da hierarquia de acesso (perfis, níveis de permissão, RLS por módulo)
 css/base.css               cores, tipografia, campos e botões compartilhados
 css/auth.css                tela de login
 css/platform.css           barra lateral, menu do celular e tela inicial
 css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão)
 css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
 css/dashboard.css          painel (dashboard) da tela inicial
+css/usuarios.css           tela "Usuários" (níveis de permissão e pessoas)
 js/supabase.js              conexão com o Supabase (URL + chave do projeto)
-js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado
-js/platform.js             barra lateral, navegação (#/ e #/propostas), tela inicial e registro de módulos
+js/perfil.js                carrega o papel/nível/módulos permitidos da pessoa logada
+js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
+js/platform.js             barra lateral, navegação, tela inicial, registro de módulos e filtro por permissão
 js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caixa no Supabase e monta o resumo/gráfico
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
+js/modules/usuarios.js     tela "Usuários" (só para admin): cria níveis de permissão e configura o acesso de cada pessoa
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
 robots.txt                 bloqueia indexação por buscadores
@@ -131,8 +162,10 @@ fizer login vê e edita os **mesmos** dados, de qualquer computador ou celular. 
 ## Login
 
 A tela de login aparece antes de qualquer ferramenta. Não existe cadastro público: contas são criadas pelo
-administrador no painel do Supabase (**Authentication > Users**), uma por pessoa da equipe. Qualquer pessoa
-com login válido vê os mesmos dados do Fluxo de Caixa — não há separação "por usuário".
+administrador no painel do Supabase (**Authentication > Users**), uma por pessoa da equipe. Depois do login,
+a pessoa só vê as ferramentas que o nível dela libera (veja **Hierarquia de acesso**, acima) — quem tem
+acesso ao Fluxo de Caixa vê os mesmos dados que os outros com acesso a ele, já que continua sendo uma
+ferramenta compartilhada pela equipe (não há separação "por usuário" dentro de cada ferramenta).
 
 **Manter conectado:** a caixa na tela de login (ligada por padrão) decide onde a sessão fica guardada. Ligada, a
 pessoa continua logada mesmo depois de fechar o navegador. Desligada, a sessão vale só enquanto o navegador/aba

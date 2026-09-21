@@ -1,0 +1,31 @@
+/* Usuários — tela de administração (níveis de permissão e pessoas) */
+.usr-wrap{max-width:920px;margin:0 auto;padding:44px 26px 96px}
+.usr-wrap .mod-h{
+  margin:0;font-family:'Oswald';font-weight:500;font-size:clamp(26px,4vw,36px);color:var(--cream);
+}
+.usr-wrap .mod-sub{margin:10px 0 32px;color:var(--muted);font-size:15px;max-width:60ch}
+
+.usr-card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:20px 22px;margin-bottom:22px}
+.usr-h{
+  margin:0 0 6px;font-family:'Oswald';font-weight:400;font-size:14px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--cream);
+}
+.usr-hint{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+
+.usr-nivel{margin-bottom:10px}
+.usr-nivel .tg{border-bottom:1px solid #221F1A}
+.usr-del-nivel{margin-top:14px;font-size:11.5px;padding:8px 12px}
+
+.usr-novo-nivel{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.usr-novo-nivel input{flex:1 1 260px}
+.usr-novo-nivel .btn{flex:0 0 auto}
+
+.usr-tbl-wrap{overflow-x:auto}
+table.usr-tbl{width:100%;border-collapse:collapse;min-width:640px}
+table.usr-tbl input[type=checkbox]{accent-color:var(--gold);width:17px;height:17px}
+table.usr-tbl .usr-email{color:var(--muted);font-size:13px}
+table.usr-tbl .usr-salvar{font-size:11px;padding:8px 12px;white-space:nowrap}
+
+@media (max-width:640px){
+  .usr-wrap{padding:32px 16px 80px}
+}
