@@ -45,8 +45,10 @@ function ultimosMeses(n){
 }
 
 /* ---------- gráfico (SVG simples, sem dependências) ---------- */
-function graficoMeses(meses, porMes){
-  const W = 560, H = 190, padL = 6, padR = 6, padT = 10, padB = 26;
+function graficoMeses(meses, porMes, larg){
+  // larg = largura real disponível no celular: o desenho é feito nesse tamanho (sem encolher),
+  // para os meses continuarem legíveis. Sem larg (computador/tablet) usa o desenho padrão.
+  const W = larg || 560, H = larg ? 180 : 190, padL = 6, padR = 6, padT = 10, padB = 26;
   const areaW = W - padL - padR, areaH = H - padT - padB;
   const max = Math.max(1, ...meses.map(m => Math.max(porMes[m].entradas, porMes[m].saidas)));
   const grupo = areaW / meses.length;
@@ -63,7 +65,7 @@ function graficoMeses(meses, porMes){
     out += `<text x="${cx.toFixed(1)}" y="${H-8}" text-anchor="middle" class="dash-axis">${esc(MES_ABR[Number(m.slice(5,7))-1])}</text>`;
   });
   out += `<line x1="${padL}" y1="${(padT+areaH).toFixed(1)}" x2="${W-padR}" y2="${(padT+areaH).toFixed(1)}" stroke="#2F2A22"/>`;
-  return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="Entradas e saídas por mês">${out}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg${larg ? " compacto" : ""}" role="img" aria-label="Entradas e saídas por mês">${out}</svg>`;
 }
 
 function listaCategorias(cats, max){
@@ -78,7 +80,7 @@ function listaCategorias(cats, max){
 }
 
 /* ---------- montagem do conteúdo, a partir dos lançamentos já carregados ---------- */
-function conteudo(lanc){
+function conteudo(lanc, larg){
   const mesAtual = mesDe(hoje());
   const doMes = lanc.filter(l => mesDe(l.data) === mesAtual);
   const entradasMes = doMes.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+(+l.valor||0),0);
@@ -139,7 +141,7 @@ function conteudo(lanc){
     <div class="dash-row">
       <div class="dash-panel">
         <div class="mini">Entradas × saídas — últimos 6 meses</div>
-        ${graficoMeses(meses, porMes)}
+        ${graficoMeses(meses, porMes, larg)}
         <div class="dash-legend"><span><i class="in"></i>Entradas</span><span><i class="out"></i>Saídas</span></div>
       </div>
       <div class="dash-panel">
@@ -156,6 +158,27 @@ function html(){
     <p class="hint">Carregando painel…</p>
   </section>`;
 }
+
+const ehCelular = () => window.matchMedia("(max-width:560px)").matches;
+let ultimosDados = null;   // último resultado carregado (para redesenhar ao girar o celular)
+let modoCelular = null;
+
+function pintar(el){
+  modoCelular = ehCelular();
+  // largura útil dentro do quadro do gráfico (menos o preenchimento e a borda)
+  const larg = modoCelular ? Math.max(260, Math.min(520, el.clientWidth - 30)) : 0;
+  el.innerHTML = conteudo(ultimosDados, larg);
+}
+
+let tRedim = null;
+window.addEventListener("resize", ()=>{
+  clearTimeout(tRedim);
+  tRedim = setTimeout(()=>{
+    const el = document.getElementById("dashPainel");
+    // só redesenha quando muda entre "celular" e "maior" (a barra de endereço do celular também dispara resize)
+    if(el && ultimosDados && ultimosDados.length && ehCelular() !== modoCelular) pintar(el);
+  }, 200);
+});
 
 async function montar(){
   const el = document.getElementById("dashPainel");
@@ -174,7 +197,8 @@ async function montar(){
       </div>`;
     return;
   }
-  el.innerHTML = conteudo(lanc);
+  ultimosDados = lanc;
+  pintar(el);
 }
 
 window.ImperiumDashboard = { html, montar };

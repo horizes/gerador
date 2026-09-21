@@ -100,6 +100,9 @@ function ir(){
     if(window.ImperiumDashboard) window.ImperiumDashboard.montar();
   }
   $("shell").classList.toggle("in-module", !!m);
+  // Tela inicial: o menu fica sempre aberto (recolher não ajuda ali). Dentro das ferramentas vale a
+  // preferência salva da pessoa. No celular/tablet o menu é a gaveta, que não depende disso.
+  aplicarMenu(m ? lerPreferencia() : true);
   renderNav(m ? m.id : "");
 
   view.classList.remove("enter"); void view.offsetWidth; view.classList.add("enter");

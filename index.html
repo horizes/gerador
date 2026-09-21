@@ -12,11 +12,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css?v=2">
-<link rel="stylesheet" href="css/auth.css?v=1">
-<link rel="stylesheet" href="css/platform.css?v=2">
+<link rel="stylesheet" href="css/auth.css?v=2">
+<link rel="stylesheet" href="css/platform.css?v=3">
 <link rel="stylesheet" href="css/propostas.css?v=2">
 <link rel="stylesheet" href="css/fluxo.css?v=3">
-<link rel="stylesheet" href="css/dashboard.css?v=1">
+<link rel="stylesheet" href="css/dashboard.css?v=3">
 </head>
 <body>
 
@@ -27,6 +27,7 @@
     <p class="login-sub">Entre com seu e-mail e senha para acessar</p>
     <label class="f"><span>E-mail</span><input type="email" id="loginEmail" required autocomplete="username"></label>
     <label class="f"><span>Senha</span><input type="password" id="loginSenha" required autocomplete="current-password"></label>
+    <label class="login-keep"><input type="checkbox" id="loginManter" checked><span>Manter conectado</span></label>
     <p class="login-erro" id="loginErro" hidden></p>
     <button class="btn wide" type="submit">Entrar</button>
     <button class="btn ghost wide" type="button" id="loginEsqueci">Esqueci minha senha</button>
@@ -65,11 +66,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/supabase.js?v=1"></script>
-<script src="js/dashboard.js?v=2"></script>
-<script src="js/platform.js?v=3"></script>
+<script src="js/supabase.js?v=2"></script>
+<script src="js/dashboard.js?v=3"></script>
+<script src="js/platform.js?v=4"></script>
 <script src="js/modules/propostas.js?v=2"></script>
 <script src="js/modules/fluxo.js?v=4"></script>
-<script src="js/auth.js?v=1"></script>
+<script src="js/auth.js?v=3"></script>
 </body>
 </html>

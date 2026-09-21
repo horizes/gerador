@@ -10,12 +10,15 @@ const $ = id => document.getElementById(id);
 
 function mostrar(tela){
   $("login").style.display = tela === "login" ? "flex" : "none";
-  $("shell").style.display = tela === "shell" ? "flex" : "none";
+  // Sem valor ("") o CSS decide: lado a lado no computador e em bloco no celular/tablet
+  // (antes, o "flex" fixo aqui anulava o layout de celular e deixava a tela quebrada).
+  $("shell").style.display = tela === "shell" ? "" : "none";
 }
 
-function erro(msg){
+function erro(msg, info){
   const el = $("loginErro");
   el.textContent = msg || "";
+  el.classList.toggle("info", !!info);
   el.hidden = !msg;
 }
 
@@ -23,6 +26,9 @@ function ligarFormulario(){
   const form = $("loginForm");
   if(form.dataset.ligado) return;
   form.dataset.ligado = "1";
+
+  // "Manter conectado": mostra a última escolha (padrão: ligado)
+  $("loginManter").checked = window.Imperium.manterConectado.ler();
 
   form.addEventListener("submit", async e=>{
     e.preventDefault();
@@ -32,6 +38,8 @@ function ligarFormulario(){
     const btn = form.querySelector('button[type="submit"]');
     const txt = btn.textContent;
     btn.disabled = true; btn.textContent = "Entrando…";
+    // precisa ser gravado ANTES do login, para a sessão ir para o lugar certo
+    window.Imperium.manterConectado.definir($("loginManter").checked);
     const { error } = await sb.auth.signInWithPassword({ email, password: senha });
     btn.disabled = false; btn.textContent = txt;
     if(error){
@@ -45,7 +53,8 @@ function ligarFormulario(){
     if(!email){ erro("Digite seu e-mail acima e clique de novo para receber o link."); return; }
     erro("");
     const { error } = await sb.auth.resetPasswordForEmail(email);
-    erro(error ? error.message : "Se esse e-mail tiver uma conta, enviamos um link para redefinir a senha.");
+    if(error) erro(error.message);
+    else erro("Se esse e-mail tiver uma conta, enviamos um link para redefinir a senha.", true);
   });
 }
 

@@ -49,6 +49,9 @@
 .sd-toggle svg{transition:transform .2s}
 .shell:not(.is-open) .sd-toggle svg{transform:rotate(180deg)}
 .sd-sair{flex:0 0 auto;height:52px}
+/* na tela inicial o menu não recolhe: sem o botão (e o "Sair" ganha a linha de separação dele) */
+.shell:not(.in-module) .sd-toggle{display:none}
+.shell:not(.in-module) .sd-sair{border-top:1px solid var(--rule)}
 .sd-sair:hover{color:#E59A9A}
 
 /* nas telas médias, dentro de uma ferramenta, o menu fica sempre recolhido (a folha A4 precisa do espaço) */
@@ -111,6 +114,7 @@
   .side{position:fixed;top:0;left:0;height:100vh;height:100dvh;align-self:auto;width:264px;flex:none;z-index:60;transform:translateX(-102%);visibility:hidden}
   .side-in{width:264px !important;box-shadow:none !important}
   .sd-toggle{display:none}
+  .sd-sair{border-top:1px solid var(--rule)}
   .shell.drawer-open .side{transform:none;visibility:visible}
   .scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);opacity:0;pointer-events:none}
   .shell.drawer-open .scrim{display:block;opacity:1;pointer-events:auto}

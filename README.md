@@ -69,7 +69,8 @@ A navegação usa o hash da URL (`#/propostas`), então não é preciso configur
 
 ## Barra lateral
 
-- **Computador:** fica aberta na tela inicial. O botão "Recolher menu" (embaixo) deixa só os ícones, e a escolha fica salva no navegador. Recolhida, ela abre por cima do conteúdo quando o mouse passa por ela.
+- **Computador, tela inicial:** o menu fica sempre aberto e não tem botão de recolher.
+- **Computador, dentro de uma ferramenta:** o botão "Recolher menu" (embaixo) deixa só os ícones, e a escolha fica salva no navegador. Recolhida, ela abre por cima do conteúdo quando o mouse passa por ela.
 - **Telas médias (até ~1500 px), dentro do gerador:** o menu fica sempre recolhido, para a folha A4 caber ao lado do painel.
 - **Celular e tablet:** o menu vira uma gaveta, aberta pelo botão de três linhas no topo (fecha ao escolher uma opção, tocar fora ou apertar Esc).
 
@@ -132,3 +133,9 @@ fizer login vê e edita os **mesmos** dados, de qualquer computador ou celular. 
 A tela de login aparece antes de qualquer ferramenta. Não existe cadastro público: contas são criadas pelo
 administrador no painel do Supabase (**Authentication > Users**), uma por pessoa da equipe. Qualquer pessoa
 com login válido vê os mesmos dados do Fluxo de Caixa — não há separação "por usuário".
+
+**Manter conectado:** a caixa na tela de login (ligada por padrão) decide onde a sessão fica guardada. Ligada, a
+pessoa continua logada mesmo depois de fechar o navegador. Desligada, a sessão vale só enquanto o navegador/aba
+estiver aberto — indicado para computadores compartilhados. A escolha fica em `js/supabase.js`
+(`imperium_manter_conectado`). Para o padrão ser desligado, tire o `checked` do checkbox `#loginManter` no
+`index.html` e troque `!== "0"` por `=== "1"` em `lerManter()`.
