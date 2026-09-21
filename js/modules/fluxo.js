@@ -1,9 +1,10 @@
 /* Fluxo de caixa — módulo da plataforma Imperium.
-   Lançamentos de entrada/saída com painel de filtros, planilha editável (tabela),
-   resumo por período e exportação para .csv (abre em Excel/Google Sheets).
-   Os dados ficam salvos no localStorage do navegador (ver seção "Backup" no painel);
-   por ser um site estático sem servidor, o backup em .json é a forma de levar os
-   lançamentos para outro computador/navegador ou de não perder tudo ao limpar o cache. */
+   Painel da esquerda: só o formulário "Novo lançamento".
+   Página da direita (a planilha): resumo, exportar/backup, filtros, categorias, dados salvos,
+   planilha editável (tabela) e totais por categoria.
+   Os dados ficam salvos no localStorage do navegador; por ser um site estático sem servidor,
+   o backup em .json é a forma de levar os lançamentos para outro computador/navegador ou de
+   não perder tudo ao limpar o cache. */
 (function(){
 "use strict";
 
@@ -62,6 +63,7 @@ function achar(id){ return S.lancamentos.find(l=>l.id===id); }
 
 function mesesDisponiveis(){
   const s = new Set([mesDe(hoje())]);
+  if(S.filtro.mes) s.add(S.filtro.mes);
   S.lancamentos.forEach(l=>{ if(l.data) s.add(mesDe(l.data)); });
   return [...s].sort().reverse();
 }
@@ -108,7 +110,7 @@ function novoLancamento(base){
 }
 function excluir(id){
   S.lancamentos = S.lancamentos.filter(l=>l.id!==id);
-  salvar(); renderStage(); renderResumo();
+  salvar(); renderFiltros(); renderStage(); renderResumo();
 }
 
 /* ---------- anexo (nota fiscal / foto do comprovante) ----------
@@ -202,13 +204,14 @@ function importarBackup(file){
       if(!confirm("Importar vai substituir todos os lançamentos atuais deste navegador pelos do arquivo. Continuar?")) return;
       S = Object.assign(ESTADO_INICIAL(), v);
       if(!S.categorias) S.categorias = JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
-      salvar(); painel(); renderStage(); renderResumo();
+      if(!S.filtro) S.filtro = { mes: mesDe(hoje()), tipo: "todos", categoria: "" };
+      salvar(); renderTudo();
     }catch(e){ alert("Não foi possível importar: arquivo inválido."); }
   };
   r.readAsText(file);
 }
 
-/* ---------- painel (rail) ---------- */
+/* ---------- painel da esquerda (rail): só o novo lançamento ---------- */
 function opcoes(lista, atual){
   return lista.map(v=>`<option value="${esc(v)}" ${v===atual?"selected":""}>${esc(v)}</option>`).join("");
 }
@@ -230,8 +233,8 @@ function anexoPendentePreviewHtml(){
 const TEMPLATE_RAIL = () => `
 <div class="brand"><h1>Fluxo de Caixa<span>Lançamentos e planilha</span></h1></div>
 
-<details class="sec" open>
-  <summary>Novo lançamento<span class="chev">▸</span></summary>
+<section class="sec sec-static">
+  <h2 class="sec-title">Novo lançamento</h2>
   <div class="body">
     <label class="f"><span>Data</span><input type="date" id="qzData" value="${hoje()}"></label>
     <div class="row">
@@ -263,69 +266,52 @@ const TEMPLATE_RAIL = () => `
     <div id="qzAnexoPrev">${anexoPendentePreviewHtml()}</div>
     <button class="btn wide" id="qzAdd" type="button">Adicionar lançamento</button>
   </div>
-</details>
+</section>
+`;
 
-<details class="sec" open>
-  <summary>Filtros<span class="chev">▸</span></summary>
-  <div class="body">
+function painel(){
+  $("rail").innerHTML = TEMPLATE_RAIL();
+}
+
+/* ---------- controles da planilha (página da direita) ---------- */
+function renderFiltros(){
+  const el = $("filtros");
+  if(!el) return;
+  el.innerHTML = `
     <label class="f"><span>Período</span>
       <select id="fMes">
         <option value="">Todos os períodos</option>
         ${mesesDisponiveis().map(m=>`<option value="${m}" ${m===S.filtro.mes?"selected":""}>${rotuloMes(m)}</option>`).join("")}
       </select>
     </label>
-    <div class="row">
-      <label class="f"><span>Tipo</span>
-        <select id="fTipo">
-          <option value="todos" ${S.filtro.tipo==="todos"?"selected":""}>Todos</option>
-          <option value="entrada" ${S.filtro.tipo==="entrada"?"selected":""}>Entradas</option>
-          <option value="saida" ${S.filtro.tipo==="saida"?"selected":""}>Saídas</option>
-        </select>
-      </label>
-      <label class="f"><span>Categoria</span>
-        <select id="fCategoria">
-          <option value="">Todas</option>
-          ${opcoes(categoriasDisponiveisFiltro(), S.filtro.categoria)}
-        </select>
-      </label>
-    </div>
-  </div>
-</details>
-
-<details class="sec">
-  <summary>Categorias<span class="chev">▸</span></summary>
-  <div class="body">
-    <div class="mini">Entradas</div>
-    <div class="cat-list">${categoriasChips("entrada")}</div>
-    <div class="mini">Saídas</div>
-    <div class="cat-list">${categoriasChips("saida")}</div>
-    <div class="row" style="margin-top:12px">
-      <label class="f"><span>Tipo</span>
-        <select id="catTipo"><option value="saida">Saída</option><option value="entrada">Entrada</option></select>
-      </label>
-      <label class="f"><span>Nova categoria</span><input type="text" id="catNome" placeholder="Nome"></label>
-    </div>
-    <button class="btn ghost wide" id="catAdd" type="button">Adicionar categoria</button>
-  </div>
-</details>
-
-<details class="sec">
-  <summary>Planilha e backup<span class="chev">▸</span></summary>
-  <div class="body">
-    <button class="btn wide" id="expCsv" type="button">Exportar para planilha (.csv)</button>
-    <p class="hint">Abre no Excel, Google Sheets ou LibreOffice Calc. Exporta os lançamentos do filtro atual.</p>
-    <button class="btn ghost wide" id="expJson" type="button" style="margin-top:6px">Salvar backup (.json)</button>
-    <button class="btn ghost wide" id="impJsonBtn" type="button" style="margin-top:6px">Importar backup (.json)</button>
-    <input type="file" id="impJson" accept="application/json" style="display:none">
-    <p class="hint">Os lançamentos ficam salvos apenas neste navegador. Para usar em outro computador/celular, ou para
-      não perder nada ao limpar o navegador, exporte um backup de tempos em tempos e importe-o quando precisar.</p>
-    <button class="rm wide" id="limparTudo" type="button" style="margin-top:10px;width:100%">Apagar todos os lançamentos</button>
-  </div>
-</details>
-`;
-
-function painel(){
-  $("rail").innerHTML = TEMPLATE_RAIL();
+    <label class="f"><span>Tipo</span>
+      <select id="fTipo">
+        <option value="todos" ${S.filtro.tipo==="todos"?"selected":""}>Todos</option>
+        <option value="entrada" ${S.filtro.tipo==="entrada"?"selected":""}>Entradas</option>
+        <option value="saida" ${S.filtro.tipo==="saida"?"selected":""}>Saídas</option>
+      </select>
+    </label>
+    <label class="f"><span>Categoria</span>
+      <select id="fCategoria">
+        <option value="">Todas</option>
+        ${opcoes(categoriasDisponiveisFiltro(), S.filtro.categoria)}
+      </select>
+    </label>`;
+}
+function renderCategorias(){
+  $("catEntrada").innerHTML = categoriasChips("entrada");
+  $("catSaida").innerHTML = categoriasChips("saida");
+}
+/* o formulário "Novo lançamento" não é redesenhado (para não perder o que já foi digitado):
+   só a lista de categorias dele é atualizada */
+function atualizarCategoriasForm(){
+  const sel = $("qzCategoria"), tipo = $("qzTipo");
+  if(!sel || !tipo) return;
+  sel.innerHTML = opcoes(S.categorias[tipo.value] || [], sel.value);
+}
+function renderTudo(){
+  renderFiltros(); renderCategorias(); atualizarCategoriasForm();
+  renderStage(); renderResumo();
 }
 
 /* ---------- planilha (stage) ---------- */
@@ -349,12 +335,7 @@ function linhaHtml(l){
     <td class="anexo-cell">${l.anexo ? `
       <a class="anexo-thumb" href="${l.anexo.dataUrl}" target="_blank" rel="noopener" title="${esc(l.anexo.nome)}">${anexoIconeHtml(l.anexo)}</a>
       <button type="button" class="anexo-rm" data-rmanexo="${l.id}" aria-label="Remover anexo">×</button>
-    ` : `
-      <label class="anexo-add" title="Anexar nota fiscal ou foto">
-        <input type="file" accept="image/*,application/pdf" capture="environment" data-anexorow="${l.id}">
-        <span>+</span>
-      </label>
-    `}</td>
+    ` : `<span class="anexo-vazio" aria-label="Sem anexo">—</span>`}</td>
     <td><button class="rm" data-del="${l.id}" aria-label="Excluir">✕</button></td>
   </tr>`;
 }
@@ -409,7 +390,7 @@ on("change", e=>{
     if(l){
       l[t.dataset.f] = t.type==="number" ? (+t.value||0) : t.value;
       if(t.dataset.f==="tipo" && !S.categorias[l.tipo].includes(l.categoria)) l.categoria = S.categorias[l.tipo][0] || "";
-      salvar(); renderStage(); renderResumo();
+      salvar(); renderFiltros(); renderStage(); renderResumo();
     }
     return;
   }
@@ -429,17 +410,6 @@ on("change", e=>{
     });
     return;
   }
-
-  if(t.dataset.anexorow){
-    const id = t.dataset.anexorow, arquivo = t.files[0];
-    if(!arquivo) return;
-    processarAnexo(arquivo).then(a=>{
-      if(!a) return;
-      const l = achar(id);
-      if(l){ l.anexo = a; salvar(); renderStage(); }
-    });
-    return;
-  }
 });
 
 on("click", e=>{
@@ -451,13 +421,20 @@ on("click", e=>{
   if(b.dataset.rmcat){
     const [tipo, nome] = b.dataset.rmcat.split("|");
     S.categorias[tipo] = S.categorias[tipo].filter(c=>c!==nome);
-    salvar(); painel(); return;
+    const filtroPerdido = S.filtro.categoria && !categoriasDisponiveisFiltro().includes(S.filtro.categoria);
+    if(filtroPerdido) S.filtro.categoria = "";
+    salvar(); renderFiltros(); renderCategorias(); atualizarCategoriasForm();
+    if(filtroPerdido){ renderStage(); renderResumo(); }
+    return;
   }
 
   if(b.id==="catAdd"){
     const tipo = $("catTipo").value, nome = $("catNome").value.trim();
     if(nome && !S.categorias[tipo].includes(nome)) S.categorias[tipo].push(nome);
-    salvar(); painel(); return;
+    $("catNome").value = "";
+    salvar(); renderFiltros(); renderCategorias(); atualizarCategoriasForm();
+    $("catNome").focus();
+    return;
   }
 
   if(b.id==="qzAdd"){
@@ -473,7 +450,7 @@ on("click", e=>{
     });
     S.lancamentos.push(l);
     anexoPendente = null;
-    salvar(); renderStage(); renderResumo();
+    salvar(); renderFiltros(); renderStage(); renderResumo();
     $("qzDescricao").value = ""; $("qzValor").value = "0"; $("qzDescricao").focus();
     if($("qzAnexo")) $("qzAnexo").value = "";
     if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Anexar foto ou PDF";
@@ -500,7 +477,7 @@ on("click", e=>{
   if(b.id==="impJsonBtn"){ $("impJson").click(); return; }
   if(b.id==="limparTudo"){
     if(confirm("Isso apaga todos os lançamentos salvos neste navegador. Recomendado exportar um backup antes. Continuar?")){
-      S.lancamentos = []; salvar(); renderStage(); renderResumo();
+      S.lancamentos = []; salvar(); renderFiltros(); renderStage(); renderResumo();
     }
     return;
   }
@@ -518,8 +495,44 @@ const TEMPLATE = `
     <div class="fx-wrap">
       <div class="fx-toolbar">
         <div class="fx-resumo" id="resumo"></div>
-        <button class="btn ghost" id="expCsvTop" type="button">Exportar planilha (.csv)</button>
+        <div class="fx-acoes">
+          <button class="btn ghost" id="expCsv" type="button">Exportar planilha (.csv)</button>
+          <button class="btn ghost" id="expJson" type="button">Salvar backup (.json)</button>
+          <button class="btn ghost" id="impJsonBtn" type="button">Importar backup (.json)</button>
+          <input type="file" id="impJson" accept="application/json" style="display:none">
+        </div>
       </div>
+
+      <div class="fx-bar" id="filtros"></div>
+
+      <div class="fx-extras">
+        <details class="fx-det">
+          <summary>Categorias<span class="chev">▸</span></summary>
+          <div class="body">
+            <div class="mini">Entradas</div>
+            <div class="cat-list" id="catEntrada"></div>
+            <div class="mini">Saídas</div>
+            <div class="cat-list" id="catSaida"></div>
+            <div class="row" style="margin-top:12px">
+              <label class="f"><span>Tipo</span>
+                <select id="catTipo"><option value="saida">Saída</option><option value="entrada">Entrada</option></select>
+              </label>
+              <label class="f"><span>Nova categoria</span><input type="text" id="catNome" placeholder="Nome"></label>
+            </div>
+            <button class="btn ghost wide" id="catAdd" type="button">Adicionar categoria</button>
+          </div>
+        </details>
+        <details class="fx-det">
+          <summary>Dados salvos<span class="chev">▸</span></summary>
+          <div class="body">
+            <p class="hint" style="margin-top:0">O .csv exporta os lançamentos do filtro atual e abre no Excel, Google Sheets ou LibreOffice Calc.</p>
+            <p class="hint">Os lançamentos ficam salvos apenas neste navegador. Para usar em outro computador/celular, ou para
+              não perder nada ao limpar o navegador, salve um backup (.json) de tempos em tempos e importe-o quando precisar.</p>
+            <button class="rm wide" id="limparTudo" type="button" style="margin-top:10px;width:100%">Apagar todos os lançamentos</button>
+          </div>
+        </details>
+      </div>
+
       <div class="fx-card">
         <div class="fx-scroll">
           <table class="fx-tbl">
@@ -547,10 +560,8 @@ function mount(el){
       root.className = "mod-fluxo " + (b.dataset.tab==="prev" ? "m-prev" : "m-edit");
     });
   });
-  $("expCsvTop").addEventListener("click", exportarCSV);
   painel();
-  renderStage();
-  renderResumo();
+  renderTudo();
 }
 
 function unmount(){

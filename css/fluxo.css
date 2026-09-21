@@ -1,6 +1,11 @@
 /* Fluxo de caixa — planilha editável, resumo e categorias */
 
 .mod-fluxo .rail{padding-bottom:8px}
+.mod-fluxo .sec-static{border-bottom:none}
+.mod-fluxo .sec-title{
+  margin:0;padding:14px 20px;font-family:'Oswald';font-weight:400;letter-spacing:.09em;
+  text-transform:uppercase;font-size:13px;color:var(--cream);
+}
 .mod-fluxo .cat-list{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
 .cat-chip{
   display:inline-flex;align-items:center;gap:6px;background:#191509;border:1px solid #453E33;
@@ -16,9 +21,31 @@ button.rm.wide:hover{background:#241212;border-color:#7A3B3B}
 
 /* stage */
 .fx-wrap{max-width:1180px;margin:0 auto}
-.fx-toolbar{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+.fx-toolbar{display:flex;gap:16px;align-items:stretch;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
 .fx-resumo{flex:1;min-width:280px}
-.fx-resumo .calc-chip{margin-bottom:0}
+.fx-resumo .calc-chip{margin-bottom:0;height:100%}
+.fx-acoes{display:flex;flex-direction:column;justify-content:center;gap:8px;flex:0 0 250px}
+
+/* filtros */
+.fx-bar{
+  display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
+  background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+  padding:14px 16px 4px;margin-bottom:14px;
+}
+.fx-bar label.f{flex:1 1 170px;max-width:260px;margin:0 0 10px}
+
+/* categorias e dados salvos (recolhidos até serem abertos) */
+.fx-extras{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-bottom:14px}
+.fx-det{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.fx-det>summary{
+  list-style:none;cursor:pointer;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;
+  font-family:'Oswald';font-weight:400;letter-spacing:.09em;text-transform:uppercase;font-size:13px;color:var(--cream);
+}
+.fx-det>summary::-webkit-details-marker{display:none}
+.fx-det>summary:hover{background:var(--panel-2)}
+.fx-det>summary .chev{color:var(--gold);font-size:11px;transition:transform .18s}
+.fx-det[open]>summary .chev{transform:rotate(90deg)}
+.fx-det .body{padding:4px 16px 16px}
 .calc-row b.neg{color:#E59A9A}
 .calc-row.lucro.neg b{color:#E59A9A}
 
@@ -77,15 +104,13 @@ table.fx-tbl td.anexo-cell{display:flex;align-items:center;gap:6px;padding:8px 6
 .anexo-cell .anexo-rm{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:50%;
   width:20px;height:20px;line-height:1;cursor:pointer;font-size:13px;flex:0 0 auto}
 .anexo-cell .anexo-rm:hover{border-color:#7A3B3B;color:#E59A9A}
-.anexo-add{
-  display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;
-  border:1px dashed var(--rule);border-radius:3px;color:var(--muted);cursor:pointer;font-size:15px;
-}
-.anexo-add:hover{border-color:var(--gold);color:var(--gold)}
-.anexo-add input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.anexo-vazio{color:var(--muted);font-size:13px;padding-left:10px}
 
 @media screen and (max-width:1100px){
   .mod-fluxo.m-prev .rail{display:none}
   .mod-fluxo.m-edit .stage{display:none}
   .fx-toolbar{flex-direction:column}
+  .fx-acoes{flex-basis:auto}
+  .fx-extras{grid-template-columns:1fr}
+  .fx-bar label.f{max-width:none}
 }
