@@ -18,10 +18,16 @@ async function carregarPerfil(){
     .select("nome,papel,nivel_id,ativo").eq("id", user.id).maybeSingle();
   if(e1 || !perfil || !perfil.ativo) return null;
 
+  // Ferramentas liberadas = as do nível da pessoa + as permissões diretas dela (tabela perfil_modulos,
+  // criada por supabase-schema-usuarios.sql). Se essa tabela ainda não existir, só o nível vale.
   let modulos = new Set();
-  if(perfil.papel !== "admin" && perfil.nivel_id){
-    const { data: nm } = await sb().from("nivel_modulos").select("modulo_id").eq("nivel_id", perfil.nivel_id);
-    modulos = new Set((nm||[]).map(r => r.modulo_id));
+  if(perfil.papel !== "admin"){
+    if(perfil.nivel_id){
+      const { data: nm } = await sb().from("nivel_modulos").select("modulo_id").eq("nivel_id", perfil.nivel_id);
+      (nm||[]).forEach(r => modulos.add(r.modulo_id));
+    }
+    const { data: pm } = await sb().from("perfil_modulos").select("modulo_id").eq("perfil_id", user.id);
+    (pm||[]).forEach(r => modulos.add(r.modulo_id));
   }
 
   const obj = {

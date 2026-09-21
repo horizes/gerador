@@ -25,6 +25,9 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    final do arquivo há uma linha comentada `update perfis set papel = 'admin' where id = ...` — troque o
    e-mail e rode só essa linha (você precisa fazer isso manualmente uma vez; depois, tudo o resto — criar
    níveis, promover outras pessoas a admin — é feito pela tela **Usuários** dentro do site).
+   Por fim, rode também o `supabase-schema-usuarios.sql` (mesmo lugar: **SQL Editor > New query > Run**): ele
+   cria as permissões **por pessoa** e a listagem completa da tela **Usuários** (último acesso, e-mail
+   confirmado, suspensa etc.). Pode rodar mais de uma vez sem problema.
 4. **Crie uma conta para cada pessoa da equipe:** em **Authentication > Users > Add user**, informe e-mail
    e senha e marque **Auto Confirm User** (assim a pessoa já entra sem precisar confirmar e-mail). Não há
    cadastro público no site — só o administrador cria contas por aqui. A pessoa aparece sozinha na tela
@@ -34,23 +37,33 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 
 ## Hierarquia de acesso
 
-Existe uma tela **Usuários** (só aparece para quem é admin) para configurar quem vê o quê:
+Existe uma tela **Usuários** (só aparece para quem é admin) para configurar quem vê o quê. As alterações
+são salvas na hora, sem botão "Salvar":
 
-- **Níveis de permissão:** você cria os nomes que quiser (ex.: "Financeiro", "Comercial") e marca, com
-  uma caixinha por ferramenta, quais delas aquele nível libera. Pode ter quantos níveis quiser, e mudar
-  as ferramentas de um nível a qualquer momento — some/aparece no menu de quem tem esse nível na hora.
-- **Pessoas:** depois que você cria o login de alguém no Supabase (passo 4 acima), a pessoa aparece
-  automaticamente na lista. Ali você escolhe: o **nível** dela (o que ela vê), se é **admin** (admin vê
-  todas as ferramentas, sem precisar de nível — inclusive a própria tela Usuários), e se está **ativa**
-  (desmarcar bloqueia o login na hora, sem precisar apagar a conta no Supabase).
-- A restrição não é só visual: as regras de segurança do banco (RLS) também checam o nível antes de
+- **Pessoas:** lista todas as contas que existem em Authentication > Users do Supabase (elas aparecem
+  sozinhas, sem você precisar cadastrar nada no site). Cada pessoa mostra se **pode logar de verdade** —
+  isso depende de três coisas: e-mail confirmado, conta não suspensa no Supabase e o interruptor **Acesso ao
+  site** ligado. Quando algo impede o login, aparece uma etiqueta explicando o motivo. Os quadrinhos do topo
+  (Contas, Podem logar, Sem acesso ao site, Admins) funcionam como filtros, e há busca por nome ou e-mail.
+- **Ferramentas por pessoa:** em cada pessoa há um interruptor por ferramenta (Gerador de propostas, Fluxo de
+  caixa…). Ligar/desligar vale na hora. Se a pessoa recebe a ferramenta pelo **nível** ou por ser **admin**, o
+  interruptor aparece travado com essa indicação — para tirar, mude o nível ou o papel dela.
+- **Papel, nível e acesso ao site:** admin vê todas as ferramentas (inclusive a tela Usuários) e não depende
+  de nível; desligar **Acesso ao site** bloqueia o login e o acesso aos dados na hora, sem apagar a conta no
+  Supabase. Você não consegue alterar o seu próprio papel nem desativar a si mesmo.
+- **Níveis de permissão (opcional):** grupos que você nomeia (ex.: "Financeiro", "Comercial") e para os quais
+  marca quais ferramentas liberam. Mudar as ferramentas de um nível vale para todas as pessoas dele.
+- **Acesso final** a uma ferramenta = admin **ou** o nível libera **ou** permissão direta da pessoa.
+  A pessoa vê o menu novo ao recarregar a página (ou no próximo login).
+- A restrição não é só visual: as regras de segurança do banco (RLS) também checam o acesso antes de
   deixar ler ou gravar os dados do Fluxo de Caixa — então mesmo alguém tentando acessar direto pela URL
-  ou pela API não vê dados de um módulo que o nível dela não libera.
+  ou pela API não vê dados de um módulo que ela não pode usar.
 - **Limitação atual:** o Gerador de propostas não usa banco de dados (o rascunho fica só no navegador de
   quem está editando), então a permissão dele controla apenas se a ferramenta aparece no menu daquela
   pessoa — não há dado compartilhado nesse módulo para proteger.
-- Veja `supabase-schema-permissoes.sql` para os detalhes técnicos (tabelas `perfis`, `niveis`,
-  `nivel_modulos`).
+- **Se a lista de pessoas aparecer com um aviso amarelo** (ou não carregar), é porque falta rodar o
+  `supabase-schema-usuarios.sql`. Detalhes técnicos: tabelas `perfis`, `niveis`, `nivel_modulos` e
+  `perfil_modulos`, e a função `admin_listar_perfis()`.
 
 Pronto — publicando os arquivos normalmente (veja "Como publicar" abaixo), a tela de login aparece antes
 da plataforma.
@@ -61,13 +74,14 @@ da plataforma.
 index.html                 casca da plataforma (tela de login + barra lateral + área da ferramenta)
 supabase-schema.sql        script para rodar uma vez no SQL Editor do Supabase (tabelas, segurança, categorias)
 supabase-schema-permissoes.sql  script da hierarquia de acesso (perfis, níveis de permissão, RLS por módulo)
+supabase-schema-usuarios.sql    permissões por pessoa (perfil_modulos) e listagem completa da tela Usuários
 css/base.css               cores, tipografia, campos e botões compartilhados
 css/auth.css                tela de login
 css/platform.css           barra lateral, menu do celular e tela inicial
 css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão)
 css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
 css/dashboard.css          painel (dashboard) da tela inicial
-css/usuarios.css           tela "Usuários" (níveis de permissão e pessoas)
+css/usuarios.css           tela "Usuários" (pessoas, permissões por ferramenta e níveis)
 js/supabase.js              conexão com o Supabase (URL + chave do projeto)
 js/perfil.js                carrega o papel/nível/módulos permitidos da pessoa logada
 js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
@@ -75,7 +89,7 @@ js/platform.js             barra lateral, navegação, tela inicial, registro de
 js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caixa no Supabase e monta o resumo/gráfico
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
-js/modules/usuarios.js     tela "Usuários" (só para admin): cria níveis de permissão e configura o acesso de cada pessoa
+js/modules/usuarios.js     tela "Usuários" (só para admin): lista as contas, mostra quem pode logar e libera ferramentas por pessoa/nível
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
 robots.txt                 bloqueia indexação por buscadores
