@@ -1,6 +1,7 @@
 /* Plataforma Imperium — registro de módulos, barra lateral, navegação e tela inicial.
    Cada ferramenta é um módulo em js/modules/ que se registra com Platform.register(...).
-   A navegação usa o hash da URL (#/ e #/propostas), então funciona em qualquer hospedagem estática. */
+   A navegação usa o hash da URL (#/ e #/propostas), então funciona em qualquer hospedagem estática.
+   A plataforma só é iniciada (Platform.iniciar) depois do login confirmado, por js/auth.js. */
 (function(){
 "use strict";
 
@@ -96,6 +97,7 @@ function ir(){
   }else{
     document.title = "Imperium — Plataforma";
     view.innerHTML = telaInicial();
+    if(window.ImperiumDashboard) window.ImperiumDashboard.montar();
   }
   $("shell").classList.toggle("in-module", !!m);
   renderNav(m ? m.id : "");
@@ -104,11 +106,16 @@ function ir(){
   window.scrollTo(0, 0);
 }
 
+let iniciado = false;
 function iniciar(){
+  if(iniciado) return; // evita reiniciar se o login disparar mais de uma vez
+  iniciado = true;
   aplicarMenu(lerPreferencia());
   $("sidetoggle").addEventListener("click", alternarMenu);
   $("menu").addEventListener("click", () => gaveta(!$("shell").classList.contains("drawer-open")));
   $("scrim").addEventListener("click", () => gaveta(false));
+  const sair = $("sairBtn");
+  if(sair) sair.addEventListener("click", () => window.ImperiumAuth && window.ImperiumAuth.sair());
   document.addEventListener("keydown", e => {
     if(e.key === "Escape" && $("shell").classList.contains("drawer-open")){ gaveta(false); $("menu").focus(); }
   });
@@ -116,7 +123,5 @@ function iniciar(){
   ir();
 }
 
-document.addEventListener("DOMContentLoaded", iniciar);
-
-window.Platform = { register };
+window.Platform = { register, iniciar };
 })();

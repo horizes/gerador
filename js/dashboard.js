@@ -1,7 +1,7 @@
 /* Dashboard da tela inicial — resumo do Fluxo de Caixa.
-   Não é uma ferramenta com rota própria: é chamado direto pela tela inicial (js/platform.js),
-   lendo o mesmo localStorage ("imperium_fluxo") que o módulo js/modules/fluxo.js usa.
-   Conforme novos módulos guardarem dados relevantes, dá para somar mais painéis aqui. */
+   Não é uma ferramenta com rota própria: é chamado direto pela tela inicial (js/platform.js).
+   Os dados vêm do Supabase (tabela fluxo_lancamentos), compartilhados por todos os usuários
+   logados na plataforma — não é mais por navegador. */
 (function(){
 "use strict";
 
@@ -20,15 +20,17 @@ function rotuloMesExt(m){
   return nome.charAt(0).toUpperCase() + nome.slice(1) + " de " + a;
 }
 
-/* ---------- leitura dos dados do Fluxo de Caixa ---------- */
-function lerFluxo(){
+/* ---------- leitura dos dados do Fluxo de Caixa (Supabase) ---------- */
+async function buscarLancamentos(){
   try{
-    const raw = localStorage.getItem("imperium_fluxo");
-    if(!raw) return null;
-    const v = JSON.parse(raw);
-    if(v && Array.isArray(v.lancamentos)) return v;
-  }catch(e){}
-  return null;
+    const { data, error } = await window.Imperium.supabase
+      .from("fluxo_lancamentos")
+      .select("data,tipo,categoria,valor,status");
+    if(error) throw error;
+    return data || [];
+  }catch(e){
+    return null; // null = erro ao carregar (diferente de [] = carregou e está vazio)
+  }
 }
 
 function ultimosMeses(n){
@@ -75,22 +77,8 @@ function listaCategorias(cats, max){
   }).join("");
 }
 
-/* ---------- HTML do painel ---------- */
-function html(){
-  const dados = lerFluxo();
-  const lanc = dados ? dados.lancamentos : [];
-
-  if(!lanc.length){
-    return `
-    <section class="dash">
-      <h2 class="home-h">Painel — Fluxo de caixa</h2>
-      <div class="dash-vazio">
-        <p>Ainda não há lançamentos no Fluxo de Caixa neste navegador.</p>
-        <a class="btn" href="#/fluxo">Lançar o primeiro</a>
-      </div>
-    </section>`;
-  }
-
+/* ---------- montagem do conteúdo, a partir dos lançamentos já carregados ---------- */
+function conteudo(lanc){
   const mesAtual = mesDe(hoje());
   const doMes = lanc.filter(l => mesDe(l.data) === mesAtual);
   const entradasMes = doMes.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+(+l.valor||0),0);
@@ -121,7 +109,6 @@ function html(){
   const maxCat = Math.max(1, ...cats.map(c=>c.total));
 
   return `
-  <section class="dash">
     <div class="dash-head">
       <h2 class="home-h">Painel — Fluxo de caixa</h2>
       <a class="btn ghost" href="#/fluxo">Abrir Fluxo de Caixa</a>
@@ -159,9 +146,36 @@ function html(){
         <div class="mini">Top categorias — ${esc(rotuloMesExt(mesAtual))}</div>
         ${listaCategorias(cats, maxCat)}
       </div>
-    </div>
+    </div>`;
+}
+
+/* ---------- HTML inicial (placeholder) + montagem assíncrona ---------- */
+function html(){
+  return `<section class="dash" id="dashPainel">
+    <h2 class="home-h">Painel — Fluxo de caixa</h2>
+    <p class="hint">Carregando painel…</p>
   </section>`;
 }
 
-window.ImperiumDashboard = { html };
+async function montar(){
+  const el = document.getElementById("dashPainel");
+  if(!el) return;
+  const lanc = await buscarLancamentos();
+  if(lanc === null){
+    el.innerHTML = `<h2 class="home-h">Painel — Fluxo de caixa</h2><p class="hint">Não foi possível carregar o painel agora.</p>`;
+    return;
+  }
+  if(!lanc.length){
+    el.innerHTML = `
+      <h2 class="home-h">Painel — Fluxo de caixa</h2>
+      <div class="dash-vazio">
+        <p>Ainda não há lançamentos no Fluxo de Caixa.</p>
+        <a class="btn" href="#/fluxo">Lançar o primeiro</a>
+      </div>`;
+    return;
+  }
+  el.innerHTML = conteudo(lanc);
+}
+
+window.ImperiumDashboard = { html, montar };
 })();

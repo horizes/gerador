@@ -48,6 +48,8 @@
 .sd-toggle{flex:0 0 auto;height:52px;border-top:1px solid var(--rule)}
 .sd-toggle svg{transition:transform .2s}
 .shell:not(.is-open) .sd-toggle svg{transform:rotate(180deg)}
+.sd-sair{flex:0 0 auto;height:52px}
+.sd-sair:hover{color:#E59A9A}
 
 /* nas telas médias, dentro de uma ferramenta, o menu fica sempre recolhido (a folha A4 precisa do espaço) */
 @media (min-width:1101px) and (max-width:1499px){

@@ -2,14 +2,18 @@
    Painel da esquerda: só o formulário "Novo lançamento".
    Página da direita (a planilha): resumo, exportar/backup, filtros, categorias, dados salvos,
    planilha editável (tabela) e totais por categoria.
-   Os dados ficam salvos no localStorage do navegador; por ser um site estático sem servidor,
-   o backup em .json é a forma de levar os lançamentos para outro computador/navegador ou de
-   não perder tudo ao limpar o cache. */
+   Os dados ficam no Supabase (tabelas fluxo_lancamentos e fluxo_categorias), compartilhados
+   por todos os usuários logados — não é mais por navegador. Veja supabase-schema.sql para
+   criar as tabelas e o bucket de anexos. O botão "Salvar backup (.json)" continua útil como
+   cópia de segurança pessoal; "Importar backup (.json)" agora ADICIONA os lançamentos do
+   arquivo aos dados atuais (em vez de substituir), já que os dados são de todos. */
 (function(){
 "use strict";
 
+const sb = () => window.Imperium.supabase;
+const BUCKET_ANEXOS = "anexos";
+
 let root = null;
-let iniciado = false;
 let anexoPendente = null; // anexo (nota fiscal/foto) já processado, aguardando o próximo "Adicionar lançamento"
 const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
@@ -24,7 +28,6 @@ const FORMAS = ["Pix", "Dinheiro", "Cartão", "Boleto", "Transferência", "Outro
 
 const hoje = () => new Date().toISOString().slice(0,10);
 const mesDe = iso => (iso||"").slice(0,7);
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
 const ESTADO_INICIAL = () => ({
   categorias: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)),
@@ -33,18 +36,12 @@ const ESTADO_INICIAL = () => ({
 });
 let S = ESTADO_INICIAL();
 
-/* ---------- persistência (localStorage do navegador) ---------- */
-function salvar(){ try{ localStorage.setItem("imperium_fluxo", JSON.stringify(S)); }catch(e){} }
-function carregar(){
+/* ---------- filtro: preferência pessoal, continua no localStorage do navegador ---------- */
+function salvarFiltro(){ try{ localStorage.setItem("imperium_fluxo_filtro", JSON.stringify(S.filtro)); }catch(e){} }
+function carregarFiltro(){
   try{
-    const raw = localStorage.getItem("imperium_fluxo");
-    if(!raw) return;
-    const v = JSON.parse(raw);
-    if(v && Array.isArray(v.lancamentos)){
-      S = Object.assign(ESTADO_INICIAL(), v);
-      if(!S.categorias) S.categorias = JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
-      if(!S.filtro) S.filtro = { mes: mesDe(hoje()), tipo: "todos", categoria: "" };
-    }
+    const v = JSON.parse(localStorage.getItem("imperium_fluxo_filtro") || "null");
+    if(v) S.filtro = Object.assign(S.filtro, v);
   }catch(e){}
 }
 
@@ -76,7 +73,7 @@ function filtrados(){
     .filter(l => !S.filtro.mes || mesDe(l.data)===S.filtro.mes)
     .filter(l => S.filtro.tipo==="todos" || l.tipo===S.filtro.tipo)
     .filter(l => !S.filtro.categoria || l.categoria===S.filtro.categoria)
-    .sort((a,b)=> (b.data||"").localeCompare(a.data||"") || (b.id||"").localeCompare(a.id||""));
+    .sort((a,b)=> (b.data||"").localeCompare(a.data||"") || (b.criado_em||"").localeCompare(a.criado_em||""));
 }
 function saldoAtual(){
   return S.lancamentos.filter(l=>l.status==="pago")
@@ -99,24 +96,10 @@ function porCategoria(){
   return Object.values(mapa).sort((a,b)=> b.total - a.total);
 }
 
-/* ---------- ações sobre lançamentos ---------- */
-function novoLancamento(base){
-  return Object.assign({
-    id: uid(), data: hoje(), tipo: "saida",
-    categoria: S.categorias.saida[0] || "",
-    descricao: "", forma: "Pix", status: "pendente", valor: 0,
-    anexo: null // { nome, tipo, dataUrl } — nota fiscal/comprovante, guardado como imagem/arquivo embutido
-  }, base||{});
-}
-function excluir(id){
-  S.lancamentos = S.lancamentos.filter(l=>l.id!==id);
-  salvar(); renderFiltros(); renderStage(); renderResumo();
-}
-
 /* ---------- anexo (nota fiscal / foto do comprovante) ----------
-   Guardado embutido no próprio lançamento (dataURL em base64), já que o site é
-   estático e não tem servidor de arquivos. Fotos são comprimidas antes de salvar
-   para não estourar o limite do localStorage do navegador; PDFs são anexados como estão. */
+   Antes de salvar, fica embutido como dataURL (preview local). Ao confirmar o lançamento,
+   é enviado para o Storage do Supabase (bucket "anexos") e só o caminho/URL fica salvo
+   na tabela — assim não esbarra no limite do localStorage nem fica preso a um navegador. */
 const ANEXO_TAMANHO_MAX = 8*1024*1024; // 8 MB no arquivo original enviado
 
 function lerArquivo(file){
@@ -167,11 +150,151 @@ async function processarAnexo(file){
 }
 function anexoIconeHtml(a){
   return a.tipo.startsWith("image/")
-    ? `<img src="${a.dataUrl}" alt="">`
+    ? `<img src="${a.url || a.dataUrl}" alt="">`
     : `<span class="anexo-ico">PDF</span>`;
 }
+async function enviarAnexo(pendente){
+  if(!pendente) return null;
+  try{
+    const blob = await (await fetch(pendente.dataUrl)).blob();
+    const ext = pendente.tipo === "application/pdf" ? "pdf" : (pendente.tipo.split("/")[1] || "jpg");
+    const caminho = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error } = await sb().storage.from(BUCKET_ANEXOS).upload(caminho, blob, { contentType: pendente.tipo, upsert: false });
+    if(error) throw error;
+    return { path: caminho, nome: pendente.nome, tipo: pendente.tipo };
+  }catch(e){
+    alert("Não foi possível enviar o anexo: " + e.message);
+    return null;
+  }
+}
+function urlAnexo(caminho){
+  return sb().storage.from(BUCKET_ANEXOS).getPublicUrl(caminho).data.publicUrl;
+}
 
-/* ---------- exportação ---------- */
+/* ---------- carregamento a partir do Supabase ---------- */
+function mapRow(r){
+  return {
+    id: r.id, data: r.data, tipo: r.tipo, categoria: r.categoria,
+    descricao: r.descricao || "", forma: r.forma || "Pix", status: r.status, valor: +r.valor || 0,
+    criado_em: r.criado_em,
+    anexo: r.anexo_path ? { nome: r.anexo_nome, tipo: r.anexo_tipo, path: r.anexo_path, url: urlAnexo(r.anexo_path) } : null
+  };
+}
+async function carregarCategorias(){
+  const { data, error } = await sb().from("fluxo_categorias").select("tipo,nome").order("nome");
+  const cat = { entrada: [], saida: [] };
+  if(!error && data) data.forEach(r=>{ if(cat[r.tipo]) cat[r.tipo].push(r.nome); });
+  if(!cat.entrada.length && !cat.saida.length) return JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
+  return cat;
+}
+async function carregarLancamentos(){
+  const { data, error } = await sb().from("fluxo_lancamentos").select("*")
+    .order("data", { ascending:false }).order("criado_em", { ascending:false });
+  if(error){ alert("Não foi possível carregar os lançamentos: " + error.message); return []; }
+  return (data||[]).map(mapRow);
+}
+async function carregar(){
+  carregarFiltro();
+  const [cat, lanc] = await Promise.all([carregarCategorias(), carregarLancamentos()]);
+  S.categorias = cat;
+  S.lancamentos = lanc;
+}
+
+/* ---------- ações sobre lançamentos (gravam direto no Supabase) ---------- */
+const timers = {};
+function salvarCampos(id, patch){
+  sb().from("fluxo_lancamentos").update(patch).eq("id", id).then(({error})=>{
+    if(error) alert("Não foi possível salvar a alteração: " + error.message);
+  });
+}
+function agendarSalvar(id, patch){
+  timers[id+"_patch"] = Object.assign(timers[id+"_patch"] || {}, patch);
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(()=>{
+    const p = timers[id+"_patch"];
+    delete timers[id+"_patch"];
+    salvarCampos(id, p);
+  }, 600);
+}
+
+async function adicionarLancamento(){
+  const btn = $("qzAdd");
+  btn.disabled = true; const txt = btn.textContent; btn.textContent = "Adicionando…";
+
+  const anexoInfo = anexoPendente ? await enviarAnexo(anexoPendente) : null;
+  const linha = {
+    data: $("qzData").value || hoje(),
+    tipo: $("qzTipo").value,
+    categoria: $("qzCategoria").value,
+    descricao: $("qzDescricao").value.trim(),
+    forma: $("qzForma").value,
+    status: $("qzStatus").value,
+    valor: +$("qzValor").value || 0,
+    anexo_nome: anexoInfo ? anexoInfo.nome : null,
+    anexo_tipo: anexoInfo ? anexoInfo.tipo : null,
+    anexo_path: anexoInfo ? anexoInfo.path : null
+  };
+  const { data, error } = await sb().from("fluxo_lancamentos").insert(linha).select().single();
+  btn.disabled = false; btn.textContent = txt;
+  if(error){ alert("Não foi possível salvar o lançamento: " + error.message); return; }
+
+  S.lancamentos.unshift(mapRow(data));
+  anexoPendente = null;
+  renderFiltros(); renderStage(); renderResumo();
+  $("qzDescricao").value = ""; $("qzValor").value = "0"; $("qzDescricao").focus();
+  if($("qzAnexo")) $("qzAnexo").value = "";
+  if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Anexar foto ou PDF";
+  $("qzAnexoPrev").innerHTML = "";
+}
+
+async function excluirLancamento(id){
+  const { error } = await sb().from("fluxo_lancamentos").delete().eq("id", id);
+  if(error){ alert("Não foi possível excluir: " + error.message); return; }
+  S.lancamentos = S.lancamentos.filter(l=>l.id!==id);
+  renderFiltros(); renderStage(); renderResumo();
+}
+
+async function removerAnexo(id){
+  const l = achar(id);
+  if(!l) return;
+  const caminho = l.anexo && l.anexo.path;
+  const { error } = await sb().from("fluxo_lancamentos")
+    .update({ anexo_nome:null, anexo_tipo:null, anexo_path:null }).eq("id", id);
+  if(error){ alert("Não foi possível remover o anexo: " + error.message); return; }
+  l.anexo = null;
+  renderStage();
+  if(caminho) sb().storage.from(BUCKET_ANEXOS).remove([caminho]).catch(()=>{});
+}
+
+async function adicionarCategoria(tipo, nome){
+  if(S.categorias[tipo].includes(nome)) return;
+  const { error } = await sb().from("fluxo_categorias").insert({ tipo, nome });
+  if(error){
+    if(!/duplicate|unique/i.test(error.message)) alert("Não foi possível adicionar a categoria: " + error.message);
+    return;
+  }
+  S.categorias[tipo].push(nome);
+  renderFiltros(); renderCategorias(); atualizarCategoriasForm();
+}
+async function removerCategoria(tipo, nome){
+  const { error } = await sb().from("fluxo_categorias").delete().eq("tipo", tipo).eq("nome", nome);
+  if(error){ alert("Não foi possível remover a categoria: " + error.message); return; }
+  S.categorias[tipo] = S.categorias[tipo].filter(c=>c!==nome);
+  const filtroPerdido = S.filtro.categoria && !categoriasDisponiveisFiltro().includes(S.filtro.categoria);
+  if(filtroPerdido) S.filtro.categoria = "";
+  salvarFiltro();
+  renderFiltros(); renderCategorias(); atualizarCategoriasForm();
+  if(filtroPerdido){ renderStage(); renderResumo(); }
+}
+
+async function limparTudo(){
+  const { error } = await sb().from("fluxo_lancamentos").delete().not("id", "is", null);
+  if(error){ alert("Não foi possível apagar: " + error.message); return; }
+  S.lancamentos = [];
+  renderFiltros(); renderStage(); renderResumo();
+}
+
+/* ---------- exportação / importação ---------- */
 function baixar(blob, nome){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = nome;
@@ -197,16 +320,36 @@ function exportarBackup(){
 }
 function importarBackup(file){
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
+    let v;
     try{
-      const v = JSON.parse(r.result);
+      v = JSON.parse(r.result);
       if(!v || !Array.isArray(v.lancamentos)) throw new Error("formato inválido");
-      if(!confirm("Importar vai substituir todos os lançamentos atuais deste navegador pelos do arquivo. Continuar?")) return;
-      S = Object.assign(ESTADO_INICIAL(), v);
-      if(!S.categorias) S.categorias = JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
-      if(!S.filtro) S.filtro = { mes: mesDe(hoje()), tipo: "todos", categoria: "" };
-      salvar(); renderTudo();
-    }catch(e){ alert("Não foi possível importar: arquivo inválido."); }
+    }catch(e){ alert("Não foi possível importar: arquivo inválido."); return; }
+
+    if(!confirm(`Isso vai ADICIONAR ${v.lancamentos.length} lançamento(s) deste arquivo aos dados atuais (compartilhados pela empresa, não só deste navegador). Continuar?`)) return;
+
+    if(v.categorias){
+      for(const tipo of ["entrada","saida"]){
+        for(const nome of (v.categorias[tipo]||[])){
+          if(!S.categorias[tipo].includes(nome)) await adicionarCategoria(tipo, nome);
+        }
+      }
+    }
+    for(const l of v.lancamentos){
+      const anexoInfo = (l.anexo && l.anexo.dataUrl) ? await enviarAnexo(l.anexo) : null;
+      await sb().from("fluxo_lancamentos").insert({
+        data: l.data || hoje(), tipo: l.tipo==="entrada" ? "entrada" : "saida",
+        categoria: l.categoria || "", descricao: l.descricao || "", forma: l.forma || "Pix",
+        status: l.status==="pago" ? "pago" : "pendente", valor: +l.valor || 0,
+        anexo_nome: anexoInfo ? anexoInfo.nome : null,
+        anexo_tipo: anexoInfo ? anexoInfo.tipo : null,
+        anexo_path: anexoInfo ? anexoInfo.path : null
+      });
+    }
+    await carregar();
+    renderTudo();
+    alert("Importação concluída.");
   };
   r.readAsText(file);
 }
@@ -333,7 +476,7 @@ function linhaHtml(l){
     </select></td>
     <td class="vcell ${l.tipo}"><input type="number" data-f="valor" step="0.01" value="${+l.valor||0}"></td>
     <td class="anexo-cell">${l.anexo ? `
-      <a class="anexo-thumb" href="${l.anexo.dataUrl}" target="_blank" rel="noopener" title="${esc(l.anexo.nome)}">${anexoIconeHtml(l.anexo)}</a>
+      <a class="anexo-thumb" href="${l.anexo.url}" target="_blank" rel="noopener" title="${esc(l.anexo.nome)}">${anexoIconeHtml(l.anexo)}</a>
       <button type="button" class="anexo-rm" data-rmanexo="${l.id}" aria-label="Remover anexo">×</button>
     ` : `<span class="anexo-vazio" aria-label="Sem anexo">—</span>`}</td>
     <td><button class="rm" data-del="${l.id}" aria-label="Excluir">✕</button></td>
@@ -376,8 +519,10 @@ on("input", e=>{
   if(tr && t.dataset.f){
     const l = achar(tr.dataset.row);
     if(l){
-      l[t.dataset.f] = t.type==="number" ? (+t.value||0) : t.value;
-      salvar(); renderResumo();
+      const val = t.type==="number" ? (+t.value||0) : t.value;
+      l[t.dataset.f] = val;
+      renderResumo();
+      agendarSalvar(l.id, { [t.dataset.f]: val });
     }
   }
 });
@@ -388,15 +533,21 @@ on("change", e=>{
   if(tr && t.dataset.f){
     const l = achar(tr.dataset.row);
     if(l){
-      l[t.dataset.f] = t.type==="number" ? (+t.value||0) : t.value;
-      if(t.dataset.f==="tipo" && !S.categorias[l.tipo].includes(l.categoria)) l.categoria = S.categorias[l.tipo][0] || "";
-      salvar(); renderFiltros(); renderStage(); renderResumo();
+      const campo = t.dataset.f;
+      l[campo] = t.type==="number" ? (+t.value||0) : t.value;
+      const patch = { [campo]: l[campo] };
+      if(campo==="tipo" && !S.categorias[l.tipo].includes(l.categoria)){
+        l.categoria = S.categorias[l.tipo][0] || "";
+        patch.categoria = l.categoria;
+      }
+      salvarCampos(l.id, patch);
+      renderFiltros(); renderStage(); renderResumo();
     }
     return;
   }
-  if(t.id==="fMes"){ S.filtro.mes = t.value; salvar(); renderStage(); renderResumo(); return; }
-  if(t.id==="fTipo"){ S.filtro.tipo = t.value; salvar(); renderStage(); renderResumo(); return; }
-  if(t.id==="fCategoria"){ S.filtro.categoria = t.value; salvar(); renderStage(); renderResumo(); return; }
+  if(t.id==="fMes"){ S.filtro.mes = t.value; salvarFiltro(); renderStage(); renderResumo(); return; }
+  if(t.id==="fTipo"){ S.filtro.tipo = t.value; salvarFiltro(); renderStage(); renderResumo(); return; }
+  if(t.id==="fCategoria"){ S.filtro.categoria = t.value; salvarFiltro(); renderStage(); renderResumo(); return; }
   if(t.id==="qzTipo"){ $("qzCategoria").innerHTML = opcoes(S.categorias[t.value]); return; }
   if(t.id==="impJson" && t.files[0]){ importarBackup(t.files[0]); t.value=""; return; }
 
@@ -416,47 +567,23 @@ on("click", e=>{
   const b = e.target.closest("button");
   if(!b) return;
 
-  if(b.dataset.del){ if(confirm("Excluir este lançamento?")) excluir(b.dataset.del); return; }
+  if(b.dataset.del){ if(confirm("Excluir este lançamento?")) excluirLancamento(b.dataset.del); return; }
 
   if(b.dataset.rmcat){
     const [tipo, nome] = b.dataset.rmcat.split("|");
-    S.categorias[tipo] = S.categorias[tipo].filter(c=>c!==nome);
-    const filtroPerdido = S.filtro.categoria && !categoriasDisponiveisFiltro().includes(S.filtro.categoria);
-    if(filtroPerdido) S.filtro.categoria = "";
-    salvar(); renderFiltros(); renderCategorias(); atualizarCategoriasForm();
-    if(filtroPerdido){ renderStage(); renderResumo(); }
+    removerCategoria(tipo, nome);
     return;
   }
 
   if(b.id==="catAdd"){
     const tipo = $("catTipo").value, nome = $("catNome").value.trim();
-    if(nome && !S.categorias[tipo].includes(nome)) S.categorias[tipo].push(nome);
+    if(nome) adicionarCategoria(tipo, nome);
     $("catNome").value = "";
-    salvar(); renderFiltros(); renderCategorias(); atualizarCategoriasForm();
     $("catNome").focus();
     return;
   }
 
-  if(b.id==="qzAdd"){
-    const l = novoLancamento({
-      data: $("qzData").value || hoje(),
-      tipo: $("qzTipo").value,
-      categoria: $("qzCategoria").value,
-      descricao: $("qzDescricao").value.trim(),
-      forma: $("qzForma").value,
-      status: $("qzStatus").value,
-      valor: +$("qzValor").value || 0,
-      anexo: anexoPendente
-    });
-    S.lancamentos.push(l);
-    anexoPendente = null;
-    salvar(); renderFiltros(); renderStage(); renderResumo();
-    $("qzDescricao").value = ""; $("qzValor").value = "0"; $("qzDescricao").focus();
-    if($("qzAnexo")) $("qzAnexo").value = "";
-    if($("qzAnexoLabel")) $("qzAnexoLabel").textContent = "Anexar foto ou PDF";
-    $("qzAnexoPrev").innerHTML = "";
-    return;
-  }
+  if(b.id==="qzAdd"){ adicionarLancamento(); return; }
 
   if(b.id==="qzAnexoRm"){
     anexoPendente = null;
@@ -466,18 +593,14 @@ on("click", e=>{
     return;
   }
 
-  if(b.dataset.rmanexo){
-    const l = achar(b.dataset.rmanexo);
-    if(l){ l.anexo = null; salvar(); renderStage(); }
-    return;
-  }
+  if(b.dataset.rmanexo){ removerAnexo(b.dataset.rmanexo); return; }
 
   if(b.id==="expCsv"){ exportarCSV(); return; }
   if(b.id==="expJson"){ exportarBackup(); return; }
   if(b.id==="impJsonBtn"){ $("impJson").click(); return; }
   if(b.id==="limparTudo"){
-    if(confirm("Isso apaga todos os lançamentos salvos neste navegador. Recomendado exportar um backup antes. Continuar?")){
-      S.lancamentos = []; salvar(); renderFiltros(); renderStage(); renderResumo();
+    if(confirm("Isso apaga todos os lançamentos da empresa (de todos os usuários, não só deste navegador). Recomendado exportar um backup antes. Continuar?")){
+      limparTudo();
     }
     return;
   }
@@ -526,8 +649,8 @@ const TEMPLATE = `
           <summary>Dados salvos<span class="chev">▸</span></summary>
           <div class="body">
             <p class="hint" style="margin-top:0">O .csv exporta os lançamentos do filtro atual e abre no Excel, Google Sheets ou LibreOffice Calc.</p>
-            <p class="hint">Os lançamentos ficam salvos apenas neste navegador. Para usar em outro computador/celular, ou para
-              não perder nada ao limpar o navegador, salve um backup (.json) de tempos em tempos e importe-o quando precisar.</p>
+            <p class="hint">Os lançamentos ficam no banco de dados da empresa (compartilhados entre todos que fizerem login).
+              O backup (.json) continua útil como cópia de segurança pessoal.</p>
             <button class="rm wide" id="limparTudo" type="button" style="margin-top:10px;width:100%">Apagar todos os lançamentos</button>
           </div>
         </details>
@@ -548,11 +671,17 @@ const TEMPLATE = `
   </main>
 </div>`;
 
-function mount(el){
+const TEMPLATE_CARREGANDO = `<div class="fx-wrap"><p class="hint" style="padding:40px 0">Carregando dados do fluxo de caixa…</p></div>`;
+
+async function mount(el){
   root = el;
   root.className = "mod-fluxo m-edit";
+  root.innerHTML = TEMPLATE_CARREGANDO;
+
+  await carregar();
+  if(root !== el) return; // usuário já saiu do módulo antes de terminar de carregar
+
   root.innerHTML = TEMPLATE;
-  if(!iniciado){ carregar(); iniciado = true; }
   ouvintes.forEach(([t,fn]) => root.addEventListener(t, fn));
   root.querySelectorAll(".tabs button").forEach(b=>{
     b.addEventListener("click", ()=>{
