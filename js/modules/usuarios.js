@@ -436,6 +436,7 @@ function unmount(){ clearTimeout(toastTimer); root = null; }
 
 window.Platform.register({
   id: "usuarios",
+  categoria: "configuracoes",
   menu: "Usuários",
   nome: "Usuários",
   descricao: "Veja quem tem acesso à plataforma e libere ou bloqueie cada ferramenta por pessoa.",

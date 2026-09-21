@@ -701,6 +701,7 @@ function unmount(){
 
 Platform.register({
   id: "fluxo",
+  categoria: "financeiro",
   menu: "Fluxo de Caixa",
   nome: "Fluxo de caixa",
   descricao: "Lance entradas e saídas, acompanhe o saldo por período e exporte para planilha (.csv).",

@@ -13,6 +13,25 @@ const CHAVE_MENU = "imperium_menu";   // "open" | "closed" (preferência do menu
 
 function register(m){ modulos.push(m); }
 
+/* Classificação do menu lateral e da tela inicial. Cada ferramenta escolhe a sua com `categoria: "<id>"`
+   no Platform.register. Para criar uma classificação nova, basta acrescentar uma linha aqui (a ordem desta
+   lista é a ordem no menu). Ferramenta sem categoria, ou com uma que não existe, cai em "Outras ferramentas". */
+const CATEGORIAS = [
+  { id: "geradores",     nome: "Geradores" },
+  { id: "financeiro",    nome: "Financeiro" },
+  { id: "configuracoes", nome: "Configurações" }
+];
+const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };
+
+const categoriaDe = m => CATEGORIAS.find(c => c.id === m.categoria) || CATEGORIA_OUTROS;
+
+// [{cat, itens:[módulos]}] na ordem das categorias; categorias sem nenhuma ferramenta visível não aparecem
+function agrupar(lista){
+  return [...CATEGORIAS, CATEGORIA_OUTROS]
+    .map(cat => ({ cat, itens: lista.filter(m => categoriaDe(m).id === cat.id) }))
+    .filter(g => g.itens.length);
+}
+
 // Só mostra o módulo se: for admin (vê tudo), ou o nível da pessoa liberar esse módulo,
 // ou for uma ferramenta marcada soAdmin (ex.: "Usuários") — aí só admin mesmo vê.
 function podeVer(m){
@@ -37,11 +56,14 @@ function renderNav(id){
   const item = (rota, paths, rotulo, ativo) =>
     `<a class="sd-item" href="#/${rota}"${ativo ? ' aria-current="page"' : ""}>` +
     `<span class="sd-ico">${icone(paths)}</span><span class="sd-lbl">${rotulo}</span></a>`;
-  const visiveis = modulosVisiveis();
+  const grupos = agrupar(modulosVisiveis());
   $("nav").innerHTML =
     item("", ICO_INICIO, "Início", id === "") +
-    (visiveis.length ? '<div class="sep"></div>' : "") +
-    visiveis.map(m => item(m.id, m.icone, m.menu, id === m.id)).join("");
+    grupos.map(g => `
+    <div class="sd-group" role="group" aria-labelledby="cat-${g.cat.id}">
+      <div class="sd-cat" id="cat-${g.cat.id}"><span class="sd-cat-lbl">${g.cat.nome}</span></div>
+      ${g.itens.map(m => item(m.id, m.icone, m.menu, id === m.id)).join("")}
+    </div>`).join("");
 }
 
 function lerPreferencia(){
@@ -68,15 +90,15 @@ function gaveta(abrir){
 }
 
 /* ---------- tela inicial ---------- */
-function telaInicial(){
-  return `
-  <section class="home">
-    <h1 class="home-motto">A pessoa certa no lugar certo faz a diferença</h1>
-    <p class="home-sub">Ferramentas internas da Imperium Terceirização e Serviços.</p>
-    ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ""}
-    <h2 class="home-h">Ferramentas</h2>
+function homeFerramentas(){
+  const grupos = agrupar(modulosVisiveis());
+  if(!grupos.length){
+    return `<p class="home-vazio">Você ainda não tem ferramentas liberadas. Fale com o administrador para pedir acesso.</p>`;
+  }
+  return grupos.map(g => `
+    <h2 class="home-h">${g.cat.nome}</h2>
     <ul class="home-list">
-      ${modulosVisiveis().map(m => `
+      ${g.itens.map(m => `
       <li>
         <a class="mod-row" href="#/${m.id}">
           <span class="mod-ico">${icone(m.icone)}</span>
@@ -84,7 +106,16 @@ function telaInicial(){
           <span class="btn ghost mod-go">Abrir</span>
         </a>
       </li>`).join("")}
-    </ul>
+    </ul>`).join("");
+}
+
+function telaInicial(){
+  return `
+  <section class="home">
+    <h1 class="home-motto">A pessoa certa no lugar certo faz a diferença</h1>
+    <p class="home-sub">Ferramentas internas da Imperium Terceirização e Serviços.</p>
+    ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ""}
+    ${homeFerramentas()}
   </section>`;
 }
 
@@ -139,7 +170,10 @@ function iniciar(){
 
 // para a tela "Usuários" montar as checkboxes de cada nível (só as ferramentas de verdade,
 // não a própria tela de admin)
-function modulosConfiguraveis(){ return modulos.filter(m => !m.soAdmin).map(m => ({ id: m.id, nome: m.nome })); }
+function modulosConfiguraveis(){
+  return agrupar(modulos.filter(m => !m.soAdmin))
+    .flatMap(g => g.itens.map(m => ({ id: m.id, nome: m.nome, categoria: g.cat.nome })));
+}
 
 window.Platform = { register, iniciar, modulosConfiguraveis };
 })();

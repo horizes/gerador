@@ -85,7 +85,7 @@ css/usuarios.css           tela "Usuários" (pessoas, permissões por ferramenta
 js/supabase.js              conexão com o Supabase (URL + chave do projeto)
 js/perfil.js                carrega o papel/nível/módulos permitidos da pessoa logada
 js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
-js/platform.js             barra lateral, navegação, tela inicial, registro de módulos e filtro por permissão
+js/platform.js             barra lateral (com grupos), navegação, tela inicial, registro de módulos e filtro por permissão
 js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caixa no Supabase e monta o resumo/gráfico
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
@@ -128,6 +128,7 @@ A navegação usa o hash da URL (`#/propostas`), então não é preciso configur
      id: "nova",                 // vira o endereço #/nova
      menu: "Nova",               // texto na barra lateral
      nome: "Nome da ferramenta", // título na tela inicial
+     categoria: "geradores",     // em qual grupo do menu ela fica (veja "Grupos do menu", abaixo)
      descricao: "Uma frase dizendo o que ela faz.",
      icone: '<path d="..."/>',   // conteúdo de um SVG 24x24 (traço)
      mount(el){ el.innerHTML = "..."; },
@@ -136,7 +137,27 @@ A navegação usa o hash da URL (`#/propostas`), então não é preciso configur
    ```
 2. Adicione `<script src="js/modules/nova-ferramenta.js"></script>` no `index.html`, depois do `propostas.js`.
 
-A ferramenta aparece sozinha na barra lateral e na tela inicial.
+A ferramenta aparece sozinha na barra lateral e na tela inicial, dentro do grupo da `categoria` escolhida.
+
+## Grupos do menu
+
+O menu lateral e a tela inicial separam as ferramentas por classificação, cada uma com um título pequeno:
+
+| Grupo | `categoria` | Ferramentas hoje |
+| --- | --- | --- |
+| Geradores | `geradores` | Gerador de propostas |
+| Financeiro | `financeiro` | Fluxo de caixa |
+| Configurações | `configuracoes` | Usuários |
+
+- A lista e a ordem dos grupos ficam em `CATEGORIAS`, no início de `js/platform.js`. Para criar um grupo novo
+  (ex.: "Comercial"), acrescente uma linha ali e use o `id` dele em `categoria:` na ferramenta.
+- Para mudar uma ferramenta de grupo, troque só o `categoria:` no `Platform.register(...)` dela
+  (`js/modules/*.js`).
+- Grupo sem nenhuma ferramenta visível para a pessoa não aparece (quem só tem o Gerador de propostas vê só
+  "Geradores"). Ferramenta sem `categoria` cai em "Outras ferramentas".
+- Com o menu recolhido (só ícones) o título do grupo some e fica apenas a linha separadora; ao passar o mouse
+  o título volta. No celular, a gaveta mostra os grupos normalmente.
+- Quem ainda não tem nenhuma ferramenta liberada vê, na tela inicial, um aviso para falar com o administrador.
 
 ## Observações
 

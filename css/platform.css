@@ -32,6 +32,27 @@
 .sd-nav{flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden}
 .sd-nav .sep{height:1px;background:var(--rule);margin:10px 16px}
 
+/* grupos do menu (Geradores, Financeiro, Configurações…): título pequeno + linha.
+   Com o menu recolhido (só ícones) o título some e fica só a linha separadora. */
+.side-in{container-type:inline-size;container-name:side}
+.sd-group{margin-top:6px}
+.sd-cat{
+  position:relative;display:flex;align-items:center;gap:10px;height:34px;margin-top:10px;padding:0 16px 0 20px;
+  white-space:nowrap;
+}
+.sd-cat::after{content:"";flex:1;height:1px;background:var(--rule);min-width:8px}
+.sd-cat-lbl{
+  font-family:'Oswald';font-weight:400;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C7365;
+}
+@container side (max-width:140px){
+  .sd-cat{padding:0 16px}
+  .sd-cat-lbl{position:absolute;opacity:0;pointer-events:none}  /* continua acessível a leitores de tela */
+}
+@supports not (container-type:inline-size){
+  .sd-cat{padding:0 16px}
+  .sd-cat-lbl{position:absolute;opacity:0;pointer-events:none}
+}
+
 .sd-item{
   position:relative;display:flex;align-items:center;width:100%;height:46px;
   background:none;border:none;padding:0;text-align:left;cursor:pointer;
@@ -79,6 +100,8 @@
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
 }
 .home-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.home-list + .home-h{margin-top:44px}
+.home-vazio{margin:64px 0 0;max-width:52ch;color:var(--muted);font-size:15.5px;line-height:1.5}
 .home-list li{border-bottom:1px solid var(--rule)}
 .mod-row{
   display:flex;align-items:center;gap:20px;padding:22px 16px;

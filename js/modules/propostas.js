@@ -1089,6 +1089,7 @@ function unmount(){
 
 Platform.register({
   id: "propostas",
+  categoria: "geradores",
   menu: "Propostas",
   nome: "Gerador de propostas",
   descricao: "Monte a proposta de um cliente, confira os valores e gere o PDF ou o arquivo Word.",
