@@ -1042,7 +1042,7 @@ async function exportarWord(){
 
 
 function imprimir(){
-  // o navegador usa document.title como nome sugerido ao "Salvar como PDF" na caixa de impressão
+  // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
   const tituloAnterior = document.title;
   document.title = "Proposta " + nomeCliente();
   let restaurado = false;
@@ -1051,16 +1051,23 @@ function imprimir(){
     restaurado = true;
     document.title = tituloAnterior;
     window.removeEventListener("afterprint", restaurar);
+    document.removeEventListener("visibilitychange", aoVisivelDeNovo);
   }
-  // Importante: NÃO restaurar no evento "focus". No celular (Android) a aba recupera o
-  // foco quase na hora em que a tela de impressão do sistema abre — não quando ela fecha —
-  // então usar "focus" faz o título voltar ao padrão ANTES do PDF ser nomeado, e o arquivo
-  // sai como "Gerador de propostas — Imperium" em vez de "Proposta <cliente>".
-  // O nome sugerido do PDF é definido praticamente no instante em que print() é chamado,
-  // então basta um pequeno tempo fixo como rede de segurança (mais o afterprint, quando existe).
+  function aoVisivelDeNovo(){
+    // só restaura quando a aba volta a ficar visível de fato — ou seja, quando a
+    // tela de impressão/compartilhamento do sistema foi fechada (usuário compartilhou,
+    // salvou ou cancelou). Enquanto essa tela estiver aberta (o que pode levar vários
+    // segundos, até o usuário escolher "Compartilhar" > WhatsApp), o título continua
+    // como "Proposta <cliente>", que é o que o Android usa para nomear o PDF gerado.
+    if(document.visibilityState === "visible") restaurar();
+  }
+  // Não usar o evento "focus": no celular ele costuma disparar assim que a tela de
+  // impressão do sistema abre (não quando ela fecha), o que restaura o título cedo
+  // demais e faz o arquivo compartilhado sair com o nome padrão "Gerador de propostas — Imperium".
   window.addEventListener("afterprint", restaurar);
+  document.addEventListener("visibilitychange", aoVisivelDeNovo);
   window.print();
-  setTimeout(restaurar, 3000);
+  setTimeout(restaurar, 5 * 60 * 1000);   // rede de segurança bem folgada; não deve disparar em uso normal
 }
 
 /* ---------- integração com a plataforma ---------- */
