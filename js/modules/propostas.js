@@ -19,7 +19,7 @@ const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, sal
    gen = gênero padrão (nome/curto abaixo estão nessa forma); alt = a outra forma, quando o cargo varia
    (cargos com o mesmo nome nos dois gêneros, como Recepcionista, não têm alt). */
 const CATALOGO = [
-  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Limpeza", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"limpeza e conservação", gen:"F"},
+  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Serviços Gerais", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"limpeza e conservação", gen:"F"},
   {id:"jard",  nome:"Jardineiro",                      curto:"Jardineiro",          cbo:"6220-10", conf:true,  salario:1886.00, posto:6700.00, escala:"6x1", turno:"Diurno", frente:"jardinagem", gen:"M",
     alt:{nome:"Jardineira", curto:"Jardineira"}},
   {id:"zel",   nome:"Zelador Predial",                   curto:"Zelador",             cbo:"5141-20", conf:true,  salario:2144.33, posto:6693.75, escala:"5x2", turno:"Diurno", frente:"zeladoria", gen:"M",
@@ -143,6 +143,9 @@ function migrar(){
     S.logoV = 2;
   }
   CATALOGO.forEach(c=>{ const x=S.cargos[c.id]; if(x && !x.genero) x.genero = c.gen || "F"; });
+  /* rascunho salvo antes desta correção: "Auxiliar de Serviços Gerais" ficava exibido como
+     "Auxiliar de Limpeza" nas tabelas/PDF; corrige só quem nunca personalizou esse nome */
+  if(S.cargos.aux && S.cargos.aux.curto === "Auxiliar de Limpeza") S.cargos.aux.curto = "Auxiliar de Serviços Gerais";
   S.extras.forEach(x=>{ if(!x.genero) x.genero = "F"; });
   todosCargos().forEach(([k,x])=>{
     if(typeof x.insalPct !== "number") x.insalPct = (+x.insal||0) / S.salMin * 100;
@@ -535,8 +538,8 @@ function pgCBO(){
     <p>É uma classificação que serve como referência para o reconhecimento e a nomeação das profissões.</p>
     <p>Foi estabelecido pela Portaria Ministerial nº 397, de 9 de outubro de 2002.</p>
     <div style="margin-top:14px;border:1px solid var(--paper-rule);border-radius:4px;overflow:hidden">
-      <div style="background:#111;color:#fff;display:flex">
-        ${cs.map(c=>`<div style="flex:1;text-align:center;padding:14px 6px;border-right:1px solid #333"><div style="width:26px;height:2px;background:#D7B247;margin:0 auto 7px"></div><b style="font-size:16.5px">${esc(c.curto||c.nome)}</b><div style="font-size:12.5px;color:#bbb;margin-top:3px">${esc(c.escala)} · ${esc(c.turno)}</div></div>`).join("")}
+      <div class="cbogrid" style="background:#111;color:#fff;display:flex;flex-wrap:wrap">
+        ${cs.map(c=>`<div style="flex:1 1 ${Math.max(100/Math.max(cs.length,1),16)}%;min-width:70px;text-align:center;padding:14px 6px;border-right:1px solid #333"><div style="width:26px;height:2px;background:#D7B247;margin:0 auto 7px"></div><b style="font-size:16.5px">${esc(c.curto||c.nome)}</b><div style="font-size:12.5px;color:#bbb;margin-top:3px">${esc(c.escala)} · ${esc(c.turno)}</div></div>`).join("")}
       </div>
     </div>`);
 }
@@ -657,7 +660,8 @@ function alturaMaximaPx(){
 }
 
 function transbordarLista(paper, maxPx){
-  const lista = paper.querySelector("ul.dt");
+  // funciona tanto para <ul class="dt"> (Diferenciais) quanto <ol class="dt"> (Serviços solicitados/CBO)
+  const lista = paper.querySelector("ul.dt, ol.dt");
   if(!lista) return;
   const excedentes = [];
   let guard = 0;
@@ -666,12 +670,15 @@ function transbordarLista(paper, maxPx){
     lista.removeChild(lista.lastElementChild);
   }
   if(!excedentes.length) return;
+  const titulo = paper.querySelector("h2.dt, h3.dt");
+  const tituloTxt = titulo ? titulo.textContent.trim() : "";
   const continuacao = document.createElement("section");
-  continuacao.className = "paper compacto2 pg-difs";
-  const novaLista = document.createElement("ul");
+  continuacao.className = "paper compacto2";
+  const novaLista = document.createElement(lista.tagName.toLowerCase());
   novaLista.className = "dt";
+  if(lista.tagName === "OL") novaLista.setAttribute("start", String(lista.children.length + 1));
   excedentes.forEach(li => novaLista.appendChild(li));
-  continuacao.innerHTML = HEAD + '<h3 class="dt" style="color:#111">Diferenciais e Condições da Proposta (continuação)</h3>';
+  continuacao.innerHTML = HEAD + (tituloTxt ? `<h3 class="dt" style="color:#111">${esc(tituloTxt)} (continuação)</h3>` : "");
   continuacao.appendChild(novaLista);
   continuacao.insertAdjacentHTML("beforeend", FOOT);
   paper.after(continuacao);
@@ -684,7 +691,9 @@ function ajustarPagina(paper, maxPx){
   if(paper.scrollHeight <= maxPx) return;
   paper.classList.add("compacto2");
   if(paper.scrollHeight <= maxPx) return;
-  if(paper.classList.contains("pg-difs")) transbordarLista(paper, maxPx);
+  // ainda transborda mesmo no modo mais compacto: se a folha tem uma lista (diferenciais,
+  // serviços solicitados/CBO etc.), move os últimos itens para uma folha de continuação
+  if(paper.querySelector("ul.dt, ol.dt")) transbordarLista(paper, maxPx);
   // (tabelas com um número realmente grande de cargos continuam compactadas ao máximo;
   // dividir uma tabela em duas mantendo os totais corretos fica para uma próxima melhoria)
 }
@@ -1150,32 +1159,46 @@ async function exportarWord(){
 
 
 function imprimir(){
-  // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
-  const tituloAnterior = document.title;
-  document.title = nomeArquivoAtual();
-  let restaurado = false;
-  function restaurar(){
-    if(restaurado) return;
-    restaurado = true;
-    document.title = tituloAnterior;
-    window.removeEventListener("afterprint", restaurar);
-    document.removeEventListener("visibilitychange", aoVisivelDeNovo);
+  function disparar(){
+    // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
+    const tituloAnterior = document.title;
+    document.title = nomeArquivoAtual();
+    let restaurado = false;
+    function restaurar(){
+      if(restaurado) return;
+      restaurado = true;
+      document.title = tituloAnterior;
+      window.removeEventListener("afterprint", restaurar);
+      document.removeEventListener("visibilitychange", aoVisivelDeNovo);
+    }
+    function aoVisivelDeNovo(){
+      // só restaura quando a aba volta a ficar visível de fato — ou seja, quando a
+      // tela de impressão/compartilhamento do sistema foi fechada (usuário compartilhou,
+      // salvou ou cancelou). Enquanto essa tela estiver aberta (o que pode levar vários
+      // segundos, até o usuário escolher "Compartilhar" > WhatsApp), o título continua
+      // como "Proposta <cliente>", que é o que o Android usa para nomear o PDF gerado.
+      if(document.visibilityState === "visible") restaurar();
+    }
+    // Não usar o evento "focus": no celular ele costuma disparar assim que a tela de
+    // impressão do sistema abre (não quando ela fecha), o que restaura o título cedo
+    // demais e faz o arquivo compartilhado sair com o nome padrão "Gerador de propostas — Imperium".
+    window.addEventListener("afterprint", restaurar);
+    document.addEventListener("visibilitychange", aoVisivelDeNovo);
+    window.print();
+    setTimeout(restaurar, 5 * 60 * 1000);   // rede de segurança bem folgada; não deve disparar em uso normal
   }
-  function aoVisivelDeNovo(){
-    // só restaura quando a aba volta a ficar visível de fato — ou seja, quando a
-    // tela de impressão/compartilhamento do sistema foi fechada (usuário compartilhou,
-    // salvou ou cancelou). Enquanto essa tela estiver aberta (o que pode levar vários
-    // segundos, até o usuário escolher "Compartilhar" > WhatsApp), o título continua
-    // como "Proposta <cliente>", que é o que o Android usa para nomear o PDF gerado.
-    if(document.visibilityState === "visible") restaurar();
-  }
-  // Não usar o evento "focus": no celular ele costuma disparar assim que a tela de
-  // impressão do sistema abre (não quando ela fecha), o que restaura o título cedo
-  // demais e faz o arquivo compartilhado sair com o nome padrão "Gerador de propostas — Imperium".
-  window.addEventListener("afterprint", restaurar);
-  document.addEventListener("visibilitychange", aoVisivelDeNovo);
-  window.print();
-  setTimeout(restaurar, 5 * 60 * 1000);   // rede de segurança bem folgada; não deve disparar em uso normal
+  // As fontes (Oswald/Barlow) vêm do Google Fonts com "display:swap": a página pode estar
+  // exibindo uma fonte de reserva por uma fração de segundo enquanto elas terminam de carregar.
+  // Se a impressão/PDF for gerada nesse instante, o texto pode quebrar em MAIS linhas do que o
+  // mostrado na tela (fonte de reserva tem métrica diferente), fazendo o conteúdo — e o rodapé —
+  // passar de uma folha A4 mesmo quando na pré-visualização cabia certinho. Por isso, esperamos
+  // as fontes carregarem e refazemos o ajuste de paginação (ajustarTransbordo) com as métricas
+  // finais, só então chamamos window.print().
+  const prontas = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+  prontas.then(()=>{
+    ajustarTransbordo();
+    requestAnimationFrame(()=>requestAnimationFrame(disparar));
+  }).catch(disparar);
 }
 
 /* ---------- integração com a plataforma ---------- */
