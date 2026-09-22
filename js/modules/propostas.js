@@ -1045,10 +1045,19 @@ function imprimir(){
   // o navegador usa document.title como nome sugerido ao "Salvar como PDF" na caixa de impressão
   const tituloAnterior = document.title;
   document.title = "Proposta " + nomeCliente();
-  const restaurar = () => { document.title = tituloAnterior; window.removeEventListener("afterprint", restaurar); };
+  let restaurado = false;
+  function restaurar(){
+    if(restaurado) return;
+    restaurado = true;
+    document.title = tituloAnterior;
+    window.removeEventListener("afterprint", restaurar);
+    window.removeEventListener("focus", restaurar);
+  }
+  // a caixa de impressão/salvar PDF tira o foco da janela; ele volta quando ela é fechada (salvando ou cancelando)
   window.addEventListener("afterprint", restaurar);
+  window.addEventListener("focus", restaurar);
   window.print();
-  setTimeout(restaurar, 5000);   // rede de segurança para navegadores sem evento afterprint
+  setTimeout(restaurar, 60000);   // rede de segurança, caso nenhum dos eventos acima dispare
 }
 
 /* ---------- integração com a plataforma ---------- */
