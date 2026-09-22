@@ -1051,13 +1051,16 @@ function imprimir(){
     restaurado = true;
     document.title = tituloAnterior;
     window.removeEventListener("afterprint", restaurar);
-    window.removeEventListener("focus", restaurar);
   }
-  // a caixa de impressão/salvar PDF tira o foco da janela; ele volta quando ela é fechada (salvando ou cancelando)
+  // Importante: NÃO restaurar no evento "focus". No celular (Android) a aba recupera o
+  // foco quase na hora em que a tela de impressão do sistema abre — não quando ela fecha —
+  // então usar "focus" faz o título voltar ao padrão ANTES do PDF ser nomeado, e o arquivo
+  // sai como "Gerador de propostas — Imperium" em vez de "Proposta <cliente>".
+  // O nome sugerido do PDF é definido praticamente no instante em que print() é chamado,
+  // então basta um pequeno tempo fixo como rede de segurança (mais o afterprint, quando existe).
   window.addEventListener("afterprint", restaurar);
-  window.addEventListener("focus", restaurar);
   window.print();
-  setTimeout(restaurar, 60000);   // rede de segurança, caso nenhum dos eventos acima dispare
+  setTimeout(restaurar, 3000);
 }
 
 /* ---------- integração com a plataforma ---------- */
