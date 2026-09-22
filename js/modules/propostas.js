@@ -579,6 +579,16 @@ function pgClientes(){
 }
 
 function pgValores(){
+  // Antes essas 3 tabelas + a lista de diferenciais ficavam todas espremidas numa
+  // única folha .paper — em propostas com vários cargos ou vários diferenciais isso
+  // facilmente ultrapassava 297mm, e a sobra (geralmente só o rodapé preto) virava
+  // uma página quase em branco no PDF. Agora são duas folhas separadas, e cada uma
+  // ainda passa por ajustarTransbordo() (ver mais abaixo) para se adaptar caso o
+  // conteúdo seja grande demais mesmo assim.
+  return pgTabelas() + pgDiferenciais();
+}
+
+function pgTabelas(){
   const cs = listaCargos(), co = colab();
   const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0;
   const iguais = cs.every(c=>Math.abs(benef(c)-benef(cs[0]||c))<0.01);
@@ -595,9 +605,7 @@ function pgValores(){
     <p style="font-weight:700;margin-bottom:4px">Benefícios mensais ${co.de}</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>VR/ Dia</th><th>VT/ Dia</th><th>VA Cesta</th><th>${iguais?"Média":"Total"}</th></tr></thead>
-      <tbody>${cs.map((c,i)=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.vr)}</td><td>${brl(c.vt)}</td><td>${brl(c.va)}</td>${
-        iguais ? (i===0?`<td rowspan="${cs.length}" style="vertical-align:middle">${brl(mediaBen)}</td>`:"") : `<td>${brl(benef(c))}</td>`
-      }</tr>`).join("")}</tbody>
+      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.vr)}</td><td>${brl(c.vt)}</td><td>${brl(c.va)}</td><td>${brl(iguais?mediaBen:benef(c))}</td></tr>`).join("")}</tbody>
     </table>
 
     <p style="font-weight:700;margin-bottom:4px">Escopo e valores da proposta</p>
@@ -607,10 +615,13 @@ function pgValores(){
         ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td>${brl(c.posto)}</td><td>${brl((+c.posto||0)*(+c.postos||0))}</td></tr>`).join("")}
         <tr class="totrow"><td colspan="6" style="text-align:right">Mensal</td><td class="v">${brl(totalMensal())}</td></tr>
       </tbody>
-    </table>
+    </table>`, "pg-tabelas");
+}
 
+function pgDiferenciais(){
+  return page(`${HEAD}
     <h3 class="dt" style="color:#111">Diferenciais e Condições da Proposta</h3>
-    <ul class="dt">${S.difs.map(d=>`<li><b>${esc(d.t)}</b>: ${esc(d.d)}</li>`).join("")}</ul>`);
+    <ul class="dt">${S.difs.map(d=>`<li><b>${esc(d.t)}</b>: ${esc(d.d)}</li>`).join("")}</ul>`, "pg-difs");
 }
 
 function pgAceite(){
@@ -626,11 +637,71 @@ function pgAceite(){
     </div>`);
 }
 
+/* ---------- ajuste automático de transbordo (evita páginas quase em branco no PDF) ---------- */
+/* Cada .paper deveria caber numa folha A4 (297mm), mas o conteúdo de algumas páginas é
+   variável (nº de cargos, lista de diferenciais que o usuário edita livremente) e pode
+   passar da altura de uma folha. Quando isso acontece, o navegador empurra o excesso
+   (normalmente só o rodapé preto) para uma segunda folha física, quase em branco, mesmo
+   a página lógica seguinte ainda forçando sua própria quebra — daí a folha "fantasma".
+   Esta função mede cada .paper depois de renderizado e, se ultrapassar 297mm, primeiro
+   tenta compactar (fonte/entrelinha menores) e, se ainda assim não couber (ex.: lista de
+   diferenciais muito longa), move os últimos itens para uma folha de continuação. */
+function alturaMaximaPx(){
+  const sonda = document.createElement("div");
+  sonda.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:297mm;width:0;top:0;left:-9999px";
+  document.body.appendChild(sonda);
+  const h = sonda.offsetHeight;
+  sonda.remove();
+  return h;
+}
+
+function transbordarLista(paper, maxPx){
+  const lista = paper.querySelector("ul.dt");
+  if(!lista) return;
+  const excedentes = [];
+  let guard = 0;
+  while(paper.scrollHeight > maxPx && lista.children.length > 1 && guard++ < 300){
+    excedentes.unshift(lista.lastElementChild);
+    lista.removeChild(lista.lastElementChild);
+  }
+  if(!excedentes.length) return;
+  const continuacao = document.createElement("section");
+  continuacao.className = "paper compacto2 pg-difs";
+  const novaLista = document.createElement("ul");
+  novaLista.className = "dt";
+  excedentes.forEach(li => novaLista.appendChild(li));
+  continuacao.innerHTML = HEAD + '<h3 class="dt" style="color:#111">Diferenciais e Condições da Proposta (continuação)</h3>';
+  continuacao.appendChild(novaLista);
+  continuacao.insertAdjacentHTML("beforeend", FOOT);
+  paper.after(continuacao);
+  ajustarPagina(continuacao, maxPx);   // a própria continuação também pode transbordar
+}
+
+function ajustarPagina(paper, maxPx){
+  if(paper.scrollHeight <= maxPx) return;
+  paper.classList.add("compacto");
+  if(paper.scrollHeight <= maxPx) return;
+  paper.classList.add("compacto2");
+  if(paper.scrollHeight <= maxPx) return;
+  if(paper.classList.contains("pg-difs")) transbordarLista(paper, maxPx);
+  // (tabelas com um número realmente grande de cargos continuam compactadas ao máximo;
+  // dividir uma tabela em duas mantendo os totais corretos fica para uma próxima melhoria)
+}
+
+function ajustarTransbordo(){
+  const cont = document.getElementById("papers");
+  if(!cont) return;
+  const maxPx = alturaMaximaPx();
+  if(!maxPx) return;
+  [...cont.querySelectorAll(".paper")].forEach(paper => ajustarPagina(paper, maxPx - 2));
+}
+
 function renderPapers(){
   if(!root) return;
   const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
   document.getElementById("papers").innerHTML =
     SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
+  ajustarTransbordo();
   const chip = document.getElementById("chip");
   if(chip) chip.textContent = brl(totalMensal());
   const chipCusto = document.getElementById("chipCusto");
