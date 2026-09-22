@@ -80,6 +80,7 @@ const ESTADO_INICIAL = () => ({
   responsavel:"",
   tipoCliente:"Residencial",
   cliente:"",
+  nomeArquivo:"",
   localCliente:"Campinas",
   fotoLocal:"",
   logoConnect:LOGO_CONNECT_PADRAO,
@@ -194,6 +195,10 @@ function nomeCliente(){
   const t = S.tipoCliente==="Empresa" ? "" : (S.tipoCliente==="Residencial" ? "Residencial " : S.tipoCliente+" ");
   return (t + (S.cliente||"________")).trim();
 }
+/* nome padrão (usado como placeholder e quando o campo "Nome da proposta" está em branco) */
+function nomeArquivoPadrao(){ return "Proposta " + nomeCliente(); }
+/* nome que vale de fato para o arquivo: o que a pessoa digitou tem sempre prioridade sobre o padrão */
+function nomeArquivoAtual(){ return (S.nomeArquivo || "").trim() || nomeArquivoPadrao(); }
 
 /* ---------- PAINEL ---------- */
 function campo(label,tipo,path,attrs=""){
@@ -302,6 +307,10 @@ function painel(){
         ${campo("Cidade do cliente","text","localCliente")}
         ${campo("Data da proposta","date","data")}
       </div>
+      <label class="f"><span>Nome da proposta (arquivo)</span>
+        <input type="text" data-p="nomeArquivo" placeholder="${esc(nomeArquivoPadrao())}" value="${esc(S.nomeArquivo)}">
+      </label>
+      <p class="hint">É esse nome que vai no PDF e no Word ao salvar/compartilhar — inclusive no celular. Em branco, usa "${esc(nomeArquivoPadrao())}".</p>
       <label class="f"><span>Escopo citado na carta</span>
         <input type="text" data-p="escopoTexto" placeholder="${esc(escopoAuto())}" value="${esc(S.escopoTexto)}">
       </label>
@@ -1021,8 +1030,7 @@ function docxBlob(){
 }
 
 function nomeArquivo(){
-  const base = "Proposta Imperium - " + (S.cliente || "cliente");
-  return base.replace(/[\\/:*?"<>|]/g,"-").slice(0,120);
+  return nomeArquivoAtual().replace(/[\\/:*?"<>|]/g,"-").slice(0,120);
 }
 
 async function exportarWord(){
@@ -1044,7 +1052,7 @@ async function exportarWord(){
 function imprimir(){
   // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
   const tituloAnterior = document.title;
-  document.title = "Proposta " + nomeCliente();
+  document.title = nomeArquivoAtual();
   let restaurado = false;
   function restaurar(){
     if(restaurado) return;
