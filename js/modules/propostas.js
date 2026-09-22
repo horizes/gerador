@@ -220,6 +220,7 @@ function cargoCard(key,c){
         <small>CBO ${esc(c.cbo)}</small>
       </div>
       ${key.startsWith("x")?`<button class="rm" data-del="${key}">remover</button>`:""}
+      <button class="dup" data-dup="${key}" title="Cria uma cópia independente deste cargo, com outra escala/turno/postos/valores">duplicar</button>
     </div>
     <div class="cfg">
       <div class="grid3">
@@ -716,6 +717,14 @@ function renderPapers(){
 /* ---------- eventos ---------- */
 function refCargo(key){ return key.startsWith("x") ? S.extras[+key.slice(1)] : S.cargos[key]; }
 
+/* gera um rótulo livre tipo "Porteiro (2)", "Porteiro (3)"... a partir do nome/curto já usado por outro cargo */
+function proximoRotulo(base, usados){
+  const raiz = String(base||"Cargo").replace(/\s*\(\d+\)$/,"").trim() || "Cargo";
+  let n = 2;
+  while(usados.includes(`${raiz} (${n})`)) n++;
+  return `${raiz} (${n})`;
+}
+
 /* muda o gênero do cargo: troca o nome pela forma correta (só se o nome ainda for o do catálogo) e atualiza o card */
 function trocarGenero(key, g){
   const o = refCargo(key); if(!o) return;
@@ -853,6 +862,21 @@ on("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
   if(b.id==="addcargo"){
     S.extras.push(Object.assign(novoCargo(CATALOGO[0], S.salMin),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));
+    painel(); renderPapers(); return;
+  }
+  if(b.dataset.dup){
+    // duplica o cargo (catálogo ou personalizado) como um novo cargo personalizado independente,
+    // com a mesma configuração — permite ter, por ex., "Porteiro" e "Porteiro (2)" com escala,
+    // turno, postos e valores diferentes cada um.
+    const o = refCargo(b.dataset.dup); if(!o) return;
+    const copia = JSON.parse(JSON.stringify(o));
+    copia.on = true;
+    copia.conf = false;
+    const nomesUsados = todosCargos().map(([,x])=>x.nome||"");
+    const curtosUsados = todosCargos().map(([,x])=>x.curto||"");
+    copia.nome = proximoRotulo(o.nome, nomesUsados);
+    copia.curto = proximoRotulo(o.curto||o.nome, curtosUsados);
+    S.extras.push(copia);
     painel(); renderPapers(); return;
   }
   if(b.dataset.del){ S.extras.splice(+b.dataset.del.slice(1),1); painel(); renderPapers(); return; }

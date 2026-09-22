@@ -64,6 +64,8 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 .grid2 label.f,.grid3 label.f{margin:0}
 .rm{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;padding:5px 9px;cursor:pointer;font-size:12px}
 .rm:hover{border-color:#7A3B3B;color:#E59A9A}
+.dup{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;padding:5px 9px;cursor:pointer;font-size:12px;flex:0 0 auto}
+.dup:hover{border-color:var(--gold);color:var(--gold)}
 
 
 .actions{padding:16px 20px;display:flex;flex-direction:column;gap:9px;position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--rule)}
