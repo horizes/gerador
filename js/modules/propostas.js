@@ -757,6 +757,11 @@ on("input", e=>{
     const o = refCargo(key); if(!o) return;
     const v = t.type==="number" ? (parseFloat(t.value)||0) : t.value;
     o[campo] = v;
+    // as tabelas/PDF e o Word sempre exibem "curto" antes de "nome" (c.curto||c.nome);
+    // por isso o campo "Nome no documento" precisa manter os dois em sincronia — senão
+    // a edição nunca aparece no documento (ficava presa no "Novo cargo" em cargos
+    // personalizados, já que não existe campo separado para editar o "curto").
+    if(campo==="nome"){ o.curto = v; }
     if(campo==="insalPct"){            // % manda: recalcula o R$
       o.insal = calcInsal(S.salMin, v);
       const el = root.querySelector(`[data-c="${key}.insal"]`); if(el) el.value = o.insal.toFixed(2);
