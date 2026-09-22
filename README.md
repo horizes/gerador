@@ -74,17 +74,20 @@ da plataforma.
 ## Uniformes e EPI
 
 Duas ferramentas ligadas pelo mesmo banco, no grupo **Uniformes e EPI** do menu. A ideia central: **cada pessoa tem um
-cargo no perfil e cada cargo tem um kit fixo** de uniformes e EPIs. Quem solicita não escolhe itens nem quantidades,
-só o **tamanho** de cada item.
+cargo no perfil e cada cargo tem um kit** de uniformes e EPIs disponíveis. Quem solicita não escolhe os itens (esses
+vêm do kit do cargo), mas escolhe, item por item, o **tamanho** (quando houver) e a **quantidade** que precisa, até o
+máximo cadastrado no kit.
 
-- **Solicitar uniforme e EPI** (id `uniforme_solicitar`): mostra o cargo da pessoa e o kit dele (uniformes e EPIs, com a
-  quantidade de cada um). Ela escolhe os tamanhos (item deixado sem tamanho não entra no pedido), envia e acompanha em **Meus pedidos**. Quando o pedido fica pronto,
+- **Solicitar uniforme e EPI** (id `uniforme_solicitar`): mostra o cargo da pessoa e o kit dele (uniformes e EPIs, com
+  o máximo de cada um). Ela preenche a quantidade (e o tamanho, quando houver) só dos itens de que precisa — item
+  deixado em branco não entra no pedido —, envia e acompanha em **Meus pedidos**. Quando o pedido fica pronto,
   toca em **Recebi uniforme e EPI**, marca o que recebeu (ou tudo) e assina com uma foto.
 - **Solicitações de uniforme e EPI** (id `uniforme_gestao`): é a tela do responsável, com três abas.
-  - **Solicitações:** quem pediu, o cargo e os itens (tipo, tamanho, quantidade). Permite **marcar como pronto para
-    retirada** (com mensagem opcional, ex.: "retirar no RH") ou **recusar** (com motivo), e mostra as assinaturas de
-    recebimento. Tem um resumo "O que separar" somando os itens dos pedidos aguardando.
-  - **Cargos e kits:** cria, renomeia, desativa e apaga cargos e monta o kit de cada um (itens e quantidades).
+  - **Solicitações:** quem pediu, o cargo e os itens (tipo, tamanho, quantidade escolhida). Permite **marcar como
+    pronto para retirada** (com mensagem opcional, ex.: "retirar no RH") ou **recusar** (com motivo), e mostra as
+    assinaturas de recebimento. Tem um resumo "O que separar" somando os itens dos pedidos aguardando.
+  - **Cargos e kits:** cria, renomeia, desativa e apaga cargos e monta o kit de cada um (itens e a quantidade
+    **máxima** que pode ser pedida de cada um).
   - **Uniformes e EPIs:** o catálogo de itens. Cada item é **Uniforme** ou **EPI** e tem seus tamanhos (em branco =
     tamanho único). Dá para criar, renomear, trocar a categoria, desativar e apagar.
   Tudo nessas duas últimas abas é salvo na hora e vale para quem tem acesso à tela (e para admin).
@@ -103,11 +106,14 @@ só o **tamanho** de cada item.
    ferramenta marcada) e **Solicitações de uniforme e EPI** para o responsável. Admin tem as duas automaticamente.
    Pessoa sem cargo (ou com cargo desativado, ou cujo kit está vazio) vê um aviso em vez do formulário.
 
-**Regras do pedido:** o servidor monta o pedido com o kit do cargo no momento do envio. Item que tem tamanhos e ficou
-em "Não solicitar" (sem tamanho escolhido) **não entra no pedido**; itens de tamanho único entram sempre. Se sobrar
-nenhum item, o pedido não é enviado. O servidor também confere se cada tamanho escolhido é válido. Cada pedido guarda uma cópia do cargo, dos nomes e das quantidades, então mudar
-um kit depois não altera pedidos já feitos. Enquanto a pessoa tem um pedido **aguardando** atendimento, não consegue
-enviar outro (evita duplicidade); depois que o responsável atende, ela pode pedir de novo.
+**Regras do pedido:** o servidor monta o pedido a partir do kit do cargo no momento do envio, mas quem decide o que
+vai é a pessoa: item com a **quantidade em branco não entra no pedido**; item que tem tamanhos e ficou em "Não
+solicitar" (sem tamanho escolhido) também não entra. Os campos de tamanho e quantidade começam vazios — nada é
+preenchido automaticamente. Se sobrar nenhum item, o pedido não é enviado. O servidor confere se cada tamanho
+escolhido é válido e se a quantidade está entre 1 e o máximo cadastrado no kit daquele item. Cada pedido guarda uma
+cópia do cargo, dos nomes e das quantidades pedidas, então mudar um kit depois não altera pedidos já feitos. Enquanto
+a pessoa tem um pedido **aguardando** atendimento, não consegue enviar outro (evita duplicidade); depois que o
+responsável atende, ela pode pedir de novo.
 
 **Avisos:** quando alguém faz um pedido, o responsável vê na hora um aviso no canto da tela e um número no item do
 menu (pedidos aguardando). Quando o pedido fica pronto, quem pediu recebe o aviso e o número no menu dele. Usa o
@@ -144,9 +150,8 @@ responsável enxerga todos; quem pediu só consegue cancelar (e só enquanto agu
 passam por funções do banco que conferem cargo, kit, tamanhos, dono do pedido, itens ainda não recebidos e se a foto
 realmente foi enviada. O cargo de cada pessoa só pode ser alterado por admin.
 
-**Limites atuais:** itens de tamanho único sempre entram no pedido (não há campo para deixá-los de fora); a lista mostra os 300
-pedidos mais recentes; não existe exclusão de pedidos pela tela (para limpar pedidos de teste, use o **Table Editor** do
-Supabase); o solicitante é sempre a própria pessoa logada.
+**Limites atuais:** a lista mostra os 300 pedidos mais recentes; não existe exclusão de pedidos pela tela (para limpar
+pedidos de teste, use o **Table Editor** do Supabase); o solicitante é sempre a própria pessoa logada.
 
 ## Estrutura
 

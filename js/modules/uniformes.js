@@ -1,9 +1,11 @@
 /* Uniformes e EPI — duas ferramentas ligadas pelo mesmo banco (Supabase):
 
    "Solicitar uniforme e EPI"       (id uniforme_solicitar) — cada pessoa tem um CARGO no perfil (definido na tela
-                                    "Usuários") e cada cargo tem um KIT fixo de uniformes e EPIs. Quem pede só escolhe
-                                    o tamanho de cada item. Quando o pedido fica pronto, confirma o recebimento com uma
-                                    foto do rosto carimbada com local, data e hora (assinatura digital).
+                                    "Usuários") e cada cargo tem um KIT de uniformes e EPIs disponíveis. Quem pede
+                                    escolhe, item por item, o tamanho (quando houver) e a quantidade que precisa —
+                                    até o máximo definido no kit do cargo; item deixado em branco não entra no
+                                    pedido. Quando o pedido fica pronto, confirma o recebimento com uma foto do
+                                    rosto carimbada com local, data e hora (assinatura digital).
    "Solicitações de uniforme e EPI" (id uniforme_gestao)   — o responsável vê os pedidos, marca como pronto ou recusa,
                                     confere as assinaturas e edita os itens, os cargos e o kit de cada cargo.
 
@@ -325,7 +327,8 @@ function carimbar(g, w, h, linhas){
 const SOL = (function(){
   let root = null;
   let cargo = null, kit = [], pedidos = [], urls = {};
-  let tamanhos = {}, obsPedido = "";   // tamanhos: { idDoItem: "M" }
+  // tamanhos: { idDoItem: "M" } · quantidades: { idDoItem: 2 } — os dois começam vazios: a pessoa só pede o que preencher
+  let tamanhos = {}, quantidades = {}, obsPedido = "";
   const ouvintes = [];
   const on = (t, fn) => ouvintes.push([t, fn]);
   const $ = id => root && root.querySelector("#" + id);
@@ -338,18 +341,28 @@ const SOL = (function(){
     urls = await assinarFotos(pedidos);
   }
 
-  /* ----- kit do cargo: a pessoa só escolhe o tamanho ----- */
+  // devolve um número válido (1..max) ou null se o campo estiver vazio/ inválido — nesse caso o item fica de fora
+  function limparQtd(valor, max){
+    const n = parseInt(valor, 10);
+    if(!Number.isFinite(n) || n < 1) return null;
+    return Math.min(n, max);
+  }
+
+  /* ----- kit do cargo: a pessoa escolhe a quantidade (e o tamanho, quando houver) de cada item ----- */
   function linhaKit(k){
     const t = k.tipo;
-    const campo = t.tamanhos.length
+    const campoTam = t.tamanhos.length
       ? `<label class="f"><span>Tamanho</span><select data-tam="${t.id}" aria-label="Tamanho de ${esc(t.nome)}">
            <option value="">Não solicitar</option>
            ${t.tamanhos.map(s => `<option value="${esc(s)}" ${tamanhos[t.id] === s ? "selected" : ""}>${esc(s)}</option>`).join("")}
          </select></label>`
       : `<span class="uni-unico">Tamanho único</span>`;
+    const campoQtd = `<label class="f"><span>Quantidade</span>
+      <input type="number" inputmode="numeric" min="1" max="${k.quantidade}" placeholder="0"
+        data-qtd="${t.id}" value="${quantidades[t.id] || ""}" aria-label="Quantidade de ${esc(t.nome)}"></label>`;
     return `<div class="uni-kit-linha">
-      <div class="uni-kit-nome"><b>${esc(t.nome)}</b><span class="uni-it-qtd">× ${k.quantidade}</span></div>
-      ${campo}
+      <div class="uni-kit-nome"><b>${esc(t.nome)}</b><span class="uni-it-qtd">até ${k.quantidade}</span></div>
+      ${campoTam}${campoQtd}
     </div>`;
   }
   function renderKit(){
@@ -371,13 +384,13 @@ const SOL = (function(){
       return its.length ? `<div class="uni-grupo">${CATS[c]}</div>${its.map(linhaKit).join("")}` : "";
     };
     el.innerHTML = `<p class="uni-cargo-tit">Seu cargo: <b>${esc(cargo.nome)}</b></p>
-      <p class="uni-hint" style="margin:6px 0 0">Escolha o tamanho dos itens de que você precisa. Item sem tamanho escolhido não entra no pedido.</p>
+      <p class="uni-hint" style="margin:6px 0 0">Informe a quantidade (e o tamanho, quando houver) só dos itens de que você precisa, até o limite do seu cargo. Item com a quantidade em branco não entra no pedido.</p>
       ${grupo("uniforme")}${grupo("epi")}`;
     form.hidden = false;
     atualizarEnvio();
   }
-  // itens que vão no pedido: os de tamanho único (sempre) e os que tiveram tamanho escolhido
-  const escolhidos = () => kit.filter(k => !k.tipo.tamanhos.length || tamanhos[k.tipo.id]);
+  // itens que vão no pedido: precisam ter quantidade preenchida e, se tiverem tamanho, o tamanho escolhido
+  const escolhidos = () => kit.filter(k => (!k.tipo.tamanhos.length || tamanhos[k.tipo.id]) && quantidades[k.tipo.id] != null);
   function atualizarEnvio(){
     const btn = $("uniEnviar"), av = $("uniPend"); if(!btn) return;
     const pend = temPendente();
@@ -394,16 +407,19 @@ const SOL = (function(){
   async function enviar(){
     erroForm("");
     if(temPendente()) return;
-    // só vão os itens com tamanho escolhido (e os de tamanho único); os outros ficam de fora
+    // só vão os itens com quantidade preenchida (e tamanho escolhido, quando o item tem tamanho); os outros ficam de fora
     const itens = escolhidos();
-    if(!itens.length){ erroForm("Escolha o tamanho de pelo menos um item para fazer o pedido."); return; }
-    const mapa = {};
-    itens.forEach(k => { mapa[k.tipo.id] = k.tipo.tamanhos.length ? tamanhos[k.tipo.id] : "Único"; });
+    if(!itens.length){ erroForm("Informe a quantidade de pelo menos um item para fazer o pedido."); return; }
+    const mapaTam = {}, mapaQtd = {};
+    itens.forEach(k => {
+      mapaTam[k.tipo.id] = k.tipo.tamanhos.length ? tamanhos[k.tipo.id] : "Único";
+      mapaQtd[k.tipo.id] = quantidades[k.tipo.id];
+    });
     const btn = $("uniEnviar"); btn.disabled = true; btn.textContent = "Enviando…";
-    const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapa });
+    const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapaTam, p_quantidades: mapaQtd });
     btn.textContent = "Enviar solicitação";
     if(error){ atualizarEnvio(); erroForm(msgErro(error)); return; }
-    tamanhos = {}; obsPedido = "";
+    tamanhos = {}; quantidades = {}; obsPedido = "";
     if($("uniObs")) $("uniObs").value = "";
     window.Platform.toast("Solicitação enviada. O responsável já foi avisado.");
     await recarregar();
@@ -664,11 +680,23 @@ const SOL = (function(){
   }
 
   /* ----- eventos da tela ----- */
+  function mudarQtd(t, corrigirCampo){
+    const k = kit.find(x => x.tipo.id === t.dataset.qtd); if(!k) return;
+    const n = limparQtd(t.value, k.quantidade);
+    if(corrigirCampo) t.value = n === null ? "" : n;   // ao sair do campo, corrige valor fora do limite (ex.: 0 ou maior que o máximo)
+    if(n === null) delete quantidades[t.dataset.qtd]; else quantidades[t.dataset.qtd] = n;
+    atualizarEnvio();
+  }
   on("change", e => {
     const t = e.target;
     if(t.dataset.tam){ tamanhos[t.dataset.tam] = t.value; atualizarEnvio(); }
+    else if(t.dataset.qtd) mudarQtd(t, true);
   });
-  on("input", e => { if(e.target.id === "uniObs") obsPedido = e.target.value; });
+  on("input", e => {
+    const t = e.target;
+    if(t.id === "uniObs") obsPedido = t.value;
+    else if(t.dataset.qtd) mudarQtd(t, false);   // atualiza o resumo enquanto digita, sem mexer no que a pessoa está escrevendo
+  });
   on("click", e => {
     const b = e.target.closest("button"); if(!b) return;
     if(b.id === "uniEnviar"){ enviar(); return; }
@@ -708,7 +736,7 @@ const SOL = (function(){
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;   // a pessoa já saiu da tela antes de terminar de carregar
     root.innerHTML = TEMPLATE;
-    tamanhos = {}; obsPedido = "";
+    tamanhos = {}; quantidades = {}; obsPedido = "";
     ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
     renderKit(); renderMeus();
     escutas.add(recarregar);
@@ -939,13 +967,13 @@ const GES = (function(){
         ${kit.length ? `<ul class="uni-kit-lista">${kit.map(k => `
           <li data-kit="${k.tipo_id}">
             <span class="uni-kit-n"><b>${esc(k.tipo.nome)}</b>${tagEpi(k.tipo)}${k.tipo.ativo ? "" : `<em>indisponível: não aparece nos pedidos</em>`}</span>
-            <label class="uni-kit-q">Qtde <input type="number" min="1" max="99" data-kitqtd value="${k.quantidade}"></label>
+            <label class="uni-kit-q">Qtde máx. <input type="number" min="1" max="99" data-kitqtd value="${k.quantidade}"></label>
             <button class="rm" type="button" data-rmkit="${k.tipo_id}" aria-label="Tirar ${esc(k.tipo.nome)} do kit">✕</button>
           </li>`).join("")}</ul>`
           : `<p class="uni-hint">Kit vazio. Adicione abaixo os uniformes e EPIs deste cargo.</p>`}
         ${livres.length ? `<div class="uni-kit-add">
           <label class="f"><span>Adicionar ao kit</span><select data-kitsel>${livres.map(t => `<option value="${t.id}">${esc(t.nome)} (${CATS[catDe(t)]})</option>`).join("")}</select></label>
-          <label class="f"><span>Qtde</span><input type="number" min="1" max="99" value="1" data-kitnew></label>
+          <label class="f"><span>Qtde máx.</span><input type="number" min="1" max="99" value="1" data-kitnew></label>
           <button class="btn ghost" type="button" data-addkit>Adicionar</button>
         </div>` : `<p class="uni-hint">Todos os itens disponíveis já estão neste kit.</p>`}
       </div>
@@ -956,7 +984,7 @@ const GES = (function(){
     el.innerHTML = `
       <section class="uni-card">
         <h2 class="uni-h2">Cargos e kits</h2>
-        <p class="uni-hint">Cada cargo tem um kit fixo. Quem tem o cargo no perfil vê esse kit ao solicitar e escolhe só o tamanho. O cargo de cada pessoa é definido na tela <b>Usuários</b> (só administradores). Alterações no kit valem para os próximos pedidos; pedidos já feitos não mudam.</p>
+        <p class="uni-hint">Cada cargo tem um kit de itens disponíveis. A quantidade cadastrada aqui é o <b>máximo</b> que a pessoa pode pedir de cada item — ao solicitar, ela escolhe quanto precisa (até esse limite) e o tamanho, quando houver. O cargo de cada pessoa é definido na tela <b>Usuários</b> (só administradores). Alterações no kit valem para os próximos pedidos; pedidos já feitos não mudam.</p>
         <div id="cgLista">${cargos.length ? cargos.map(cargoHtml).join("") : `<p class="uni-vazio">Nenhum cargo cadastrado ainda.</p>`}</div>
         <div class="uni-cargo-novo">
           <label class="f"><span>Novo cargo</span><input type="text" id="cgNome" maxlength="60" placeholder="Ex.: Porteiro"></label>
