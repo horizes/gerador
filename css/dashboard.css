@@ -1,0 +1,78 @@
+/* Dashboard da tela inicial — resumo do Fluxo de Caixa */
+
+.dash-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:64px 0 14px}
+.dash-head .home-h{margin:0}
+.dash > .home-h{margin:64px 0 14px}
+
+.dash-vazio{
+  border:1px dashed var(--rule);border-radius:8px;padding:24px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--muted);
+}
+.dash-vazio p{margin:0;max-width:46ch}
+
+.dash-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.dash-card{
+  background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+  padding:16px 16px 14px;display:flex;flex-direction:column;gap:6px;
+}
+.dash-card.dash-saldo{border-color:#5B4B24;background:#191509}
+.dash-lbl{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.dash-val{font-family:'Oswald';font-weight:500;font-size:19px;color:var(--cream);line-height:1.2}
+.dash-val.in{color:#8FD39C}
+.dash-val.out{color:#E59A9A}
+.dash-card small{color:var(--muted);font-size:11px}
+
+.dash-row{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+.dash-panel{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:16px 18px 18px}
+.dash-panel .mini:first-child{margin-top:0}
+.dash-svg{width:100%;height:auto;display:block}
+.dash-svg text.dash-axis{font-family:'Barlow';font-size:9px;fill:var(--muted)}
+.dash-legend{display:flex;gap:16px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+.dash-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.dash-legend i.in{background:#8FD39C}
+.dash-legend i.out{background:#E59A9A}
+
+.dash-cat{margin-bottom:11px}
+.dash-cat:last-child{margin-bottom:0}
+.dash-cat-top{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:5px}
+.dash-cat-top span{color:var(--cream)}
+.dash-cat-top b{font-weight:600}
+.dash-cat-top b.entrada{color:#8FD39C}
+.dash-cat-top b.saida{color:#E59A9A}
+.dash-cat-bar{height:6px;border-radius:4px;background:#221F1A;overflow:hidden}
+.dash-cat-bar i{display:block;height:100%;border-radius:4px}
+.dash-cat-bar i.entrada{background:#5FA16B}
+.dash-cat-bar i.saida{background:#C15C5C}
+
+/* evita que números ou nomes compridos estourem o cartão */
+.dash-card,.dash-panel{min-width:0}
+.dash-val{overflow-wrap:anywhere}
+.dash-cat-top span{min-width:0;overflow-wrap:anywhere}
+.dash-cat-top b{white-space:nowrap}
+
+/* tablet e celular */
+@media (max-width:1100px){
+  .dash-grid{grid-template-columns:repeat(2,1fr)}
+  .dash-card.dash-saldo{grid-column:1 / -1}   /* saldo em destaque; os outros 4 fecham em 2 × 2 */
+  .dash-saldo .dash-val{font-size:26px}
+  .dash-row{grid-template-columns:1fr}
+  .dash-head,.dash > .home-h{margin-top:44px}
+}
+
+/* celular */
+@media (max-width:560px){
+  .dash-head{flex-direction:column;align-items:stretch;gap:12px}
+  .dash-head .btn,.dash-vazio .btn{width:100%;min-height:46px}   /* alvo de toque confortável */
+  .dash-grid{gap:10px}
+  .dash-card{padding:14px 13px 12px}
+  .dash-lbl{font-size:10px}
+  .dash-val{font-size:clamp(16px,4.9vw,19px)}
+  .dash-saldo .dash-val{font-size:clamp(22px,7.4vw,28px)}
+  .dash-panel{padding:14px 14px 16px}
+  .dash-svg.compacto text.dash-axis{font-size:11px}
+  .dash-cat-top{font-size:13.5px}
+  .dash-vazio{padding:20px 16px}
+}
+@media (max-width:359px){
+  .dash-grid{grid-template-columns:1fr}
+}
