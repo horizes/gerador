@@ -694,8 +694,32 @@ function ajustarPagina(paper, maxPx){
   // ainda transborda mesmo no modo mais compacto: se a folha tem uma lista (diferenciais,
   // serviços solicitados/CBO etc.), move os últimos itens para uma folha de continuação
   if(paper.querySelector("ul.dt, ol.dt")) transbordarLista(paper, maxPx);
-  // (tabelas com um número realmente grande de cargos continuam compactadas ao máximo;
-  // dividir uma tabela em duas mantendo os totais corretos fica para uma próxima melhoria)
+  // sobrou transbordo (ou a folha nem tinha lista — caso da carta, que é só parágrafo):
+  // move os últimos blocos de conteúdo inteiros (parágrafos, títulos etc.) para uma continuação
+  if(paper.scrollHeight > maxPx) transbordarBlocos(paper, maxPx);
+}
+
+function transbordarBlocos(paper, maxPx){
+  // pega os elementos de conteúdo da folha, exceto o cabeçalho (.phead) e o rodapé (.pfoot)
+  const filhos = [...paper.children].filter(el => !el.classList.contains("phead") && !el.classList.contains("pfoot"));
+  if(filhos.length < 2) return;   // um bloco só (ex.: uma tabela enorme) não dá pra separar com segurança
+  const excedentes = [];
+  let guard = 0;
+  while(paper.scrollHeight > maxPx && filhos.length > 1 && guard++ < 50){
+    const ultimo = filhos.pop();
+    ultimo.remove();
+    excedentes.unshift(ultimo);
+  }
+  if(!excedentes.length) return;
+  const titulo = paper.querySelector("h2.dt, h3.dt");
+  const tituloTxt = titulo ? titulo.textContent.trim() : "";
+  const continuacao = document.createElement("section");
+  continuacao.className = "paper compacto2";
+  continuacao.innerHTML = HEAD + (tituloTxt ? `<h3 class="dt" style="color:#111">${esc(tituloTxt)} (continuação)</h3>` : "");
+  excedentes.forEach(el => continuacao.appendChild(el));
+  continuacao.insertAdjacentHTML("beforeend", FOOT);
+  paper.after(continuacao);
+  ajustarPagina(continuacao, maxPx);   // a própria continuação também pode transbordar
 }
 
 function ajustarTransbordo(){
