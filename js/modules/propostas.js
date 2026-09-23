@@ -663,11 +663,20 @@ function transbordarLista(paper, maxPx){
   // funciona tanto para <ul class="dt"> (Diferenciais) quanto <ol class="dt"> (Serviços solicitados/CBO)
   const lista = paper.querySelector("ul.dt, ol.dt");
   if(!lista) return;
-  const excedentes = [];
+  const itens = [...lista.children];
+  if(itens.length < 2 || paper.scrollHeight <= maxPx) return;
+  // estimativa em bloco (poucas leituras de layout) em vez de remover item por item medindo a
+  // cada passo — isso é o que causava lentidão/travamento em propostas com muitos itens
+  const alturaMedia = (lista.scrollHeight / itens.length) || 40;
+  const excesso = paper.scrollHeight - maxPx;
+  const n = Math.min(itens.length - 1, Math.max(1, Math.ceil(excesso / alturaMedia) + 1));
+  const excedentes = itens.slice(itens.length - n);
+  excedentes.forEach(li => li.remove());
   let guard = 0;
-  while(paper.scrollHeight > maxPx && lista.children.length > 1 && guard++ < 300){
-    excedentes.unshift(lista.lastElementChild);
-    lista.removeChild(lista.lastElementChild);
+  while(paper.scrollHeight > maxPx && lista.children.length > 1 && guard++ < 20){
+    const ultimo = lista.lastElementChild;
+    lista.removeChild(ultimo);
+    excedentes.unshift(ultimo);
   }
   if(!excedentes.length) return;
   const titulo = paper.querySelector("h2.dt, h3.dt");
@@ -702,13 +711,24 @@ function ajustarPagina(paper, maxPx){
 function transbordarBlocos(paper, maxPx){
   // pega os elementos de conteúdo da folha, exceto o cabeçalho (.phead) e o rodapé (.pfoot)
   const filhos = [...paper.children].filter(el => !el.classList.contains("phead") && !el.classList.contains("pfoot"));
-  if(filhos.length < 2) return;   // um bloco só (ex.: uma tabela enorme) não dá pra separar com segurança
-  const excedentes = [];
+  if(filhos.length < 2 || paper.scrollHeight <= maxPx) return;   // um bloco só não dá pra separar com segurança
+  // mede a altura de cada bloco de uma vez (sem remover nada ainda) pra decidir de uma vez só
+  // quantos mover, em vez de remover um por um medindo a cada passo
+  const excesso = paper.scrollHeight - maxPx;
+  let acumulado = 0, n = 0;
+  for(let i = filhos.length - 1; i >= 1; i--){
+    acumulado += filhos[i].offsetHeight;
+    n++;
+    if(acumulado >= excesso) break;
+  }
+  const excedentes = filhos.slice(filhos.length - n);
+  excedentes.forEach(el => el.remove());
   let guard = 0;
-  while(paper.scrollHeight > maxPx && filhos.length > 1 && guard++ < 50){
-    const ultimo = filhos.pop();
-    ultimo.remove();
-    excedentes.unshift(ultimo);
+  while(paper.scrollHeight > maxPx && filhos.length - excedentes.length > 1 && guard++ < 10){
+    const proximo = filhos[filhos.length - excedentes.length - 1];
+    if(!proximo || !proximo.parentNode) break;
+    proximo.remove();
+    excedentes.unshift(proximo);
   }
   if(!excedentes.length) return;
   const titulo = paper.querySelector("h2.dt, h3.dt");
@@ -730,12 +750,21 @@ function ajustarTransbordo(){
   [...cont.querySelectorAll(".paper")].forEach(paper => ajustarPagina(paper, maxPx - 2));
 }
 
+/* o ajuste de paginação é um pouco pesado (mede e mexe no layout); adiar em vez de rodar a cada
+   letra digitada evita travar a digitação/a entrada na página — mas ao imprimir/gerar PDF o
+   ajuste é sempre chamado direto (sem adiar), então o PDF nunca sai sem essa checagem */
+let _transbordoAgendado = null;
+function agendarTransbordo(){
+  if(_transbordoAgendado) clearTimeout(_transbordoAgendado);
+  _transbordoAgendado = setTimeout(()=>{ _transbordoAgendado = null; ajustarTransbordo(); }, 200);
+}
+
 function renderPapers(){
   if(!root) return;
   const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
   document.getElementById("papers").innerHTML =
     SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
-  ajustarTransbordo();
+  agendarTransbordo();
   const chip = document.getElementById("chip");
   if(chip) chip.textContent = brl(totalMensal());
   const chipCusto = document.getElementById("chipCusto");
@@ -1220,6 +1249,7 @@ function imprimir(){
   // finais, só então chamamos window.print().
   const prontas = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
   prontas.then(()=>{
+    if(_transbordoAgendado){ clearTimeout(_transbordoAgendado); _transbordoAgendado = null; }
     ajustarTransbordo();
     requestAnimationFrame(()=>requestAnimationFrame(disparar));
   }).catch(disparar);
