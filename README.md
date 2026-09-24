@@ -42,7 +42,11 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 6. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
    depois dos scripts acima) e libere as ferramentas e o cargo de cada pessoa na tela **Usuários** — veja a seção
    **Uniformes e EPI**, abaixo.
-7. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
+7. **Rode o SQL de exclusão de usuário:** ainda no SQL Editor, cole o conteúdo de
+   `supabase-schema-excluir-usuario.sql` e clique em **Run** (a qualquer momento, mesmo antes dos passos
+   acima). Sem isso, o botão **Excluir conta** da tela "Usuários" falha para quem já lançou algo no Fluxo de
+   Caixa — veja a seção **Excluir conta**, abaixo.
+8. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
    projeto Supabase, atualize as duas constantes no topo desse arquivo.
 
 ## Hierarquia de acesso
@@ -60,7 +64,10 @@ são salvas na hora, sem botão "Salvar":
   interruptor aparece travado com essa indicação — para tirar, mude o nível ou o papel dela.
 - **Papel, nível e acesso ao site:** admin vê todas as ferramentas (inclusive a tela Usuários) e não depende
   de nível; desligar **Acesso ao site** bloqueia o login e o acesso aos dados na hora, sem apagar a conta no
-  Supabase. Você não consegue alterar o seu próprio papel nem desativar a si mesmo.
+  Supabase (dá pra ligar de novo depois). Você não consegue alterar o seu próprio papel nem desativar a si
+  mesmo.
+- **Excluir conta:** ao contrário de "Acesso ao site", isso apaga o login de vez — não tem como desfazer.
+  Veja a seção **Excluir conta**, abaixo.
 - **Níveis de permissão (opcional):** grupos que você nomeia (ex.: "Financeiro", "Comercial") e para os quais
   marca quais ferramentas liberam. Mudar as ferramentas de um nível vale para todas as pessoas dele.
 - **Acesso final** a uma ferramenta = admin **ou** o nível libera **ou** permissão direta da pessoa.
@@ -106,6 +113,30 @@ npx supabase functions deploy completar-convite
 (o `project-ref` acima é o mesmo que aparece na `SUPABASE_URL` de `js/supabase.js`, entre `https://` e
 `.supabase.co`). Não precisa configurar nenhuma chave/segredo à parte: o Supabase já injeta
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` automaticamente dentro de toda Edge Function.
+
+## Excluir conta
+
+No cartão **Pessoas** da tela "Usuários", cada pessoa (menos você mesmo) tem um botão **Excluir conta** no
+rodapé do cartão. Diferente de desligar **Acesso ao site** (que só bloqueia o login e dá pra desfazer a
+qualquer hora), excluir apaga o login dela do Supabase Auth de vez — **não tem como desfazer**. O perfil, as
+permissões diretas por ferramenta e os convites que ela tiver criado somem junto; o que ela já lançou no
+**Fluxo de caixa** ou pediu no **Uniformes e EPI** continua no histórico, só sem o vínculo com a conta (o
+"quem fez" fica em branco).
+
+Assim como criar conta, excluir só é possível com a **service role key**, então depende de outra Edge
+Function, `excluir-usuario` (pasta `supabase/functions/excluir-usuario/`). Diferente de `completar-convite`
+(chamada por alguém que ainda não tem conta), esta é chamada por um admin já logado — e ela mesma confere de
+novo, no banco, que quem está chamando é realmente um admin ativo, antes de excluir qualquer coisa.
+
+**Publicar a função (mesmo processo acima, uma vez):**
+```
+npx supabase functions deploy excluir-usuario
+```
+
+Também é preciso rodar, uma vez, o `supabase-schema-excluir-usuario.sql` (SQL Editor > New query > Run) —
+sem ele, excluir alguém que já lançou algo no Fluxo de Caixa falha com um erro do banco, porque a coluna que
+guarda "quem lançou" não sabe o que fazer quando esse login some. Depois de rodar o script, esse mesmo
+lançamento fica no histórico com o campo "quem fez" em branco.
 
 Enquanto a função não for publicada, a pessoa vê uma mensagem de erro ao tentar concluir o próprio cadastro
 — nesse meio tempo, crie contas à moda antiga (Authentication > Users > Add user, veja o passo 5 acima).

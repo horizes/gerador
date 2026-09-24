@@ -370,6 +370,7 @@ function htmlPessoa(p){
     <footer class="usr-p-meta">
       <span title="${p.ultimo_acesso ? fmtDataHora.format(new Date(p.ultimo_acesso)) : ""}">Último acesso: <b>${quandoAcessou(p.ultimo_acesso)}</b></span>
       <span>Conta criada em ${fmtData.format(new Date(p.criado_em))}</span>
+      ${eu ? "" : `<button class="btn ghost usr-excluir" type="button" title="Apaga o login dela de vez — diferente de desligar &quot;Acesso ao site&quot;, não tem como desfazer">Excluir conta</button>`}
     </footer>
   </article>`;
 }
@@ -472,6 +473,39 @@ async function alternarFerramenta(p, moduloId, ligar){
   const m = MODULOS().find(x => x.id === moduloId);
   const quem = p.nome || p.email;
   aviso(`${m ? m.nome : moduloId} ${ligar ? "liberado para" : "removido de"} ${quem}`);
+}
+
+// ---------- excluir conta (diferente de "Bloquear": aqui o login some do Supabase de vez) ----------
+// Só admin chama, e a Edge Function confere isso de novo (com a service role key) antes de excluir —
+// ver supabase/functions/excluir-usuario. O que a pessoa já lançou no Fluxo de Caixa ou pediu no
+// Uniformes/EPI continua no histórico (supabase-schema-excluir-usuario.sql cuida disso).
+async function excluirPessoa(p){
+  const quem = p.nome || p.email;
+  const avisoAdmin = p.papel === "admin" ? "\n\nEla é ADMIN — depois de excluída, essa conta não gerencia mais nada por aqui." : "";
+  if(!confirm(`Excluir de vez a conta de ${quem}?\n\nIsso apaga o login dela do Supabase — diferente de "Bloquear", NÃO tem como desfazer. O que ela já lançou no Fluxo de Caixa ou pediu no Uniformes/EPI continua no histórico, só sem o vínculo com a conta.${avisoAdmin}`)) return;
+
+  const card = root.querySelector(`.usr-pessoa[data-id="${p.id}"]`);
+  if(card) card.classList.add("is-busy");
+
+  const { data, error } = await sb().functions.invoke("excluir-usuario", { body: { userId: p.id } });
+
+  // mesmo caso de sempre: erro 4xx/5xx não vem pronto em error.message, precisa ler o corpo
+  let falha = null;
+  if(error){
+    falha = error.message || "Não foi possível excluir.";
+    try{ const corpo = await error.context.json(); if(corpo && corpo.erro) falha = corpo.erro; }catch(_){}
+  }else if(data && data.erro){ falha = data.erro; }
+
+  if(!root) return;
+  if(falha){
+    if(card) card.classList.remove("is-busy");
+    aviso(falha, "erro");
+    return;
+  }
+
+  pessoas = pessoas.filter(x => x.id !== p.id);
+  renderPessoas();
+  aviso(`Conta de ${quem} excluída`);
 }
 
 async function aoMudarPessoa(el){
@@ -608,6 +642,13 @@ function ligar(){
     const cancelarBtn = e.target.closest(".usr-cancelar-convite");
     if(cancelarBtn){
       cancelarConvite(cancelarBtn.closest(".usr-convite-pendente").dataset.token);
+      return;
+    }
+    const excluirBtn = e.target.closest(".usr-excluir");
+    if(excluirBtn){
+      const card = excluirBtn.closest(".usr-pessoa");
+      const p = pessoas.find(x => x.id === card.dataset.id);
+      if(p) excluirPessoa(p);
       return;
     }
   });

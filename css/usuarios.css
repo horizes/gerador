@@ -86,10 +86,14 @@
 .usr-ferr-lista{display:flex;flex-direction:column;gap:2px}
 
 .usr-p-meta{
-  display:flex;gap:6px 22px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #221F1A;
+  display:flex;gap:6px 22px;flex-wrap:wrap;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #221F1A;
   color:var(--muted);font-size:12.5px;
 }
 .usr-p-meta b{color:var(--cream);font-weight:500}
+.usr-excluir{
+  margin-left:auto;font-size:11.5px;padding:6px 12px;color:#E59A9A;border-color:#5B2E2E;
+}
+.usr-excluir:hover{background:#2A1414;border-color:#7A3B3B}
 
 /* interruptor (liga/desliga) */
 .usr-sw{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;position:relative}
