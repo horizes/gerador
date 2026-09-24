@@ -114,3 +114,12 @@ table.fx-tbl td.anexo-cell{display:flex;align-items:center;gap:6px;padding:8px 6
   .fx-extras{grid-template-columns:1fr}
   .fx-bar label.f{max-width:none}
 }
+
+/* Open Finance */
+.bk-conn{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;margin:10px 0}
+.bk-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px}
+.bk-top small{color:var(--muted)}
+.bk-conta{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0}
+.bk-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bk-msg{color:var(--gold)}
+.fx-tbl tr.de-banco>td:first-child{box-shadow:inset 3px 0 0 var(--gold)}

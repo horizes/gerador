@@ -50,6 +50,8 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    `supabase-schema-excluir-usuario.sql` e clique em **Run** (a qualquer momento, mesmo antes dos passos
    acima). Sem isso, o botão **Excluir conta** da tela "Usuários" falha para quem já lançou algo no Fluxo de
    Caixa — veja a seção **Excluir conta**, abaixo.
+7b. **Open Finance (só se for conectar bancos):** rode o `supabase-schema-openfinance.sql` (SQL Editor > New query > Run)
+   e siga a seção **Fluxo de caixa: Open Finance**, abaixo.
 8. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
    projeto Supabase, atualize as duas constantes no topo desse arquivo.
 
@@ -383,6 +385,40 @@ fizer login vê e edita os **mesmos** dados, de qualquer computador ou celular. 
   — o aviso de confirmação deixa isso claro.
 - Não há sincronização automática em tempo real: se duas pessoas estiverem com a planilha aberta ao mesmo
   tempo, cada uma vê as mudanças da outra ao navegar de novo até a tela (ou recarregar a página).
+
+## Fluxo de caixa: Open Finance
+
+Conecta a conta bancária da empresa ao Fluxo de Caixa: saldos reais e movimentações entram sozinhos como
+lançamentos. Fica no cartão **Contas bancárias (Open Finance)**, acima de "Categorias".
+
+**Por que Pluggy?** Participar do Open Finance diretamente exige ser instituição autorizada pelo Banco Central
+(certificados ICP-Brasil e registro em cada banco). Uma empresa comum usa um agregador que já é autorizado; aqui,
+o **Pluggy** (docs.pluggy.ai). O código está isolado na Edge Function `open-finance`, então trocar de agregador
+depois mexe só nela.
+
+**Configuração (uma vez):**
+1. Crie uma conta e um aplicativo no painel do Pluggy (dashboard.pluggy.ai) e copie o `CLIENT_ID` e o `CLIENT_SECRET`.
+   Aplicativos novos começam só com bancos de teste (sandbox); para bancos reais é preciso contratar/ativar o plano
+   de produção no Pluggy.
+2. Rode `supabase-schema-openfinance.sql` no SQL Editor.
+3. Guarde as chaves como segredos (nunca no código do site) e publique a função:
+   ```
+   supabase secrets set PLUGGY_CLIENT_ID=... PLUGGY_CLIENT_SECRET=...
+   supabase functions deploy open-finance
+   ```
+4. Publique o site atualizado e abra **Fluxo de Caixa > Contas bancárias > Conectar banco**. Para testar sem banco
+   real, o widget aceita o "Pluggy Bank" de teste (usuário `user-ok`, senha `password-ok`) quando o aplicativo
+   está em sandbox (o site hoje não liga `includeSandbox`; para ver os bancos de teste, adicione
+   `includeSandbox: true` na chamada `new PluggyConnect` em `js/modules/fluxo.js`, e tire depois).
+
+**Como funciona:**
+- Quem tem acesso ao Fluxo conecta e sincroniza; só admin **desconecta**. A primeira carga traz os últimos 90 dias.
+- Ao abrir o Fluxo, se a última sincronização tem mais de 3 horas, sincroniza sozinho. Há também o botão **Sincronizar**.
+- Cada movimentação vira um lançamento **pago**, categoria *Outras receitas/despesas* (ajuste na planilha); as linhas
+  vindas do banco têm uma faixa dourada à esquerda. Apagar um lançamento importado **não** o traz de volta.
+- O cartão mostra o **saldo real dos bancos** ao lado do saldo pelos lançamentos e a diferença, para conciliar.
+- Cartão de crédito: só o saldo é mostrado; as compras não são importadas (a fatura paga já é saída na conta).
+- Se o banco pedir nova autorização (o consentimento do Open Finance expira), use **Reconectar**.
 
 ## Login
 

@@ -32,6 +32,7 @@ const mesDe = iso => (iso||"").slice(0,7);
 const ESTADO_INICIAL = () => ({
   categorias: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)),
   lancamentos: [],
+  bancos: { conexoes: [], contas: [] },
   filtro: { mes: mesDe(hoje()), tipo: "todos", categoria: "" }
 });
 let S = ESTADO_INICIAL();
@@ -176,7 +177,7 @@ function mapRow(r){
   return {
     id: r.id, data: r.data, tipo: r.tipo, categoria: r.categoria,
     descricao: r.descricao || "", forma: r.forma || "Pix", status: r.status, valor: +r.valor || 0,
-    criado_em: r.criado_em,
+    criado_em: r.criado_em, banco: !!r.banco_transacao_id,
     anexo: r.anexo_path ? { nome: r.anexo_nome, tipo: r.anexo_tipo, path: r.anexo_path, url: urlAnexo(r.anexo_path) } : null
   };
 }
@@ -193,11 +194,116 @@ async function carregarLancamentos(){
   if(error){ alert("Não foi possível carregar os lançamentos: " + error.message); return []; }
   return (data||[]).map(mapRow);
 }
+async function carregarBancos(){
+  const [c, a] = await Promise.all([
+    sb().from("banco_conexoes").select("*").order("criado_em"),
+    sb().from("banco_contas").select("*").order("nome")
+  ]);
+  // se o SQL do Open Finance ainda não foi rodado, as tabelas não existem: a seção some em silêncio
+  S.bancos = { conexoes: c.error ? [] : (c.data||[]), contas: a.error ? [] : (a.data||[]), ok: !c.error };
+}
 async function carregar(){
   carregarFiltro();
-  const [cat, lanc] = await Promise.all([carregarCategorias(), carregarLancamentos()]);
+  const [cat, lanc] = await Promise.all([carregarCategorias(), carregarLancamentos(), carregarBancos()]);
   S.categorias = cat;
   S.lancamentos = lanc;
+}
+
+/* ---------- Open Finance (bancos via Pluggy; a chave secreta fica na Edge Function "open-finance") ---------- */
+const WIDGET_PLUGGY = "https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js";
+let ocupadoBanco = false;
+let msgBanco = "";
+
+async function chamarBanco(corpo){
+  const { data, error } = await sb().functions.invoke("open-finance", { body: corpo });
+  let falha = null;
+  if(error){
+    falha = error.message || "Não foi possível falar com o banco.";
+    try{ const c = await error.context.json(); if(c && c.erro) falha = c.erro; }catch(_){}
+  }else if(data && data.erro){ falha = data.erro; }
+  if(falha) throw new Error(falha);
+  return data;
+}
+function carregarWidget(){
+  if(window.PluggyConnect) return Promise.resolve();
+  return new Promise((ok, no)=>{
+    const sc = document.createElement("script");
+    sc.src = WIDGET_PLUGGY; sc.onload = ok;
+    sc.onerror = () => no(new Error("Não foi possível carregar o conector do banco."));
+    document.head.appendChild(sc);
+  });
+}
+function definirBanco(msg, ocupado){ msgBanco = msg || ""; ocupadoBanco = !!ocupado; renderBancos(); }
+
+async function aposSincronizar(r){
+  await Promise.all([carregarBancos(), carregarLancamentos().then(l=>{ S.lancamentos = l; })]);
+  const partes = [r.novos ? `${r.novos} lançamento(s) novo(s) importado(s).` : "Nenhuma movimentação nova.", ...(r.avisos||[])];
+  definirBanco(partes.join(" "), false);
+  renderTudo();
+}
+async function sincronizarBancos(conexaoId){
+  definirBanco("Sincronizando com o banco…", true);
+  try{ await aposSincronizar(await chamarBanco({ acao: "sincronizar", conexaoId })); }
+  catch(e){ definirBanco(e.message, false); }
+}
+async function conectarBanco(itemId){
+  definirBanco("Abrindo conexão segura…", true);
+  try{
+    const [{ accessToken }] = await Promise.all([chamarBanco({ acao: "token", itemId }), carregarWidget()]);
+    const w = new window.PluggyConnect({
+      connectToken: accessToken,
+      includeSandbox: true, // TESTE: remover (ou false) antes de conectar bancos reais
+      updateItem: itemId || undefined,
+      onSuccess: async (d) => {
+        definirBanco("Banco conectado. Importando movimentações…", true);
+        try{ await aposSincronizar(await chamarBanco({ acao: "registrar", itemId: d.item.id })); }
+        catch(e){ definirBanco(e.message, false); }
+      },
+      onError: (e) => definirBanco((e && e.message) || "A conexão com o banco não foi concluída.", false),
+      onClose: () => { if(ocupadoBanco && msgBanco.startsWith("Abrindo")) definirBanco("", false); }
+    });
+    await w.init();
+    definirBanco("", false);
+  }catch(e){ definirBanco(e.message, false); }
+}
+async function desconectarBanco(id){
+  definirBanco("Desconectando…", true);
+  try{ await chamarBanco({ acao: "desconectar", conexaoId: id }); await carregarBancos(); definirBanco("Banco desconectado. Os lançamentos já importados foram mantidos.", false); }
+  catch(e){ definirBanco(e.message, false); }
+}
+function quando(iso){
+  if(!iso) return "ainda não sincronizado";
+  return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+function renderBancos(){
+  const el = $("bancos");
+  if(!el) return;
+  const { conexoes, contas } = S.bancos;
+  const admin = !!(window.Imperium.perfil && window.Imperium.perfil.admin);
+  const saldoBanco = contas.filter(c=>c.tipo==="BANK").reduce((t,c)=>t+(+c.saldo||0),0);
+  const dif = saldoBanco - saldoAtual();
+  const dis = ocupadoBanco ? "disabled" : "";
+  el.innerHTML = `
+    ${msgBanco ? `<p class="hint bk-msg" style="margin-top:0">${esc(msgBanco)}</p>` : ""}
+    ${conexoes.length ? `
+    <div class="calc-chip">
+      <div class="calc-row total"><span>Saldo nas contas dos bancos</span><b class="${saldoBanco<0?"neg":""}">${brl(saldoBanco)}</b></div>
+      <div class="calc-row"><span>Saldo pelos lançamentos pagos</span><b>${brl(saldoAtual())}</b></div>
+      <div class="calc-row"><span>Diferença (a conciliar)</span><b class="${Math.abs(dif)>=0.005?"neg":""}">${brl(dif)}</b></div>
+    </div>
+    ${conexoes.map(c=>`
+      <div class="bk-conn">
+        <div class="bk-top"><b>${esc(c.instituicao)}</b><small>${esc(quando(c.ultima_sincronizacao))}</small></div>
+        ${contas.filter(a=>a.conexao_id===c.id).map(a=>`
+          <div class="bk-conta"><span>${esc(a.nome)}${a.tipo==="CREDIT"?" (cartão)":""}</span><b>${brl(a.saldo)}</b></div>`).join("")}
+        <div class="bk-acoes">
+          <button class="btn ghost" type="button" data-bk="sync" data-id="${c.id}" ${dis}>Sincronizar</button>
+          <button class="btn ghost" type="button" data-bk="reconectar" data-item="${esc(c.item_id)}" ${dis}>Reconectar</button>
+          ${admin ? `<button class="rm" type="button" data-bk="desconectar" data-id="${c.id}" ${dis}>Desconectar</button>` : ""}
+        </div>
+      </div>`).join("")}` : `<p class="hint" style="margin-top:0">Conecte a conta da empresa via Open Finance: os saldos e as movimentações entram sozinhos no fluxo, sem digitar.</p>`}
+    <button class="btn wide" type="button" data-bk="conectar" ${dis}>Conectar banco</button>
+    <p class="hint">A conexão é feita no ambiente seguro do banco (a Imperium nunca vê sua senha). Movimentações importadas entram como "pago" em <i>Outras receitas/despesas</i> — ajuste a categoria na planilha. Compras de cartão de crédito não são importadas (a fatura paga já aparece como saída na conta).</p>`;
 }
 
 /* ---------- ações sobre lançamentos (gravam direto no Supabase) ---------- */
@@ -455,13 +561,15 @@ function atualizarCategoriasForm(){
 function renderTudo(){
   renderFiltros(); renderCategorias(); atualizarCategoriasForm();
   renderStage(); renderResumo();
+  const det = $("bancosDet"); if(det) det.hidden = !S.bancos.ok;
+  renderBancos();
 }
 
 /* ---------- planilha (stage) ---------- */
 function linhaHtml(l){
   const cats = S.categorias[l.tipo] || [];
   const catOpts = cats.includes(l.categoria) ? cats : [l.categoria, ...cats].filter(Boolean);
-  return `<tr data-row="${l.id}">
+  return `<tr data-row="${l.id}"${l.banco ? ' class="de-banco" title="Importado do banco (Open Finance)"' : ""}>
     <td><input type="date" data-f="data" value="${esc(l.data)}"></td>
     <td><select data-f="tipo">
       <option value="saida" ${l.tipo==="saida"?"selected":""}>Saída</option>
@@ -490,6 +598,7 @@ function renderStage(){
 }
 
 function renderResumo(){
+  if($("bancos") && S.bancos.conexoes.length) renderBancos();
   const t = totaisPeriodo();
   const rotulo = S.filtro.mes ? rotuloMes(S.filtro.mes) : "todos os períodos";
   $("resumo").innerHTML = `
@@ -567,6 +676,14 @@ on("click", e=>{
   const b = e.target.closest("button");
   if(!b) return;
 
+  if(b.dataset.bk){
+    if(b.dataset.bk==="conectar") conectarBanco();
+    else if(b.dataset.bk==="reconectar") conectarBanco(b.dataset.item);
+    else if(b.dataset.bk==="sync") sincronizarBancos(b.dataset.id);
+    else if(b.dataset.bk==="desconectar" && confirm("Desconectar este banco? Os lançamentos já importados continuam na planilha.")) desconectarBanco(b.dataset.id);
+    return;
+  }
+
   if(b.dataset.del){ if(confirm("Excluir este lançamento?")) excluirLancamento(b.dataset.del); return; }
 
   if(b.dataset.rmcat){
@@ -629,6 +746,10 @@ const TEMPLATE = `
       <div class="fx-bar" id="filtros"></div>
 
       <div class="fx-extras">
+        <details class="fx-det" id="bancosDet" open hidden>
+          <summary>Contas bancárias (Open Finance)<span class="chev">▸</span></summary>
+          <div class="body" id="bancos"></div>
+        </details>
         <details class="fx-det">
           <summary>Categorias<span class="chev">▸</span></summary>
           <div class="body">
@@ -691,6 +812,8 @@ async function mount(el){
   });
   painel();
   renderTudo();
+  const velho = S.bancos.conexoes.some(c => !c.ultima_sincronizacao || Date.now() - new Date(c.ultima_sincronizacao) > 3*3600e3);
+  if(velho) sincronizarBancos();
 }
 
 function unmount(){
@@ -704,7 +827,7 @@ Platform.register({
   categoria: "financeiro",
   menu: "Fluxo de Caixa",
   nome: "Fluxo de caixa",
-  descricao: "Lance entradas e saídas, acompanhe o saldo por período e exporte para planilha (.csv).",
+  descricao: "Lance entradas e saídas, conecte os bancos via Open Finance, acompanhe o saldo por período e exporte para planilha (.csv).",
   icone: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" fill="currentColor" stroke="none"/><rect x="12" y="8" width="3" height="10" fill="currentColor" stroke="none"/><rect x="17" y="5" width="3" height="13" fill="currentColor" stroke="none"/>',
   mount, unmount
 });
