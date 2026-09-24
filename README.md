@@ -28,16 +28,20 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    Por fim, rode também o `supabase-schema-usuarios.sql` (mesmo lugar: **SQL Editor > New query > Run**): ele
    cria as permissões **por pessoa** e a listagem completa da tela **Usuários** (último acesso, e-mail
    confirmado, suspensa etc.). Pode rodar mais de uma vez sem problema.
-4. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe nome e e-mail, e o site
-   gera um link de "criar senha" para você copiar e mandar por WhatsApp/e-mail. Isso precisa de uma
-   **Edge Function** publicada uma vez — veja a seção **Criar acesso (convite por link)**, abaixo. Enquanto
-   não publicar a função, ainda dá para criar contas à moda antiga: **Authentication > Users > Add user**,
-   informando e-mail e senha e marcando **Auto Confirm User**. De um jeito ou de outro, a pessoa aparece
-   sozinha na tela **Usuários** do site, sem acesso a nada até você configurar o nível dela.
-5. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
-   depois dos três scripts acima) e libere as ferramentas e o cargo de cada pessoa na tela **Usuários** — veja a seção
+4. **Rode o SQL de convites:** ainda no SQL Editor, cole o conteúdo de `supabase-schema-convites.sql` e
+   clique em **Run** (depois do `supabase-schema-usuarios.sql`). Ele cria a tabela usada pelo cartão
+   **Criar acesso** — veja a seção **Criar acesso (convite por link)**, abaixo.
+5. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe só o nome da pessoa, e o
+   site gera um link único para você copiar e mandar por WhatsApp/e-mail. A própria pessoa escolhe o e-mail e
+   a senha dela ao abrir o link. Isso precisa de uma **Edge Function** publicada uma vez — veja a seção
+   **Criar acesso (convite por link)**, abaixo. Enquanto não publicar a função, ainda dá para criar contas à
+   moda antiga: **Authentication > Users > Add user**, informando e-mail e senha e marcando
+   **Auto Confirm User**. De um jeito ou de outro, a pessoa aparece sozinha na tela **Usuários** do site, sem
+   acesso a nada até você configurar o nível dela.
+6. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
+   depois dos scripts acima) e libere as ferramentas e o cargo de cada pessoa na tela **Usuários** — veja a seção
    **Uniformes e EPI**, abaixo.
-6. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
+7. As chaves do projeto (URL e chave publicável) já estão em `js/supabase.js`. Se um dia você trocar de
    projeto Supabase, atualize as duas constantes no topo desse arquivo.
 
 ## Hierarquia de acesso
@@ -75,36 +79,37 @@ da plataforma.
 
 ## Criar acesso (convite por link)
 
-No cartão **Criar acesso** da tela "Usuários", o admin informa nome e e-mail e o site gera um **link único**
-("criar senha") para copiar e enviar como preferir — a pessoa abre o link, escolhe a própria senha numa tela
-dedicada e já entra na plataforma (sem nenhuma ferramenta liberada até o admin configurar). Se o e-mail
-digitado já tiver conta, em vez de criar outra o site gera um link de **redefinição de senha** para ela —
-serve tanto para reenviar o convite de quem nunca chegou a entrar quanto para resetar a senha de quem
-esqueceu.
+No cartão **Criar acesso** da tela "Usuários", o admin informa **só o nome** da pessoa — sem e-mail — e o
+site gera um **link único** para copiar e enviar como preferir (WhatsApp, e-mail etc). A pessoa abre o link,
+escolhe o **próprio e-mail e a própria senha** numa telinha dedicada, e só nesse momento a conta é criada —
+ela aparece para o admin, na tela "Usuários", assim que termina (sem nenhuma ferramenta liberada até o admin
+configurar). Enquanto isso não acontece, o link fica listado em "Convites pendentes" (mesmo cartão), onde dá
+para copiar de novo ou cancelar. Cada link vale por 7 dias e só pode ser usado uma vez.
 
-Isso só funciona depois de publicar, **uma vez**, a Edge Function `criar-usuario` (pasta
-`supabase/functions/criar-usuario/`). Ela existe porque criar contas e gerar esses links só é possível com a
+Isso só funciona depois de publicar, **uma vez**, a Edge Function `completar-convite` (pasta
+`supabase/functions/completar-convite/`). Ela existe porque criar a conta só é possível com a
 **service role key** do Supabase — uma chave de acesso total que nunca pode ir para o código do site (por
-isso ela roda no servidor do Supabase, não no navegador). A função confere sozinha que quem está chamando é
-um admin logado antes de fazer qualquer coisa.
+isso ela roda no servidor do Supabase, não no navegador). Diferente das outras funções do site, esta é quem
+recebe a chamada de alguém que **ainda não tem conta**: o que garante que só quem tem o link consegue criar
+um acesso é o token aleatório do próprio link — por isso o token só existe se um admin logado o criou
+primeiro (a tabela `convites_pendentes` do `supabase-schema-convites.sql` só aceita inserção de admins).
 
 **Publicar a função (uma vez, precisa do [Supabase CLI](https://supabase.com/docs/guides/cli)):**
 ```
 npx supabase login
 npx supabase link --project-ref abweepruixcyetrzefhk
-npx supabase functions deploy criar-usuario
+npx supabase functions deploy completar-convite
 ```
 (o `project-ref` acima é o mesmo que aparece na `SUPABASE_URL` de `js/supabase.js`, entre `https://` e
 `.supabase.co`). Não precisa configurar nenhuma chave/segredo à parte: o Supabase já injeta
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` automaticamente dentro de toda Edge Function.
 
-**Confira a URL de redirecionamento:** no painel do Supabase, em **Authentication > URL Configuration**,
-adicione o endereço onde o site fica publicado em **Redirect URLs** (ex.: `https://seusite.com/*`) — é para
-lá que o link do convite manda a pessoa de volta depois de ela clicar.
+Enquanto a função não for publicada, a pessoa vê uma mensagem de erro ao tentar concluir o próprio cadastro
+— nesse meio tempo, crie contas à moda antiga (Authentication > Users > Add user, veja o passo 5 acima).
 
-Enquanto a função não for publicada, o cartão "Criar acesso" mostra a mensagem de erro do Supabase ao tentar
-gerar o link — nesse meio tempo, crie contas à moda antiga (Authentication > Users > Add user, veja o passo 4
-acima).
+**Confira a URL de redirecionamento (para "Esqueci minha senha"):** no painel do Supabase, em
+**Authentication > URL Configuration**, configure o **Site URL** com o endereço onde o site fica publicado —
+é para lá que o link de redefinição de senha manda a pessoa de volta depois de ela clicar.
 
 ## Uniformes e EPI
 
@@ -320,17 +325,18 @@ fizer login vê e edita os **mesmos** dados, de qualquer computador ou celular. 
 
 ## Login
 
-A tela de login aparece antes de qualquer ferramenta. Não existe cadastro público: contas são criadas pelo
-administrador, uma por pessoa da equipe — pelo cartão **Criar acesso** da tela "Usuários" (gera um link de
-"criar senha" para enviar à pessoa) ou, à moda antiga, no painel do Supabase (**Authentication > Users**).
-Veja **Criar acesso (convite por link)**, acima. Depois do login, a pessoa só vê as ferramentas que o nível
-dela libera (veja **Hierarquia de acesso**, acima) — quem tem acesso ao Fluxo de Caixa vê os mesmos dados
-que os outros com acesso a ele, já que continua sendo uma ferramenta compartilhada pela equipe (não há
-separação "por usuário" dentro de cada ferramenta).
+A tela de login aparece antes de qualquer ferramenta. Não existe cadastro público aberto: o convite parte
+sempre do administrador, um por pessoa da equipe — pelo cartão **Criar acesso** da tela "Usuários" (gera um
+link com o nome da pessoa; ela mesma escolhe e-mail e senha ao abrir) ou, à moda antiga, no painel do
+Supabase (**Authentication > Users**). Veja **Criar acesso (convite por link)**, acima. Depois do login, a
+pessoa só vê as ferramentas que o nível dela libera (veja **Hierarquia de acesso**, acima) — quem tem acesso
+ao Fluxo de Caixa vê os mesmos dados que os outros com acesso a ele, já que continua sendo uma ferramenta
+compartilhada pela equipe (não há separação "por usuário" dentro de cada ferramenta).
 
-**Link de convite/redefinição:** ao clicar no link (seja o gerado em "Criar acesso", seja em "Esqueci minha
-senha"), a pessoa cai numa tela **Defina sua senha** — só depois de salvar é que ela entra de fato na
-plataforma (ver `js/auth.js`).
+**Link de convite:** ao clicar no link gerado em "Criar acesso", a pessoa cai numa tela onde escolhe o
+próprio e-mail e senha — só depois de salvar é que a conta é criada de fato e ela entra na plataforma (ver
+`js/auth.js` e a Edge Function `completar-convite`). **Link de "Esqueci minha senha":** já é diferente — a
+pessoa já tem conta, então esse link a leva direto para a tela **Defina sua senha**.
 
 **Manter conectado:** a caixa na tela de login (ligada por padrão) decide onde a sessão fica guardada. Ligada, a
 pessoa continua logada mesmo depois de fechar o navegador. Desligada, a sessão vale só enquanto o navegador/aba

@@ -139,6 +139,11 @@
 }
 .usr-link-row .btn{flex:0 0 auto}
 
+/* convites pendentes: nome + link de quem ainda não terminou o próprio cadastro */
+.usr-convite-pendente{margin-bottom:12px}
+.usr-convite-pendente:last-child{margin-bottom:0}
+.usr-convite-pendente-nome{display:block;color:var(--cream);font-size:13.5px;margin-bottom:6px}
+
 /* aviso flutuante ("Salvo", erros) */
 .usr-toast{
   position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:60;

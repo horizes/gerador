@@ -22,6 +22,7 @@ let nivelModulos = {};  // { nivel_id: Set(modulo_id) }
 let pessoas = [];       // [{id,email,nome,papel,nivel_id,ativo,criado_em,ultimo_acesso,email_confirmado_em,suspenso_ate,diretos:Set}]
 let cargos = [];        // [{id,nome,ativo}] — cargos do módulo de uniformes/EPI (vazio até rodar supabase-schema-uniformes.sql)
 let cargosOk = false;   // a tabela de cargos existe e pôde ser lida?
+let convites = [];      // [{token,nome,criado_em}] — convites (só nome) ainda não usados
 let filtro = "todos";   // todos | logam | bloqueados | admins
 let busca = "";
 let toastTimer = null;
@@ -82,15 +83,16 @@ function skel(){
 
     <div class="usr-card">
       <h2 class="usr-h">Criar acesso</h2>
-      <p class="usr-hint">Informe o nome e o e-mail da pessoa. Vamos gerar um link único de "criar senha" —
-        copie e envie por WhatsApp, e-mail, o que for mais fácil. Ao abrir o link, a pessoa define a própria
-        senha e já entra na plataforma (sem acesso a nenhuma ferramenta até você liberar aqui embaixo).</p>
+      <p class="usr-hint">Informe só o nome da pessoa. Vamos gerar um link único — copie e envie por WhatsApp,
+        e-mail, o que for mais fácil. Ao abrir o link, a própria pessoa escolhe o e-mail e a senha dela e já
+        entra na plataforma; ela aparece pra você na lista "Pessoas" logo abaixo assim que terminar
+        (sem acesso a nenhuma ferramenta até você liberar).</p>
       <form id="usrNovoConvite" class="usr-novo-nivel">
         <input type="text" id="usrConviteNome" placeholder="Nome da pessoa" maxlength="80" required autocomplete="off">
-        <input type="email" id="usrConviteEmail" placeholder="E-mail da pessoa" required autocomplete="off">
-        <button class="btn wide" type="submit">Gerar link de acesso</button>
+        <button class="btn wide" type="submit">Gerar link de convite</button>
       </form>
       <div id="usrConviteResultado"></div>
+      <div id="usrConvitesPendentes"></div>
     </div>
 
     <div class="usr-card">
@@ -125,6 +127,14 @@ function aviso(msg, tipo){
 }
 const erroTxt = e => (e && e.message) ? e.message : "erro desconhecido";
 
+function copiarTexto(inputEl, msgOk){
+  if(!inputEl) return;
+  inputEl.select();
+  const feito = () => aviso(msgOk);
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inputEl.value).then(feito, feito);
+  else { document.execCommand("copy"); feito(); }
+}
+
 /* ---------- resumo (também funciona como filtro) ---------- */
 function contagens(){
   const c = { todos: pessoas.length, logam: 0, bloqueados: 0, admins: 0 };
@@ -147,11 +157,16 @@ function renderResumo(){
     item("admins", c.admins, "Admins");
 }
 
-/* ---------- criar acesso (gera link de "definir senha" via Edge Function) ---------- */
-// A Edge Function usa a service role key do Supabase, que não pode ficar no código do site —
-// por isso a criação/o link são gerados no servidor (ver supabase/functions/criar-usuario) e
-// aqui só chamamos ela. Ela mesma confere que quem está chamando é admin.
-async function criarConvite(nome, email){
+/* ---------- criar acesso (convite só com o nome — a pessoa escolhe o próprio e-mail depois) ---------- */
+// O link não guarda e-mail nenhum, só um token aleatório (gerado pelo banco). Quando a pessoa abre
+// o link, ela mesma escolhe e-mail e senha, e é a Edge Function completar-convite (com a service
+// role key, que não pode ficar no código do site) quem de fato cria a conta nesse momento — ver
+// supabase/functions/completar-convite e supabase-schema-convites.sql.
+function linkConvite(token, nome){
+  return `${location.origin}${location.pathname}#/completar-convite?token=${encodeURIComponent(token)}&nome=${encodeURIComponent(nome || "")}`;
+}
+
+async function criarConvite(nome){
   const form = q("#usrNovoConvite");
   const btn = form.querySelector('button[type="submit"]');
   const txt = btn.textContent;
@@ -159,39 +174,73 @@ async function criarConvite(nome, email){
   btn.disabled = true; btn.textContent = "Gerando…";
   resEl.innerHTML = "";
 
-  const { data, error } = await sb().functions.invoke("criar-usuario", {
-    body: { nome, email, redirectTo: location.origin + location.pathname }
-  });
+  const { data, error } = await sb()
+    .from("convites_pendentes")
+    .insert({ nome, criado_por: window.Imperium.perfil.id })
+    .select("token")
+    .single();
 
   btn.disabled = false; btn.textContent = txt;
 
-  // quando a função responde com erro (4xx/5xx), o supabase-js não extrai o corpo JSON sozinho
-  // — o texto que escrevemos ({erro:"..."}) fica em error.context (a Response bruta), não em
-  // error.message (que só traz algo genérico tipo "non-2xx status code")
-  let falha = null;
   if(error){
-    falha = erroTxt(error);
-    try{ const corpo = await error.context.json(); if(corpo && corpo.erro) falha = corpo.erro; }catch(_){}
-  }else if(data && data.erro){ falha = data.erro; }
-  if(falha){
-    resEl.innerHTML = `<div class="usr-alerta">Não foi possível gerar o link: ${esc(falha)}</div>`;
+    resEl.innerHTML = `<div class="usr-alerta">Não foi possível gerar o link: ${esc(erroTxt(error))}</div>`;
     return;
   }
 
-  const msg = data.tipo === "recovery"
-    ? "Esse e-mail já tinha conta. Gerei um novo link — ele também serve para o primeiro acesso, se a pessoa nunca chegou a entrar."
-    : "Conta criada. Copie o link abaixo e envie para a pessoa — ele vale por algumas horas.";
   resEl.innerHTML = `
     <div class="usr-convite-ok">
-      <p>${esc(msg)}</p>
+      <p>Copie o link abaixo e envie para ${esc(nome)} — ela abre, escolhe o próprio e-mail e senha, e já
+        aparece pra você na lista "Pessoas" assim que terminar. O link vale por 7 dias.</p>
       <div class="usr-link-row">
-        <input type="text" readonly id="usrLinkGerado" value="${esc(data.link)}" onfocus="this.select()">
+        <input type="text" readonly id="usrLinkGerado" value="${esc(linkConvite(data.token, nome))}" onfocus="this.select()">
         <button type="button" class="btn ghost" id="usrCopiarLink">Copiar link</button>
       </div>
     </div>`;
 
   form.reset();
-  await carregarPessoas(); // a pessoa nova já aparece na lista, sem acesso a nada ainda
+  await carregarConvitesPendentes();
+}
+
+/* ---------- convites pendentes (nome já digitado, mas a pessoa ainda não completou o cadastro) ---------- */
+async function carregarConvitesPendentes(){
+  const { data, error } = await sb()
+    .from("convites_pendentes")
+    .select("token,nome,criado_em")
+    .is("usado_em", null)
+    .order("criado_em", { ascending: false });
+  if(!root) return;
+  if(error){ convites = []; renderConvitesPendentes(); return; } // provável: supabase-schema-convites.sql ainda não rodou
+  convites = data || [];
+  renderConvitesPendentes();
+}
+
+function renderConvitesPendentes(){
+  const el = q("#usrConvitesPendentes"); if(!el) return;
+  if(!convites.length){ el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <div class="usr-convite-ok">
+      <p class="usr-hint" style="margin-bottom:10px">Aguardando a pessoa completar o cadastro:</p>
+      ${convites.map(c => `
+        <div class="usr-convite-pendente" data-token="${esc(c.token)}">
+          <span class="usr-convite-pendente-nome">${esc(c.nome)}</span>
+          <div class="usr-link-row">
+            <input type="text" readonly value="${esc(linkConvite(c.token, c.nome))}" onfocus="this.select()">
+            <button type="button" class="btn ghost usr-copiar-pendente">Copiar link</button>
+            <button type="button" class="btn ghost usr-cancelar-convite">Cancelar</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>`;
+}
+
+async function cancelarConvite(token){
+  const c = convites.find(x => x.token === token);
+  if(!confirm(`Cancelar o convite de "${c ? c.nome : ""}"?\n\nO link parar de funcionar na hora.`)) return;
+  const { error } = await sb().from("convites_pendentes").delete().eq("token", token);
+  if(!root) return;
+  if(error){ aviso("Não foi possível cancelar: " + erroTxt(error), "erro"); return; }
+  await carregarConvitesPendentes();
+  aviso("Convite cancelado");
 }
 
 /* ---------- pessoas ---------- */
@@ -500,13 +549,22 @@ function ligar(){
     if(stat){ filtro = stat.dataset.filtro; renderPessoas(); return; }
     const del = e.target.closest(".usr-del-nivel");
     if(del){ apagarNivel(del.dataset.nivel); return; }
-    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarNiveis(), carregarPessoas()]).then(() => aviso("Lista atualizada")); return; }
+    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarNiveis(), carregarPessoas(), carregarConvitesPendentes()]).then(() => aviso("Lista atualizada")); return; }
     if(e.target.closest("#usrCopiarLink")){
       const inp = q("#usrLinkGerado"); if(!inp) return;
-      inp.select();
-      const feito = () => aviso("Link copiado");
-      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inp.value).then(feito, feito);
-      else { document.execCommand("copy"); feito(); }
+      copiarTexto(inp, "Link copiado");
+      return;
+    }
+    const copiarPendente = e.target.closest(".usr-copiar-pendente");
+    if(copiarPendente){
+      const inp = copiarPendente.closest(".usr-link-row").querySelector("input");
+      copiarTexto(inp, "Link copiado");
+      return;
+    }
+    const cancelarBtn = e.target.closest(".usr-cancelar-convite");
+    if(cancelarBtn){
+      cancelarConvite(cancelarBtn.closest(".usr-convite-pendente").dataset.token);
+      return;
     }
   });
   q("#usrBusca").addEventListener("input", e => { busca = e.target.value; renderPessoas(); });
@@ -521,9 +579,8 @@ function ligar(){
   q("#usrNovoConvite").addEventListener("submit", e => {
     e.preventDefault();
     const nome = q("#usrConviteNome").value.trim();
-    const email = q("#usrConviteEmail").value.trim();
-    if(!nome || !email) return;
-    criarConvite(nome, email);
+    if(!nome) return;
+    criarConvite(nome);
   });
 }
 
@@ -535,7 +592,7 @@ async function mount(el){
   ligar();
   // níveis primeiro: o cartão de cada pessoa precisa saber o que o nível dela libera
   await carregarNiveis();
-  await carregarPessoas();
+  await Promise.all([carregarPessoas(), carregarConvitesPendentes()]);
   renderNiveis(); // atualiza a contagem "N pessoas" de cada nível
 }
 function unmount(){ clearTimeout(toastTimer); root = null; }
