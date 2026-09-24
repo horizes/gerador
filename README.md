@@ -31,13 +31,14 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 4. **Rode o SQL de convites:** ainda no SQL Editor, cole o conteúdo de `supabase-schema-convites.sql` e
    clique em **Run** (depois do `supabase-schema-usuarios.sql`). Ele cria a tabela usada pelo cartão
    **Criar acesso** — veja a seção **Criar acesso (convite por link)**, abaixo.
-5. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe só o nome da pessoa, e o
-   site gera um link único para você copiar e mandar por WhatsApp/e-mail. A própria pessoa escolhe o e-mail e
-   a senha dela ao abrir o link. Isso precisa de uma **Edge Function** publicada uma vez — veja a seção
+5. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe o nome da pessoa e já
+   escolha o papel e o nível dela, e o site gera um link único para você copiar e mandar por WhatsApp/e-mail.
+   A própria pessoa escolhe o e-mail e a senha dela ao abrir o link, e a conta já nasce com o papel/nível
+   escolhido. Isso precisa de uma **Edge Function** publicada uma vez — veja a seção
    **Criar acesso (convite por link)**, abaixo. Enquanto não publicar a função, ainda dá para criar contas à
    moda antiga: **Authentication > Users > Add user**, informando e-mail e senha e marcando
-   **Auto Confirm User**. De um jeito ou de outro, a pessoa aparece sozinha na tela **Usuários** do site, sem
-   acesso a nada até você configurar o nível dela.
+   **Auto Confirm User**. Nesse caminho antigo, a pessoa aparece sozinha na tela **Usuários** do site, mas
+   sem acesso a nada até você configurar o nível dela por lá.
 6. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
    depois dos scripts acima) e libere as ferramentas e o cargo de cada pessoa na tela **Usuários** — veja a seção
    **Uniformes e EPI**, abaixo.
@@ -79,12 +80,14 @@ da plataforma.
 
 ## Criar acesso (convite por link)
 
-No cartão **Criar acesso** da tela "Usuários", o admin informa **só o nome** da pessoa — sem e-mail — e o
-site gera um **link único** para copiar e enviar como preferir (WhatsApp, e-mail etc). A pessoa abre o link,
-escolhe o **próprio e-mail e a própria senha** numa telinha dedicada, e só nesse momento a conta é criada —
-ela aparece para o admin, na tela "Usuários", assim que termina (sem nenhuma ferramenta liberada até o admin
-configurar). Enquanto isso não acontece, o link fica listado em "Convites pendentes" (mesmo cartão), onde dá
-para copiar de novo ou cancelar. Cada link vale por 7 dias e só pode ser usado uma vez.
+No cartão **Criar acesso** da tela "Usuários", o admin informa **o nome** da pessoa e já escolhe o **papel**
+e o **nível** dela (Admin, um dos níveis criados no cartão "Níveis de permissão", ou "— sem nível —" para
+decidir depois) — sem e-mail — e o site gera um **link único** para copiar e enviar como preferir (WhatsApp,
+e-mail etc). A pessoa abre o link, escolhe o **próprio e-mail e a própria senha** numa telinha dedicada, e só
+nesse momento a conta é criada — já **com o papel/nível escolhido**, sem precisar de nenhum passo a mais do
+admin — e aparece para ele, na tela "Usuários", assim que termina. Enquanto isso não acontece, o link fica
+listado em "Convites pendentes" (mesmo cartão, mostrando o que vai ser aplicado), onde dá para copiar de novo
+ou cancelar. Cada link vale por 7 dias e só pode ser usado uma vez.
 
 Isso só funciona depois de publicar, **uma vez**, a Edge Function `completar-convite` (pasta
 `supabase/functions/completar-convite/`). Ela existe porque criar a conta só é possível com a

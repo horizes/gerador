@@ -1,10 +1,12 @@
 /* Login da plataforma — e-mail e senha via Supabase Auth.
    Não existe cadastro público aberto: as contas só nascem de um convite. Na tela "Usuários", o
-   admin digita apenas o NOME da pessoa e gera um link (sem e-mail nenhum); a pessoa abre o link,
-   escolhe o PRÓPRIO e-mail e senha na tela "cadastro" abaixo, e só então a conta é criada — ela
-   aparece para o admin na hora, na tela "Usuários" (ver completar-convite e supabase-schema-
-   convites.sql). Também dá para criar contas à moda antiga, direto no painel do Supabase em
-   Authentication > Users > Add user (marque "Auto Confirm User" nesse caso). */
+   admin digita o NOME da pessoa, já escolhe o PAPEL e o NÍVEL dela (Admin, um nível, ou nenhum) e
+   gera um link (sem e-mail nenhum); a pessoa abre o link, escolhe o PRÓPRIO e-mail e senha na tela
+   "cadastro" abaixo, e só então a conta é criada — já com o papel/nível escolhido, sem precisar de
+   mais nenhum passo do admin — e aparece pra ele na hora, na tela "Usuários" (ver completar-convite
+   e supabase-schema-convites.sql). Também dá para criar contas à moda antiga, direto no painel do
+   Supabase em Authentication > Users > Add user (marque "Auto Confirm User" nesse caso — nesse
+   caminho o papel/nível continua sendo configurado depois, na tela "Usuários"). */
 (function(){
 "use strict";
 

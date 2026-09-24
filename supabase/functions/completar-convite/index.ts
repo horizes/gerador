@@ -1,11 +1,14 @@
 // Edge Function "completar-convite"
 // -------------------------------------------------------------------------------------------
-// O admin cria o convite só com o NOME (tela "Usuários" > "Criar acesso"), o que gera um link
-// com um token aleatório — sem nenhum e-mail guardado ainda. A pessoa abre esse link, escolhe o
+// O admin cria o convite com o NOME e já com o PAPEL e o NÍVEL que a pessoa vai receber (tela
+// "Usuários" > "Criar acesso"), o que gera um link com um token aleatório — sem nenhum e-mail
+// guardado ainda, e sem o papel/nível na URL (fica só no banco). A pessoa abre esse link, escolhe o
 // PRÓPRIO e-mail e a própria senha numa telinha (ver js/auth.js), e o navegador dela chama esta
-// função. Ela confere se o token existe e ainda não foi usado, cria a conta de verdade no
-// Supabase Auth (usando o nome que o admin digitou) e marca o convite como usado, para o link não
-// poder ser reaproveitado.
+// função. Ela confere se o token existe e ainda não foi usado, cria a conta de verdade no Supabase
+// Auth (usando o nome que o admin digitou), aplica o papel/nível escolhido no convite ao perfil
+// recém-criado, e marca o convite como usado, para o link não poder ser reaproveitado. Assim o
+// acesso já vale desde o primeiro login — não precisa mais voltar na tela "Usuários" para liberar
+// nada.
 //
 // Por que uma Edge Function e não algo direto no navegador? Criar contas só é possível com a
 // "service role key" do Supabase — uma chave que dá acesso total ao banco e por isso NUNCA pode
@@ -57,7 +60,7 @@ Deno.serve(async (req) => {
     // 2) o convite existe, ainda não foi usado e não expirou?
     const { data: convite } = await admin
       .from("convites_pendentes")
-      .select("token,nome,criado_em,usado_em")
+      .select("token,nome,papel,nivel_id,criado_em,usado_em")
       .eq("token", token)
       .maybeSingle();
 
@@ -69,7 +72,7 @@ Deno.serve(async (req) => {
 
     // 3) cria a conta de verdade, já com e-mail confirmado (a pessoa acabou de escolher o próprio
     //    e-mail e senha, então não precisa confirmar por e-mail de novo)
-    const { error: erroCriar } = await admin.auth.admin.createUser({
+    const { data: criado, error: erroCriar } = await admin.auth.admin.createUser({
       email,
       password: senha,
       email_confirm: true,
@@ -83,7 +86,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4) marca o convite como usado, para o link não poder ser reaproveitado
+    // 4) aplica ao perfil o papel/nível que o admin escolheu ao gerar o convite — o gatilho
+    //    on_auth_user_created_perfil já criou a linha em "perfis" (só com o nome) no passo acima,
+    //    então aqui é só atualizar. Se o admin não escolheu nível nenhum, isso é um "no-op" (fica
+    //    como usuário comum sem nível, igual era antes), então não precisa condicional nenhuma.
+    await admin.from("perfis").update({ papel: convite.papel, nivel_id: convite.nivel_id }).eq("id", criado.user.id);
+
+    // 5) marca o convite como usado, para o link não poder ser reaproveitado
     await admin.from("convites_pendentes").update({ usado_em: new Date().toISOString() }).eq("token", token);
 
     return json({ ok: true });

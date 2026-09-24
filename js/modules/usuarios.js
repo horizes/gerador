@@ -7,6 +7,9 @@
    - Níveis de permissão: grupos opcionais (ex.: "Financeiro", "Comercial") que liberam um conjunto de
      ferramentas de uma vez para todo mundo que estiver naquele nível.
    Acesso final de uma pessoa a uma ferramenta = admin OU nível libera OU permissão direta.
+   O cartão "Criar acesso" já deixa escolher o papel e o nível no momento do convite (ver criarConvite
+   e supabase/functions/completar-convite), para a pessoa nascer com o acesso certo, sem precisar
+   voltar aqui depois — mas nada impede de ajustar mais tarde na lista "Pessoas", como sempre.
    Veja supabase-schema-permissoes.sql e supabase-schema-usuarios.sql para o que precisa existir no banco. */
 (function(){
 "use strict";
@@ -83,12 +86,18 @@ function skel(){
 
     <div class="usr-card">
       <h2 class="usr-h">Criar acesso</h2>
-      <p class="usr-hint">Informe só o nome da pessoa. Vamos gerar um link único — copie e envie por WhatsApp,
-        e-mail, o que for mais fácil. Ao abrir o link, a própria pessoa escolhe o e-mail e a senha dela e já
-        entra na plataforma; ela aparece pra você na lista "Pessoas" logo abaixo assim que terminar
-        (sem acesso a nenhuma ferramenta até você liberar).</p>
+      <p class="usr-hint">Informe o nome da pessoa e já escolha o papel e o nível dela (os mesmos que dá pra mudar
+        depois em "Pessoas"). Vamos gerar um link único — copie e envie por WhatsApp, e-mail, o que for mais
+        fácil. Ao abrir o link, a própria pessoa escolhe o e-mail e a senha dela e já entra direto com o acesso
+        escolhido — sem precisar voltar aqui depois para liberar nada. Se preferir decidir mais tarde, deixe o
+        nível em "— sem nível —".</p>
       <form id="usrNovoConvite" class="usr-novo-nivel">
         <input type="text" id="usrConviteNome" placeholder="Nome da pessoa" maxlength="80" required autocomplete="off">
+        <select id="usrConvitePapel" aria-label="Papel da pessoa convidada">
+          <option value="usuario">Usuário</option>
+          <option value="admin">Admin</option>
+        </select>
+        <select id="usrConviteNivel" aria-label="Nível da pessoa convidada"></select>
         <button class="btn wide" type="submit">Gerar link de convite</button>
       </form>
       <div id="usrConviteResultado"></div>
@@ -97,7 +106,7 @@ function skel(){
 
     <div class="usr-card">
       <h2 class="usr-h">Pessoas</h2>
-      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem acabou de ser criado não tem acesso a nenhuma ferramenta até você liberar.</p>
+      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem entrou pelo convite já chega com o papel/nível escolhido lá; quem foi criado à moda antiga não tem acesso a nenhuma ferramenta até você liberar aqui.</p>
       <div class="usr-tools">
         <input type="search" id="usrBusca" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
       </div>
@@ -166,7 +175,33 @@ function linkConvite(token, nome){
   return `${location.origin}${location.pathname}#/completar-convite?token=${encodeURIComponent(token)}&nome=${encodeURIComponent(nome || "")}`;
 }
 
-async function criarConvite(nome){
+// Os selects "Papel" e "Nível" do convite são os mesmos conceitos (e o mesmo optsNiveis) já usados
+// no cartão de cada pessoa em "Pessoas" — só que preenchidos ANTES de a pessoa existir. Se o papel
+// escolhido for "admin", o nível não importa (admin já vê tudo), então trava o select de nível,
+// igual já acontece no cartão de cada pessoa.
+function travarNivelConvite(){
+  const papelSel = q("#usrConvitePapel"), nivelSel = q("#usrConviteNivel");
+  if(!papelSel || !nivelSel) return;
+  nivelSel.disabled = papelSel.value === "admin";
+}
+
+// Chamado sempre que a lista de níveis é (re)carregada, para o select do convite acompanhar sem
+// perder o que o admin já tinha escolhido (caso esteja no meio de preencher o formulário).
+function renderNivelConvite(){
+  const sel = q("#usrConviteNivel"); if(!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = optsNiveis(atual);
+  travarNivelConvite();
+}
+
+// Nome do que a pessoa vai receber ao completar o convite, só para mensagens ("Admin", nome do
+// nível, ou "").
+function nomeAcessoConvite(papel, nivelId){
+  if(papel === "admin") return "Admin";
+  return nivelId ? nomeNivel(nivelId) : "";
+}
+
+async function criarConvite(nome, papel, nivelIdBruto){
   const form = q("#usrNovoConvite");
   const btn = form.querySelector('button[type="submit"]');
   const txt = btn.textContent;
@@ -174,9 +209,11 @@ async function criarConvite(nome){
   btn.disabled = true; btn.textContent = "Gerando…";
   resEl.innerHTML = "";
 
+  const nivelId = papel === "admin" ? null : (nivelIdBruto || null);
+
   const { data, error } = await sb()
     .from("convites_pendentes")
-    .insert({ nome, criado_por: window.Imperium.perfil.id })
+    .insert({ nome, papel, nivel_id: nivelId, criado_por: window.Imperium.perfil.id })
     .select("token")
     .single();
 
@@ -187,10 +224,12 @@ async function criarConvite(nome){
     return;
   }
 
+  const acesso = nomeAcessoConvite(papel, nivelId);
   resEl.innerHTML = `
     <div class="usr-convite-ok">
       <p>Copie o link abaixo e envie para ${esc(nome)} — ela abre, escolhe o próprio e-mail e senha, e já
-        aparece pra você na lista "Pessoas" assim que terminar. O link vale por 7 dias.</p>
+        entra ${acesso ? `como <b>${esc(acesso)}</b>` : "sem nível definido (ajuste depois na lista abaixo)"},
+        aparecendo pra você na lista "Pessoas" assim que terminar. O link vale por 7 dias.</p>
       <div class="usr-link-row">
         <input type="text" readonly id="usrLinkGerado" value="${esc(linkConvite(data.token, nome))}" onfocus="this.select()">
         <button type="button" class="btn ghost" id="usrCopiarLink">Copiar link</button>
@@ -198,6 +237,7 @@ async function criarConvite(nome){
     </div>`;
 
   form.reset();
+  renderNivelConvite();
   await carregarConvitesPendentes();
 }
 
@@ -205,7 +245,7 @@ async function criarConvite(nome){
 async function carregarConvitesPendentes(){
   const { data, error } = await sb()
     .from("convites_pendentes")
-    .select("token,nome,criado_em")
+    .select("token,nome,papel,nivel_id,criado_em")
     .is("usado_em", null)
     .order("criado_em", { ascending: false });
   if(!root) return;
@@ -220,16 +260,19 @@ function renderConvitesPendentes(){
   el.innerHTML = `
     <div class="usr-convite-ok">
       <p class="usr-hint" style="margin-bottom:10px">Aguardando a pessoa completar o cadastro:</p>
-      ${convites.map(c => `
+      ${convites.map(c => {
+        const acesso = nomeAcessoConvite(c.papel, c.nivel_id);
+        return `
         <div class="usr-convite-pendente" data-token="${esc(c.token)}">
-          <span class="usr-convite-pendente-nome">${esc(c.nome)}</span>
+          <span class="usr-convite-pendente-nome">${esc(c.nome)}
+            <em class="usr-qtd">${acesso ? esc(acesso) : "sem nível definido"}</em></span>
           <div class="usr-link-row">
             <input type="text" readonly value="${esc(linkConvite(c.token, c.nome))}" onfocus="this.select()">
             <button type="button" class="btn ghost usr-copiar-pendente">Copiar link</button>
             <button type="button" class="btn ghost usr-cancelar-convite">Cancelar</button>
           </div>
-        </div>
-      `).join("")}
+        </div>`;
+      }).join("")}
     </div>`;
 }
 
@@ -500,6 +543,7 @@ async function carregarNiveis(){
   nivelModulos = {};
   (r2.data || []).forEach(r => { (nivelModulos[r.nivel_id] ||= new Set()).add(r.modulo_id); });
   renderNiveis();
+  renderNivelConvite();
 }
 
 async function alternarModuloNivel(chk){
@@ -576,11 +620,12 @@ function ligar(){
     input.value = "";
     criarNivel(nome);
   });
+  q("#usrConvitePapel").addEventListener("change", travarNivelConvite);
   q("#usrNovoConvite").addEventListener("submit", e => {
     e.preventDefault();
     const nome = q("#usrConviteNome").value.trim();
     if(!nome) return;
-    criarConvite(nome);
+    criarConvite(nome, q("#usrConvitePapel").value, q("#usrConviteNivel").value);
   });
 }
 

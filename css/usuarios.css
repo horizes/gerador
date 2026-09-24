@@ -128,6 +128,12 @@
   padding:9px 10px;color:var(--cream);
 }
 .usr-novo-nivel input[type=email]:hover{border-color:#453E33}
+/* select "Cargo" no formulário de convite — mesmo visual do campo de e-mail acima */
+.usr-novo-nivel select{
+  flex:1 1 190px;background:var(--field);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 10px;color:var(--cream);
+}
+.usr-novo-nivel select:hover{border-color:#453E33}
 
 /* resultado do convite: link pronto para copiar */
 .usr-convite-ok{margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
