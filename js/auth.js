@@ -1,15 +1,24 @@
 /* Login da plataforma — e-mail e senha via Supabase Auth.
-   Não existe cadastro público aqui: as contas de acesso (uma por pessoa da equipe)
-   são criadas no painel do Supabase, em Authentication > Users > Add user
-   (marque "Auto Confirm User" para a pessoa já poder entrar sem confirmar e-mail). */
+   Não existe cadastro público aqui: as contas são criadas pela tela "Usuários" (que gera um
+   link de "definir senha" para cada pessoa) ou, à moda antiga, no painel do Supabase em
+   Authentication > Users > Add user (marque "Auto Confirm User" nesse caso). */
 (function(){
 "use strict";
 
 const sb = window.Imperium.supabase;
 const $ = id => document.getElementById(id);
 
+/* Convite / redefinição de senha: quando a pessoa clica no link gerado (seja o convite da tela
+   "Usuários", seja "Esqueci minha senha"), o Supabase já autentica a sessão sozinho e manda de
+   volta para o site com #access_token=...&type=invite (ou type=recovery) na URL. Detectamos isso
+   já na carga da página para mostrar a tela "Defina sua senha" em vez de abrir a plataforma
+   direto — só depois de ela salvar a senha é que a sessão passa a valer de verdade. */
+const viaConvite = /type=(invite|recovery)/.test(location.hash);
+let senhaJaDefinida = !viaConvite;
+
 function mostrar(tela){
   $("login").style.display = tela === "login" ? "flex" : "none";
+  $("senha").style.display = tela === "senha" ? "flex" : "none";
   // Sem valor ("") o CSS decide: lado a lado no computador e em bloco no celular/tablet
   // (antes, o "flex" fixo aqui anulava o layout de celular e deixava a tela quebrada).
   $("shell").style.display = tela === "shell" ? "" : "none";
@@ -19,6 +28,12 @@ function erro(msg, info){
   const el = $("loginErro");
   el.textContent = msg || "";
   el.classList.toggle("info", !!info);
+  el.hidden = !msg;
+}
+
+function erroSenha(msg){
+  const el = $("senhaErro");
+  el.textContent = msg || "";
   el.hidden = !msg;
 }
 
@@ -58,6 +73,34 @@ function ligarFormulario(){
   });
 }
 
+function ligarFormularioSenha(){
+  const form = $("senhaForm");
+  if(form.dataset.ligado) return;
+  form.dataset.ligado = "1";
+
+  form.addEventListener("submit", async e=>{
+    e.preventDefault();
+    erroSenha("");
+    const nova = $("senhaNova").value;
+    const confirma = $("senhaConfirma").value;
+    if(nova.length < 6){ erroSenha("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if(nova !== confirma){ erroSenha("As duas senhas digitadas são diferentes."); return; }
+
+    const btn = form.querySelector('button[type="submit"]');
+    const txt = btn.textContent;
+    btn.disabled = true; btn.textContent = "Salvando…";
+    const { error } = await sb.auth.updateUser({ password: nova });
+    btn.disabled = false; btn.textContent = txt;
+    if(error){ erroSenha(error.message); return; }
+
+    // limpa o #access_token=...&type=invite da URL, para não reaparecer num recarregamento
+    history.replaceState(null, "", location.pathname + location.search);
+    senhaJaDefinida = true;
+    const { data: { session } } = await sb.auth.getSession();
+    aplicarSessao(session);
+  });
+}
+
 let plataformaIniciada = false;
 function entrar(){
   mostrar("shell");
@@ -75,6 +118,9 @@ let perfilValidado = false; // já conferimos o perfil (papel/nível) desta sess
 async function aplicarSessao(sessao){
   if(sessao){
     sessaoAtual = sessao;
+    // sessão veio de um link de convite/redefinição e a pessoa ainda não escolheu a senha
+    // nova: mostra essa tela em vez de entrar direto na plataforma com a senha temporária.
+    if(!senhaJaDefinida){ mostrar("senha"); return; }
     if(perfilValidado){ return; } // sessão já validada e plataforma já aberta
     const perfil = await window.Imperium.carregarPerfil();
     if(!perfil){
@@ -96,6 +142,7 @@ async function aplicarSessao(sessao){
 
 async function iniciar(){
   ligarFormulario();
+  ligarFormularioSenha();
   sb.auth.onAuthStateChange((_evento, sessao)=> aplicarSessao(sessao));
   const { data: { session } } = await sb.auth.getSession();
   aplicarSessao(session);

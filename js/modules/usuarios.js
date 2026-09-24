@@ -81,8 +81,21 @@ function skel(){
     <div class="usr-resumo" id="usrResumo"></div>
 
     <div class="usr-card">
+      <h2 class="usr-h">Criar acesso</h2>
+      <p class="usr-hint">Informe o nome e o e-mail da pessoa. Vamos gerar um link único de "criar senha" —
+        copie e envie por WhatsApp, e-mail, o que for mais fácil. Ao abrir o link, a pessoa define a própria
+        senha e já entra na plataforma (sem acesso a nenhuma ferramenta até você liberar aqui embaixo).</p>
+      <form id="usrNovoConvite" class="usr-novo-nivel">
+        <input type="text" id="usrConviteNome" placeholder="Nome da pessoa" maxlength="80" required autocomplete="off">
+        <input type="email" id="usrConviteEmail" placeholder="E-mail da pessoa" required autocomplete="off">
+        <button class="btn wide" type="submit">Gerar link de acesso</button>
+      </form>
+      <div id="usrConviteResultado"></div>
+    </div>
+
+    <div class="usr-card">
       <h2 class="usr-h">Pessoas</h2>
-      <p class="usr-hint">Contas novas são criadas no painel do Supabase (Authentication &gt; Users) e aparecem aqui sozinhas. Quem acabou de ser criado não tem acesso a nenhuma ferramenta até você liberar.</p>
+      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem acabou de ser criado não tem acesso a nenhuma ferramenta até você liberar.</p>
       <div class="usr-tools">
         <input type="search" id="usrBusca" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
       </div>
@@ -132,6 +145,53 @@ function renderResumo(){
     item("logam", c.logam, "Podem logar") +
     item("bloqueados", c.bloqueados, "Sem acesso ao site") +
     item("admins", c.admins, "Admins");
+}
+
+/* ---------- criar acesso (gera link de "definir senha" via Edge Function) ---------- */
+// A Edge Function usa a service role key do Supabase, que não pode ficar no código do site —
+// por isso a criação/o link são gerados no servidor (ver supabase/functions/criar-usuario) e
+// aqui só chamamos ela. Ela mesma confere que quem está chamando é admin.
+async function criarConvite(nome, email){
+  const form = q("#usrNovoConvite");
+  const btn = form.querySelector('button[type="submit"]');
+  const txt = btn.textContent;
+  const resEl = q("#usrConviteResultado");
+  btn.disabled = true; btn.textContent = "Gerando…";
+  resEl.innerHTML = "";
+
+  const { data, error } = await sb().functions.invoke("criar-usuario", {
+    body: { nome, email, redirectTo: location.origin + location.pathname }
+  });
+
+  btn.disabled = false; btn.textContent = txt;
+
+  // quando a função responde com erro (4xx/5xx), o supabase-js não extrai o corpo JSON sozinho
+  // — o texto que escrevemos ({erro:"..."}) fica em error.context (a Response bruta), não em
+  // error.message (que só traz algo genérico tipo "non-2xx status code")
+  let falha = null;
+  if(error){
+    falha = erroTxt(error);
+    try{ const corpo = await error.context.json(); if(corpo && corpo.erro) falha = corpo.erro; }catch(_){}
+  }else if(data && data.erro){ falha = data.erro; }
+  if(falha){
+    resEl.innerHTML = `<div class="usr-alerta">Não foi possível gerar o link: ${esc(falha)}</div>`;
+    return;
+  }
+
+  const msg = data.tipo === "recovery"
+    ? "Esse e-mail já tinha conta. Gerei um novo link — ele também serve para o primeiro acesso, se a pessoa nunca chegou a entrar."
+    : "Conta criada. Copie o link abaixo e envie para a pessoa — ele vale por algumas horas.";
+  resEl.innerHTML = `
+    <div class="usr-convite-ok">
+      <p>${esc(msg)}</p>
+      <div class="usr-link-row">
+        <input type="text" readonly id="usrLinkGerado" value="${esc(data.link)}" onfocus="this.select()">
+        <button type="button" class="btn ghost" id="usrCopiarLink">Copiar link</button>
+      </div>
+    </div>`;
+
+  form.reset();
+  await carregarPessoas(); // a pessoa nova já aparece na lista, sem acesso a nada ainda
 }
 
 /* ---------- pessoas ---------- */
@@ -440,7 +500,14 @@ function ligar(){
     if(stat){ filtro = stat.dataset.filtro; renderPessoas(); return; }
     const del = e.target.closest(".usr-del-nivel");
     if(del){ apagarNivel(del.dataset.nivel); return; }
-    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarNiveis(), carregarPessoas()]).then(() => aviso("Lista atualizada")); }
+    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarNiveis(), carregarPessoas()]).then(() => aviso("Lista atualizada")); return; }
+    if(e.target.closest("#usrCopiarLink")){
+      const inp = q("#usrLinkGerado"); if(!inp) return;
+      inp.select();
+      const feito = () => aviso("Link copiado");
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inp.value).then(feito, feito);
+      else { document.execCommand("copy"); feito(); }
+    }
   });
   q("#usrBusca").addEventListener("input", e => { busca = e.target.value; renderPessoas(); });
   q("#usrNovoNivel").addEventListener("submit", e => {
@@ -450,6 +517,13 @@ function ligar(){
     if(!nome) return;
     input.value = "";
     criarNivel(nome);
+  });
+  q("#usrNovoConvite").addEventListener("submit", e => {
+    e.preventDefault();
+    const nome = q("#usrConviteNome").value.trim();
+    const email = q("#usrConviteEmail").value.trim();
+    if(!nome || !email) return;
+    criarConvite(nome, email);
   });
 }
 

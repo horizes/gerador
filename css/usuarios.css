@@ -121,6 +121,23 @@
 .usr-novo-nivel{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
 .usr-novo-nivel input{flex:1 1 260px}
 .usr-novo-nivel .btn{flex:0 0 auto}
+/* type=email não está no seletor global (só text/number/date), então recebe estilo à parte aqui
+   para não aparecer com o fundo branco padrão do navegador */
+.usr-novo-nivel input[type=email]{
+  width:100%;background:var(--field);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 10px;color:var(--cream);
+}
+.usr-novo-nivel input[type=email]:hover{border-color:#453E33}
+
+/* resultado do convite: link pronto para copiar */
+.usr-convite-ok{margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
+.usr-convite-ok p{margin:0 0 10px;color:var(--cream);font-size:13.5px;line-height:1.5}
+.usr-link-row{display:flex;gap:10px;flex-wrap:wrap}
+.usr-link-row input{
+  flex:1 1 260px;background:var(--field);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 10px;color:var(--cream);font-size:12.5px;
+}
+.usr-link-row .btn{flex:0 0 auto}
 
 /* aviso flutuante ("Salvo", erros) */
 .usr-toast{

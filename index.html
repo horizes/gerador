@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="css/propostas.css?v=2">
 <link rel="stylesheet" href="css/fluxo.css?v=3">
 <link rel="stylesheet" href="css/dashboard.css?v=3">
-<link rel="stylesheet" href="css/usuarios.css?v=3">
+<link rel="stylesheet" href="css/usuarios.css?v=4">
 <link rel="stylesheet" href="css/uniformes.css?v=3">
 </head>
 <body>
@@ -33,6 +33,18 @@
     <p class="login-erro" id="loginErro" hidden></p>
     <button class="btn wide" type="submit">Entrar</button>
     <button class="btn ghost wide" type="button" id="loginEsqueci">Esqueci minha senha</button>
+  </form>
+</div>
+
+<div class="login-wrap" id="senha" style="display:none">
+  <form class="login-box" id="senhaForm" autocomplete="off">
+    <img src="assets/logo.jpg" alt="" class="login-logo">
+    <h1>Defina sua senha</h1>
+    <p class="login-sub" id="senhaSub">Crie uma senha para acessar a plataforma.</p>
+    <label class="f"><span>Nova senha</span><input type="password" id="senhaNova" required minlength="6" autocomplete="new-password"></label>
+    <label class="f"><span>Confirmar senha</span><input type="password" id="senhaConfirma" required minlength="6" autocomplete="new-password"></label>
+    <p class="login-erro" id="senhaErro" hidden></p>
+    <button class="btn wide" type="submit">Salvar e entrar</button>
   </form>
 </div>
 
@@ -72,10 +84,10 @@
 <script src="js/perfil.js?v=2"></script>
 <script src="js/dashboard.js?v=3"></script>
 <script src="js/platform.js?v=8"></script>
-<script src="js/modules/propostas.js?v=3"></script>
+<script src="js/modules/propostas.js?v=4"></script>
 <script src="js/modules/fluxo.js?v=5"></script>
 <script src="js/modules/uniformes.js?v=3"></script>
-<script src="js/modules/usuarios.js?v=4"></script>
-<script src="js/auth.js?v=4"></script>
+<script src="js/modules/usuarios.js?v=5"></script>
+<script src="js/auth.js?v=5"></script>
 </body>
 </html>
