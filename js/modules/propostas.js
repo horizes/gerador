@@ -1094,12 +1094,17 @@ function zipar(files){
 const X = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 function R(t,o){o=o||{};const sz=o.sz||26;return `<w:r><w:rPr>${o.b?"<w:b/>":""}${o.i?"<w:i/>":""}${o.color?`<w:color w:val="${o.color}"/>`:""}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${X(t)}</w:t></w:r>`;}
 function P(rs,o){o=o||{};const runs=Array.isArray(rs)?rs.join(""):rs;
-  return `<w:p><w:pPr>${o.align?`<w:jc w:val="${o.align}"/>`:""}${o.ind?`<w:ind w:left="${o.ind}"/>`:""}<w:spacing w:before="${o.before||0}" w:after="${o.after==null?120:o.after}" w:line="264" w:lineRule="auto"/></w:pPr>${runs}</w:p>`;}
+  /* a ordem dos filhos de <w:pPr> é fixa pelo schema OOXML: spacing, depois ind, depois jc.
+     Estava jc/ind/spacing (invertida) — o Word considera isso XML inválido e "repara" o
+     arquivo removendo o conteúdo problemático, o que deixava só poucas palavras por página. */
+  return `<w:p><w:pPr><w:spacing w:before="${o.before||0}" w:after="${o.after==null?120:o.after}" w:line="264" w:lineRule="auto"/>${o.ind?`<w:ind w:left="${o.ind}"/>`:""}${o.align?`<w:jc w:val="${o.align}"/>`:""}</w:pPr>${runs}</w:p>`;}
 const BRK = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>`;
 function H(t,o){o=o||{};return P([R(t,{b:true,sz:o.sz||38,color:o.color||"111111"})],{before:200,after:120,align:o.align});}
 function TD(t,o){o=o||{};
   const p=P([R(t,{b:o.b,sz:o.sz||24,color:o.color})],{align:o.align||"center",after:40});
-  return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${o.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shade}"/>`:""}${o.span?`<w:gridSpan w:val="${o.span}"/>`:""}${o.vm?`<w:vMerge w:val="${o.vm}"/>`:""}<w:vAlign w:val="center"/></w:tcPr>${p}</w:tc>`;}
+  /* mesma regra: em <w:tcPr> a ordem correta é tcW, gridSpan, vMerge, shd, vAlign
+     (estava tcW, shd, gridSpan, vMerge — também inválido). */
+  return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${o.span?`<w:gridSpan w:val="${o.span}"/>`:""}${o.vm?`<w:vMerge w:val="${o.vm}"/>`:""}${o.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shade}"/>`:""}<w:vAlign w:val="center"/></w:tcPr>${p}</w:tc>`;}
 const TR = cs => `<w:tr>${cs.join("")}</w:tr>`;
 function TBL(rows){
   const b=["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="B9B3A7"/>`).join("");
