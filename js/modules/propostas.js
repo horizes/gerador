@@ -659,7 +659,19 @@ function alturaMaximaPx(){
   return h;
 }
 
+/* Trava de segurança: os ajustes abaixo mexem no DOM e leem layout (scrollHeight/offsetHeight)
+   repetidamente, o que é normalmente rápido, mas se alguma medida vier errada (ex.: a sonda
+   acima retornar um valor implausível) o processo pode tentar compensar demais e travar a aba
+   por vários segundos. _prazoTransbordo é um relógio: passado esse prazo, TUDO para na hora,
+   não importa em que ponto do processo esteja — a folha pode ficar imperfeita, mas o site
+   nunca mais fica travado por causa disso. */
+let _prazoTransbordo = 0;
+let _paginasCriadas = 0;
+const LIMITE_PAGINAS_CONTINUACAO = 30;
+function tempoEsgotado(){ return performance.now() > _prazoTransbordo || _paginasCriadas > LIMITE_PAGINAS_CONTINUACAO; }
+
 function transbordarLista(paper, maxPx){
+  if(tempoEsgotado()) return;
   // funciona tanto para <ul class="dt"> (Diferenciais) quanto <ol class="dt"> (Serviços solicitados/CBO)
   const lista = paper.querySelector("ul.dt, ol.dt");
   if(!lista) return;
@@ -673,12 +685,13 @@ function transbordarLista(paper, maxPx){
   const excedentes = itens.slice(itens.length - n);
   excedentes.forEach(li => li.remove());
   let guard = 0;
-  while(paper.scrollHeight > maxPx && lista.children.length > 1 && guard++ < 20){
+  while(paper.scrollHeight > maxPx && lista.children.length > 1 && guard++ < 20 && !tempoEsgotado()){
     const ultimo = lista.lastElementChild;
     lista.removeChild(ultimo);
     excedentes.unshift(ultimo);
   }
-  if(!excedentes.length) return;
+  if(!excedentes.length || tempoEsgotado()) return;
+  _paginasCriadas++;
   const titulo = paper.querySelector("h2.dt, h3.dt");
   const tituloTxt = titulo ? titulo.textContent.trim() : "";
   const continuacao = document.createElement("section");
@@ -695,7 +708,7 @@ function transbordarLista(paper, maxPx){
 }
 
 function ajustarPagina(paper, maxPx){
-  if(paper.scrollHeight <= maxPx) return;
+  if(tempoEsgotado() || paper.scrollHeight <= maxPx) return;
   paper.classList.add("compacto");
   if(paper.scrollHeight <= maxPx) return;
   paper.classList.add("compacto2");
@@ -709,6 +722,7 @@ function ajustarPagina(paper, maxPx){
 }
 
 function transbordarBlocos(paper, maxPx){
+  if(tempoEsgotado()) return;
   // pega os elementos de conteúdo da folha, exceto o cabeçalho (.phead) e o rodapé (.pfoot)
   const filhos = [...paper.children].filter(el => !el.classList.contains("phead") && !el.classList.contains("pfoot"));
   if(filhos.length < 2 || paper.scrollHeight <= maxPx) return;   // um bloco só não dá pra separar com segurança
@@ -724,13 +738,14 @@ function transbordarBlocos(paper, maxPx){
   const excedentes = filhos.slice(filhos.length - n);
   excedentes.forEach(el => el.remove());
   let guard = 0;
-  while(paper.scrollHeight > maxPx && filhos.length - excedentes.length > 1 && guard++ < 10){
+  while(paper.scrollHeight > maxPx && filhos.length - excedentes.length > 1 && guard++ < 10 && !tempoEsgotado()){
     const proximo = filhos[filhos.length - excedentes.length - 1];
     if(!proximo || !proximo.parentNode) break;
     proximo.remove();
     excedentes.unshift(proximo);
   }
-  if(!excedentes.length) return;
+  if(!excedentes.length || tempoEsgotado()) return;
+  _paginasCriadas++;
   const titulo = paper.querySelector("h2.dt, h3.dt");
   const tituloTxt = titulo ? titulo.textContent.trim() : "";
   const continuacao = document.createElement("section");
@@ -746,8 +761,22 @@ function ajustarTransbordo(){
   const cont = document.getElementById("papers");
   if(!cont) return;
   const maxPx = alturaMaximaPx();
-  if(!maxPx) return;
-  [...cont.querySelectorAll(".paper")].forEach(paper => ajustarPagina(paper, maxPx - 2));
+  if(!maxPx || maxPx < 200) return;   // sonda deu um valor implausível: não arrisca mexer em nada
+  _prazoTransbordo = performance.now() + 1500;   // no máximo ~1,5s de ajustes; depois disso, para na hora
+  _paginasCriadas = 0;
+  // desliga temporariamente o observer que reajusta o zoom no celular: as mudanças que fazemos
+  // aqui (compactar, criar folhas de continuação) mudam o tamanho de #papers, e isso poderia
+  // disparar o observer de novo no meio do processo — melhor religar só depois de terminar
+  if(ro) ro.unobserve(cont);
+  try{
+    for(const paper of [...cont.querySelectorAll(".paper")]){
+      if(tempoEsgotado()) break;
+      ajustarPagina(paper, maxPx - 2);
+    }
+  } finally {
+    if(ro) ro.observe(cont);
+    ajustarEscala();   // já que o observer ficou desligado durante o ajuste, recalcula a escala manualmente agora
+  }
 }
 
 /* o ajuste de paginação é um pouco pesado (mede e mexe no layout); adiar em vez de rodar a cada
@@ -967,7 +996,19 @@ on("click", e=>{
     b.classList.add("on");
     root.classList.remove("m-edit","m-prev");
     root.classList.add(b.dataset.tab==="prev" ? "m-prev" : "m-edit");
-    requestAnimationFrame(ajustarEscala);
+    // no celular, a folha fica com "display:none" enquanto a aba "Configurar" está aberta —
+    // e com o elemento oculto, toda medição de altura dá 0, então o ajuste de paginação rodava
+    // "no vazio" e nunca chegava a fazer nada. Ao entrar em "Visualizar" (folha agora visível
+    // de verdade), refazemos esse ajuste aqui, de propósito e uma única vez — já protegido pelo
+    // prazo/limite de segurança em ajustarTransbordo(), então não trava a aba.
+    requestAnimationFrame(()=>{
+      if(b.dataset.tab==="prev"){
+        if(_transbordoAgendado){ clearTimeout(_transbordoAgendado); _transbordoAgendado=null; }
+        ajustarTransbordo();
+      } else {
+        ajustarEscala();
+      }
+    });
     return;
   }
 });
