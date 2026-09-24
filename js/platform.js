@@ -33,7 +33,7 @@ function agrupar(lista){
     .filter(g => g.itens.length);
 }
 
-// Só mostra o módulo se: for admin (vê tudo), ou o nível da pessoa liberar esse módulo,
+// Só mostra o módulo se: for admin (vê tudo), ou o cargo da pessoa liberar esse módulo,
 // ou for uma ferramenta marcada soAdmin (ex.: "Usuários") — aí só admin mesmo vê.
 function podeVer(m){
   const perfil = window.Imperium && window.Imperium.perfil;
@@ -213,7 +213,7 @@ function iniciar(){
   ir();
 }
 
-// para a tela "Usuários" montar as checkboxes de cada nível (só as ferramentas de verdade,
+// para a tela "Usuários" montar as checkboxes de cada cargo (só as ferramentas de verdade,
 // não a própria tela de admin)
 function modulosConfiguraveis(){
   return agrupar(modulos.filter(m => !m.soAdmin))

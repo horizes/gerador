@@ -185,6 +185,7 @@
 .uni-cargo-cfg label.f{margin:0}
 .uni-cargo-cfg .rm,.uni-kit-lista .rm{height:38px;width:38px;padding:0;font-size:13px}
 .uni-cargo-cfg input[type=text]{height:38px}
+.uni-cargo-ferr{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 16px;margin:4px 0 12px}
 .uni-kit-lista{list-style:none;margin:0 0 6px;padding:0}
 .uni-kit-lista li{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #221F1A}
 .uni-kit-n{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:14.5px}

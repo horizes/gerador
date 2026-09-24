@@ -1,12 +1,12 @@
 /* Login da plataforma — e-mail e senha via Supabase Auth.
    Não existe cadastro público aberto: as contas só nascem de um convite. Na tela "Usuários", o
-   admin digita o NOME da pessoa, já escolhe o PAPEL e o NÍVEL dela (Admin, um nível, ou nenhum) e
+   admin digita o NOME da pessoa, já escolhe o PAPEL e o CARGO dela (Admin, um cargo, ou nenhum) e
    gera um link (sem e-mail nenhum); a pessoa abre o link, escolhe o PRÓPRIO e-mail e senha na tela
-   "cadastro" abaixo, e só então a conta é criada — já com o papel/nível escolhido, sem precisar de
+   "cadastro" abaixo, e só então a conta é criada — já com o papel/cargo escolhido, sem precisar de
    mais nenhum passo do admin — e aparece pra ele na hora, na tela "Usuários" (ver completar-convite
    e supabase-schema-convites.sql). Também dá para criar contas à moda antiga, direto no painel do
    Supabase em Authentication > Users > Add user (marque "Auto Confirm User" nesse caso — nesse
-   caminho o papel/nível continua sendo configurado depois, na tela "Usuários"). */
+   caminho o papel/cargo continua sendo configurado depois, na tela "Usuários"). */
 (function(){
 "use strict";
 
@@ -185,7 +185,7 @@ function entrar(){
 // do Supabase com sessão ainda vazia (antes de carregar o que estava salvo) seja
 // confundido com um logout de verdade e fique recarregando a página sem parar.
 let sessaoAtual = null;
-let perfilValidado = false; // já conferimos o perfil (papel/nível) desta sessão?
+let perfilValidado = false; // já conferimos o perfil (papel/cargo) desta sessão?
 async function aplicarSessao(sessao){
   if(sessao){
     sessaoAtual = sessao;

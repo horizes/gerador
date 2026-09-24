@@ -2,15 +2,16 @@
    Duas partes:
    - Pessoas: lista todas as contas que existem no Supabase (Authentication > Users), mostra se cada
      uma PODE LOGAR de fato (conta ativa no site, e-mail confirmado, não suspensa) e permite, ali mesmo,
-     ligar/desligar cada ferramenta para a pessoa, trocar papel (admin/usuário), nível e ativar/bloquear.
-     Toda alteração é salva na hora (sem botão "Salvar").
-   - Níveis de permissão: grupos opcionais (ex.: "Financeiro", "Comercial") que liberam um conjunto de
-     ferramentas de uma vez para todo mundo que estiver naquele nível.
-   Acesso final de uma pessoa a uma ferramenta = admin OU nível libera OU permissão direta.
-   O cartão "Criar acesso" já deixa escolher o papel e o nível no momento do convite (ver criarConvite
-   e supabase/functions/completar-convite), para a pessoa nascer com o acesso certo, sem precisar
-   voltar aqui depois — mas nada impede de ajustar mais tarde na lista "Pessoas", como sempre.
-   Veja supabase-schema-permissoes.sql e supabase-schema-usuarios.sql para o que precisa existir no banco. */
+     trocar o papel (admin/usuário), o CARGO, ligar/desligar cada ferramenta só para aquela pessoa e
+     ativar/bloquear. Toda alteração é salva na hora (sem botão "Salvar").
+   - Cargos: cada cargo reúne no mesmo lugar as FERRAMENTAS que libera (o que antes era o "nível") e o
+     KIT de uniformes e EPIs (editado em Uniformes e EPIs > Cargos e kits). Mudar as ferramentas de um
+     cargo vale para todo mundo que tem aquele cargo.
+   Acesso final de uma pessoa a uma ferramenta = admin OU cargo libera OU permissão direta.
+   O cartão "Criar acesso" já deixa escolher o papel e o cargo no momento do convite (ver criarConvite
+   e supabase/functions/completar-convite), para a pessoa nascer com o acesso certo — mas nada impede
+   de ajustar mais tarde na lista "Pessoas", como sempre.
+   Veja supabase-schema-cargos-unificados.sql (cargos e ferramentas) e supabase-schema-usuarios.sql. */
 (function(){
 "use strict";
 
@@ -20,11 +21,10 @@ const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<"
 const semAcento = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 let root = null;
-let niveis = [];        // [{id,nome}]
-let nivelModulos = {};  // { nivel_id: Set(modulo_id) }
-let pessoas = [];       // [{id,email,nome,papel,nivel_id,ativo,criado_em,ultimo_acesso,email_confirmado_em,suspenso_ate,diretos:Set}]
-let cargos = [];        // [{id,nome,ativo}] — cargos do módulo de uniformes/EPI (vazio até rodar supabase-schema-uniformes.sql)
-let cargosOk = false;   // a tabela de cargos existe e pôde ser lida?
+let cargos = [];        // [{id,nome,ativo}] — cargos (ferramentas liberadas + kit de uniforme/EPI)
+let cargoModulos = {};  // { cargo_id: Set(modulo_id) } — ferramentas que cada cargo libera
+let kitQtd = {};        // { cargo_id: nº de itens no kit de uniforme/EPI } (só para o resumo)
+let pessoas = [];       // [{id,email,nome,papel,cargo_id,ativo,criado_em,ultimo_acesso,email_confirmado_em,suspenso_ate,diretos:Set}]
 let convites = [];      // [{token,nome,criado_em}] — convites (só nome) ainda não usados
 let filtro = "todos";   // todos | logam | bloqueados | admins
 let busca = "";
@@ -58,15 +58,15 @@ function statusLogin(p){
   return { k:"ok", t:"Pode logar", pode:true };
 }
 
-// Como a pessoa recebe cada ferramenta: por ser admin, pelo nível ou por permissão direta.
+// Como a pessoa recebe cada ferramenta: por ser admin, pelo cargo ou por permissão direta.
 function acesso(p, moduloId){
   if(p.papel === "admin") return { tem:true, origem:"admin" };
-  if(p.nivel_id && nivelModulos[p.nivel_id] && nivelModulos[p.nivel_id].has(moduloId)) return { tem:true, origem:"nivel" };
+  if(p.cargo_id && cargoModulos[p.cargo_id] && cargoModulos[p.cargo_id].has(moduloId)) return { tem:true, origem:"cargo" };
   if(p.diretos.has(moduloId)) return { tem:true, origem:"direto" };
   return { tem:false, origem:null };
 }
 
-const nomeNivel = id => { const n = niveis.find(x => x.id === id); return n ? n.nome : ""; };
+const nomeCargo = id => { const c = cargos.find(x => x.id === id); return c ? c.nome : ""; };
 const souEu = p => p.id === window.Imperium.perfil.id;
 
 /* ---------- esqueleto ---------- */
@@ -86,18 +86,18 @@ function skel(){
 
     <div class="usr-card">
       <h2 class="usr-h">Criar acesso</h2>
-      <p class="usr-hint">Informe o nome da pessoa e já escolha o papel e o nível dela (os mesmos que dá pra mudar
-        depois em "Pessoas"). Vamos gerar um link único — copie e envie por WhatsApp, e-mail, o que for mais
-        fácil. Ao abrir o link, a própria pessoa escolhe o e-mail e a senha dela e já entra direto com o acesso
-        escolhido — sem precisar voltar aqui depois para liberar nada. Se preferir decidir mais tarde, deixe o
-        nível em "— sem nível —".</p>
+      <p class="usr-hint">Informe o nome da pessoa e já escolha o papel e o cargo dela (os mesmos que dá pra mudar
+        depois em "Pessoas"). O cargo libera as ferramentas e define o kit de uniforme e EPI. Vamos gerar um link
+        único — copie e envie por WhatsApp, e-mail, o que for mais fácil. Ao abrir o link, a própria pessoa
+        escolhe o e-mail e a senha dela e já entra direto com o acesso escolhido — sem precisar voltar aqui
+        depois para liberar nada. Se preferir decidir mais tarde, deixe o cargo em "— sem cargo —".</p>
       <form id="usrNovoConvite" class="usr-novo-nivel">
         <input type="text" id="usrConviteNome" placeholder="Nome da pessoa" maxlength="80" required autocomplete="off">
         <select id="usrConvitePapel" aria-label="Papel da pessoa convidada">
           <option value="usuario">Usuário</option>
           <option value="admin">Admin</option>
         </select>
-        <select id="usrConviteNivel" aria-label="Nível da pessoa convidada"></select>
+        <select id="usrConviteCargo" aria-label="Cargo da pessoa convidada"></select>
         <button class="btn wide" type="submit">Gerar link de convite</button>
       </form>
       <div id="usrConviteResultado"></div>
@@ -106,7 +106,7 @@ function skel(){
 
     <div class="usr-card">
       <h2 class="usr-h">Pessoas</h2>
-      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem entrou pelo convite já chega com o papel/nível escolhido lá; quem foi criado à moda antiga não tem acesso a nenhuma ferramenta até você liberar aqui.</p>
+      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem entrou pelo convite já chega com o papel/cargo escolhido lá; quem foi criado à moda antiga não tem acesso a nenhuma ferramenta até você liberar aqui.</p>
       <div class="usr-tools">
         <input type="search" id="usrBusca" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
       </div>
@@ -114,12 +114,12 @@ function skel(){
     </div>
 
     <div class="usr-card">
-      <h2 class="usr-h">Níveis de permissão</h2>
-      <p class="usr-hint">Opcional. Um nível é um grupo: quem estiver nele recebe todas as ferramentas marcadas, e mudar o nível vale para todos de uma vez. Admin vê tudo, sem precisar de nível.</p>
-      <div id="usrNiveis"></div>
-      <form id="usrNovoNivel" class="usr-novo-nivel">
-        <input type="text" id="usrNomeNivel" placeholder="Nome do novo nível (ex.: Financeiro)" required maxlength="60">
-        <button class="btn ghost" type="submit">+ Criar nível</button>
+      <h2 class="usr-h">Cargos</h2>
+      <p class="usr-hint">Cada cargo junta, num lugar só, as <b>ferramentas</b> que libera e o <b>kit de uniformes e EPIs</b> de quem o tem. Marque as ferramentas de cada cargo aqui; mudar vale para todo mundo que tem aquele cargo. O kit de cada cargo é editado em <b>Uniformes e EPIs › Cargos e kits</b>. Admin vê tudo, com ou sem cargo.</p>
+      <div id="usrCargos"></div>
+      <form id="usrNovoCargo" class="usr-novo-nivel">
+        <input type="text" id="usrNomeCargo" placeholder="Nome do novo cargo (ex.: Porteiro, Financeiro)" required maxlength="60">
+        <button class="btn ghost" type="submit">+ Criar cargo</button>
       </form>
     </div>
 
@@ -175,33 +175,22 @@ function linkConvite(token, nome){
   return `${location.origin}${location.pathname}#/completar-convite?token=${encodeURIComponent(token)}&nome=${encodeURIComponent(nome || "")}`;
 }
 
-// Os selects "Papel" e "Nível" do convite são os mesmos conceitos (e o mesmo optsNiveis) já usados
-// no cartão de cada pessoa em "Pessoas" — só que preenchidos ANTES de a pessoa existir. Se o papel
-// escolhido for "admin", o nível não importa (admin já vê tudo), então trava o select de nível,
-// igual já acontece no cartão de cada pessoa.
-function travarNivelConvite(){
-  const papelSel = q("#usrConvitePapel"), nivelSel = q("#usrConviteNivel");
-  if(!papelSel || !nivelSel) return;
-  nivelSel.disabled = papelSel.value === "admin";
-}
-
-// Chamado sempre que a lista de níveis é (re)carregada, para o select do convite acompanhar sem
+// Chamado sempre que a lista de cargos é (re)carregada, para o select do convite acompanhar sem
 // perder o que o admin já tinha escolhido (caso esteja no meio de preencher o formulário).
-function renderNivelConvite(){
-  const sel = q("#usrConviteNivel"); if(!sel) return;
+function renderCargoConvite(){
+  const sel = q("#usrConviteCargo"); if(!sel) return;
   const atual = sel.value;
-  sel.innerHTML = optsNiveis(atual);
-  travarNivelConvite();
+  sel.innerHTML = optsCargos(atual);
 }
 
-// Nome do que a pessoa vai receber ao completar o convite, só para mensagens ("Admin", nome do
-// nível, ou "").
-function nomeAcessoConvite(papel, nivelId){
-  if(papel === "admin") return "Admin";
-  return nivelId ? nomeNivel(nivelId) : "";
+// Nome do que a pessoa vai receber ao completar o convite, só para mensagens (papel Admin e/ou cargo).
+function nomeAcessoConvite(papel, cargoId){
+  const cargo = cargoId ? nomeCargo(cargoId) : "";
+  if(papel === "admin") return cargo ? `Admin · ${cargo}` : "Admin";
+  return cargo;
 }
 
-async function criarConvite(nome, papel, nivelIdBruto){
+async function criarConvite(nome, papel, cargoIdBruto){
   const form = q("#usrNovoConvite");
   const btn = form.querySelector('button[type="submit"]');
   const txt = btn.textContent;
@@ -209,11 +198,11 @@ async function criarConvite(nome, papel, nivelIdBruto){
   btn.disabled = true; btn.textContent = "Gerando…";
   resEl.innerHTML = "";
 
-  const nivelId = papel === "admin" ? null : (nivelIdBruto || null);
+  const cargoId = cargoIdBruto || null;
 
   const { data, error } = await sb()
     .from("convites_pendentes")
-    .insert({ nome, papel, nivel_id: nivelId, criado_por: window.Imperium.perfil.id })
+    .insert({ nome, papel, cargo_id: cargoId, criado_por: window.Imperium.perfil.id })
     .select("token")
     .single();
 
@@ -224,11 +213,11 @@ async function criarConvite(nome, papel, nivelIdBruto){
     return;
   }
 
-  const acesso = nomeAcessoConvite(papel, nivelId);
+  const acesso = nomeAcessoConvite(papel, cargoId);
   resEl.innerHTML = `
     <div class="usr-convite-ok">
       <p>Copie o link abaixo e envie para ${esc(nome)} — ela abre, escolhe o próprio e-mail e senha, e já
-        entra ${acesso ? `como <b>${esc(acesso)}</b>` : "sem nível definido (ajuste depois na lista abaixo)"},
+        entra ${acesso ? `como <b>${esc(acesso)}</b>` : "sem cargo definido (ajuste depois na lista abaixo)"},
         aparecendo pra você na lista "Pessoas" assim que terminar. O link vale por 7 dias.</p>
       <div class="usr-link-row">
         <input type="text" readonly id="usrLinkGerado" value="${esc(linkConvite(data.token, nome))}" onfocus="this.select()">
@@ -237,7 +226,7 @@ async function criarConvite(nome, papel, nivelIdBruto){
     </div>`;
 
   form.reset();
-  renderNivelConvite();
+  renderCargoConvite();
   await carregarConvitesPendentes();
 }
 
@@ -245,7 +234,7 @@ async function criarConvite(nome, papel, nivelIdBruto){
 async function carregarConvitesPendentes(){
   const { data, error } = await sb()
     .from("convites_pendentes")
-    .select("token,nome,papel,nivel_id,criado_em")
+    .select("token,nome,papel,cargo_id,criado_em")
     .is("usado_em", null)
     .order("criado_em", { ascending: false });
   if(!root) return;
@@ -261,11 +250,11 @@ function renderConvitesPendentes(){
     <div class="usr-convite-ok">
       <p class="usr-hint" style="margin-bottom:10px">Aguardando a pessoa completar o cadastro:</p>
       ${convites.map(c => {
-        const acesso = nomeAcessoConvite(c.papel, c.nivel_id);
+        const acesso = nomeAcessoConvite(c.papel, c.cargo_id);
         return `
         <div class="usr-convite-pendente" data-token="${esc(c.token)}">
           <span class="usr-convite-pendente-nome">${esc(c.nome)}
-            <em class="usr-qtd">${acesso ? esc(acesso) : "sem nível definido"}</em></span>
+            <em class="usr-qtd">${acesso ? esc(acesso) : "sem cargo definido"}</em></span>
           <div class="usr-link-row">
             <input type="text" readonly value="${esc(linkConvite(c.token, c.nome))}" onfocus="this.select()">
             <button type="button" class="btn ghost usr-copiar-pendente">Copiar link</button>
@@ -287,12 +276,7 @@ async function cancelarConvite(token){
 }
 
 /* ---------- pessoas ---------- */
-function optsNiveis(selecionado){
-  return `<option value="">— sem nível —</option>` +
-    niveis.map(n => `<option value="${n.id}" ${n.id === selecionado ? "selected" : ""}>${esc(n.nome)}</option>`).join("");
-}
-
-// só cargos ativos, mais o cargo atual da pessoa (mesmo desativado, para não parecer que ela ficou sem cargo)
+// só cargos ativos, mais o cargo atual da pessoa/convite (mesmo desativado, para não parecer que ficou sem cargo)
 function optsCargos(selecionado){
   return `<option value="">— sem cargo —</option>` +
     cargos.filter(c => c.ativo || c.id === selecionado)
@@ -301,12 +285,12 @@ function optsCargos(selecionado){
 
 function htmlFerramenta(p, m){
   const a = acesso(p, m.id);
-  const trava = a.origem === "admin" || a.origem === "nivel";
+  const trava = a.origem === "admin" || a.origem === "cargo";
   const nota = a.origem === "admin" ? "Admin acessa tudo"
-             : a.origem === "nivel" ? `Pelo nível ${esc(nomeNivel(p.nivel_id))}`
+             : a.origem === "cargo" ? `Pelo cargo ${esc(nomeCargo(p.cargo_id))}`
              : "";
   return `
-  <label class="usr-sw usr-sis ${trava ? "is-lock" : ""}" ${trava ? `title="${nota}. Para tirar, mude o papel/nível da pessoa."` : ""}>
+  <label class="usr-sw usr-sis ${trava ? "is-lock" : ""}" ${trava ? `title="${nota}. Para tirar, mude o papel/cargo da pessoa."` : ""}>
     <input type="checkbox" data-mod="${esc(m.id)}" ${a.tem ? "checked" : ""} ${trava ? "disabled" : ""}>
     <span class="usr-sw-track" aria-hidden="true"></span>
     <span class="usr-sw-txt">${esc(m.nome)}${nota ? `<small>${nota}</small>` : ""}</span>
@@ -343,7 +327,7 @@ function htmlPessoa(p){
       </label>
     </header>
 
-    <div class="usr-p-body ${cargosOk ? "com-cargo" : ""}">
+    <div class="usr-p-body">
       <div class="usr-campo">
         <label for="papel-${p.id}">Papel</label>
         <select id="papel-${p.id}" data-f="papel"${lockSelf}>
@@ -352,13 +336,9 @@ function htmlPessoa(p){
         </select>
       </div>
       <div class="usr-campo">
-        <label for="nivel-${p.id}">Nível</label>
-        <select id="nivel-${p.id}" data-f="nivel_id" ${p.papel === "admin" ? "disabled title='Admin já vê tudo'" : ""}>${optsNiveis(p.nivel_id)}</select>
-      </div>
-      ${cargosOk ? `<div class="usr-campo">
         <label for="cargo-${p.id}">Cargo</label>
-        <select id="cargo-${p.id}" data-f="cargo_id" title="Define o kit de uniforme e EPI que a pessoa pode solicitar">${optsCargos(p.cargo_id)}</select>
-      </div>` : ""}
+        <select id="cargo-${p.id}" data-f="cargo_id" title="Libera as ferramentas do cargo e define o kit de uniforme e EPI que a pessoa pode solicitar">${optsCargos(p.cargo_id)}</select>
+      </div>
       <div class="usr-campo usr-ferr">
         <label>Ferramentas que ela pode usar</label>
         <div class="usr-ferr-lista">
@@ -413,29 +393,38 @@ async function carregarPessoas(){
     q("#usrLista").innerHTML = "";
     return;
   }
-  if(data && data.length && !("modulos" in data[0])){
+  if(data && data.length && !("cargo_id" in data[0])){
+    av.innerHTML = `<div class="usr-alerta">Falta rodar o arquivo <code>supabase-schema-cargos-unificados.sql</code> no SQL Editor do Supabase. Ele junta o antigo "nível" com o cargo — até rodar, o cargo das pessoas não aparece aqui.</div>`;
+  }else if(data && data.length && !("modulos" in data[0])){
     av.innerHTML = `<div class="usr-alerta">Falta rodar o arquivo <code>supabase-schema-usuarios.sql</code> no SQL Editor do Supabase. Sem ele, a lista funciona pela metade (sem último acesso e sem permissões por pessoa).</div>`;
   }else{
     av.innerHTML = "";
   }
   pessoas = (data || []).map(r => ({ ...r, diretos: new Set(r.modulos || []) }));
-  await carregarCargos();
-  if(!root) return;
   renderPessoas();
+  renderCargos();   // atualiza a contagem "N pessoas" de cada cargo
 }
 
-// Cargo de cada pessoa (módulo de uniformes e EPI). Se o SQL dos uniformes ainda não foi rodado, o campo
-// "Cargo" simplesmente não aparece e o resto da tela funciona igual.
+// Cargos, as ferramentas que cada um libera (cargo_modulos) e quantos itens tem o kit de uniforme/EPI de cada um.
+// (o cargo de cada pessoa já vem junto com a lista de pessoas, em admin_listar_perfis)
 async function carregarCargos(){
-  cargosOk = false; cargos = [];
-  const [c, pf] = await Promise.all([
+  const [c, cm, ki] = await Promise.all([
     sb().from("cargos").select("id,nome,ativo").order("nome"),
-    sb().from("perfis").select("id,cargo_id")
+    sb().from("cargo_modulos").select("cargo_id,modulo_id"),
+    sb().from("cargo_itens").select("cargo_id")
   ]);
-  if(c.error || pf.error) return;
-  cargosOk = true; cargos = c.data || [];
-  const mapa = {}; (pf.data || []).forEach(r => { mapa[r.id] = r.cargo_id; });
-  pessoas.forEach(p => { p.cargo_id = mapa[p.id] || null; });
+  if(!root) return;
+  if(c.error || cm.error){
+    aviso("Não foi possível carregar os cargos: " + erroTxt(c.error || cm.error) + ". Confira se rodou o supabase-schema-cargos-unificados.sql.", "erro");
+  }
+  cargos = c.data || [];
+  cargoModulos = {};
+  (cm.data || []).forEach(r => { (cargoModulos[r.cargo_id] ||= new Set()).add(r.modulo_id); });
+  kitQtd = {};
+  (ki.data || []).forEach(r => { kitQtd[r.cargo_id] = (kitQtd[r.cargo_id] || 0) + 1; });
+  renderCargos();
+  renderCargoConvite();
+  if(pessoas.length) renderPessoas();   // o select de cargo e as ferramentas de cada pessoa dependem disso
 }
 
 /* ---------- ações sobre uma pessoa (todas salvam na hora) ---------- */
@@ -505,6 +494,7 @@ async function excluirPessoa(p){
 
   pessoas = pessoas.filter(x => x.id !== p.id);
   renderPessoas();
+  renderCargos();
   aviso(`Conta de ${quem} excluída`);
 }
 
@@ -528,10 +518,9 @@ async function aoMudarPessoa(el){
     return atualizarPerfil(p, { papel: el.value }, el.value === "admin" ? "Agora é admin" : "Agora é usuário comum");
   }
   if(f === "cargo_id"){
-    return atualizarPerfil(p, { cargo_id: el.value || null }, "Cargo atualizado");
-  }
-  if(f === "nivel_id"){
-    return atualizarPerfil(p, { nivel_id: el.value || null }, "Nível atualizado");
+    const ok = await atualizarPerfil(p, { cargo_id: el.value || null }, "Cargo atualizado");
+    if(ok) renderCargos();   // muda a contagem de pessoas de cada cargo
+    return;
   }
   if(f === "ativo"){
     if(!el.checked && !confirm(`Bloquear o acesso de ${p.nome || p.email}?\n\nA pessoa deixa de conseguir entrar e de ver os dados na hora. A conta no Supabase continua existindo, e você pode liberar de novo quando quiser.`)){
@@ -541,93 +530,89 @@ async function aoMudarPessoa(el){
   }
 }
 
-/* ---------- níveis ---------- */
-function htmlNivel(nv){
+/* ---------- cargos (ferramentas liberadas + kit de uniforme/EPI) ---------- */
+function htmlCargo(c){
   const mods = MODULOS();
-  const marcados = nivelModulos[nv.id] || new Set();
-  const gente = pessoas.filter(p => p.nivel_id === nv.id).length;
+  const marcados = cargoModulos[c.id] || new Set();
+  const gente = pessoas.filter(p => p.cargo_id === c.id).length;
+  const nFerr = mods.filter(m => marcados.has(m.id)).length;
+  const kit = kitQtd[c.id] || 0;
   return `
-  <details class="fx-det usr-nivel">
-    <summary><span>${esc(nv.nome)} <em class="usr-qtd">${gente} ${gente === 1 ? "pessoa" : "pessoas"}</em></span><span class="chev">▸</span></summary>
+  <details class="fx-det usr-nivel" data-cg="${c.id}">
+    <summary><span>${esc(c.nome)}
+      <em class="usr-qtd">${gente} ${gente === 1 ? "pessoa" : "pessoas"}</em>
+      <em class="usr-qtd">${nFerr} ${nFerr === 1 ? "ferramenta" : "ferramentas"} · kit: ${kit} ${kit === 1 ? "item" : "itens"}${c.ativo ? "" : " · desativado"}</em></span><span class="chev">▸</span></summary>
     <div class="body">
+      <p class="usr-kit-tit">Ferramentas que este cargo libera</p>
       ${mods.length ? mods.map(m => `
-        <label class="tg"><input type="checkbox" data-nivel="${nv.id}" data-mod="${esc(m.id)}" ${marcados.has(m.id) ? "checked" : ""}><span>${esc(m.nome)}</span></label>
+        <label class="tg"><input type="checkbox" data-cgmod="${esc(m.id)}" ${marcados.has(m.id) ? "checked" : ""}><span>${esc(m.nome)}</span></label>
       `).join("") : `<p class="usr-hint">Nenhuma ferramenta registrada ainda.</p>`}
-      <button class="btn ghost usr-del-nivel" type="button" data-nivel="${nv.id}">Apagar nível "${esc(nv.nome)}"</button>
+      <p class="usr-kit-tit">Kit de uniforme e EPI</p>
+      <p class="usr-hint" style="margin:0">${kit ? `${kit} ${kit === 1 ? "item cadastrado" : "itens cadastrados"} no kit deste cargo.` : "Kit ainda vazio."} Para editar os itens e as quantidades, abra <b>Uniformes e EPIs › Cargos e kits</b>.</p>
+      <button class="btn ghost usr-del-nivel" type="button" data-cg="${c.id}">Apagar cargo "${esc(c.nome)}"</button>
     </div>
   </details>`;
 }
 
-function renderNiveis(){
-  const el = q("#usrNiveis"); if(!el) return;
-  // mantém abertos os níveis que já estavam abertos
-  const abertos = new Set([...el.querySelectorAll("details[open]")].map(d => d.querySelector(".usr-del-nivel").dataset.nivel));
-  el.innerHTML = niveis.length
-    ? niveis.map(htmlNivel).join("")
-    : `<p class="usr-hint">Nenhum nível criado ainda — crie um abaixo (ou use só as permissões por pessoa).</p>`;
-  el.querySelectorAll("details").forEach(d => { if(abertos.has(d.querySelector(".usr-del-nivel").dataset.nivel)) d.open = true; });
+function renderCargos(){
+  const el = q("#usrCargos"); if(!el) return;
+  // mantém abertos os cargos que já estavam abertos
+  const abertos = new Set([...el.querySelectorAll("details[open]")].map(d => d.dataset.cg));
+  el.innerHTML = cargos.length
+    ? cargos.map(htmlCargo).join("")
+    : `<p class="usr-hint">Nenhum cargo criado ainda — crie um abaixo (ou use só as permissões por pessoa).</p>`;
+  el.querySelectorAll("details").forEach(d => { if(abertos.has(d.dataset.cg)) d.open = true; });
 }
 
-async function carregarNiveis(){
-  const r1 = await sb().from("niveis").select("id,nome").order("nome");
-  const r2 = await sb().from("nivel_modulos").select("nivel_id,modulo_id");
-  if(!root) return;
-  if(r1.error || r2.error){ aviso("Não foi possível carregar os níveis: " + erroTxt(r1.error || r2.error), "erro"); }
-  niveis = r1.data || [];
-  nivelModulos = {};
-  (r2.data || []).forEach(r => { (nivelModulos[r.nivel_id] ||= new Set()).add(r.modulo_id); });
-  renderNiveis();
-  renderNivelConvite();
-}
-
-async function alternarModuloNivel(chk){
-  const nivelId = chk.dataset.nivel, moduloId = chk.dataset.mod, ligar = chk.checked;
+async function alternarModuloCargo(chk){
+  const cargoId = chk.closest("[data-cg]").dataset.cg, moduloId = chk.dataset.cgmod, ligar = chk.checked;
   chk.disabled = true;
-  const t = sb().from("nivel_modulos");
+  const t = sb().from("cargo_modulos");
   const { error } = ligar
-    ? await t.upsert({ nivel_id: nivelId, modulo_id: moduloId }, { onConflict: "nivel_id,modulo_id", ignoreDuplicates: true })
-    : await t.delete().eq("nivel_id", nivelId).eq("modulo_id", moduloId);
+    ? await t.upsert({ cargo_id: cargoId, modulo_id: moduloId }, { onConflict: "cargo_id,modulo_id", ignoreDuplicates: true })
+    : await t.delete().eq("cargo_id", cargoId).eq("modulo_id", moduloId);
   if(!root) return;
   chk.disabled = false;
   if(error){ chk.checked = !ligar; aviso("Não foi possível salvar: " + erroTxt(error), "erro"); return; }
-  const set = (nivelModulos[nivelId] ||= new Set());
+  const set = (cargoModulos[cargoId] ||= new Set());
   if(ligar) set.add(moduloId); else set.delete(moduloId);
-  renderPessoas();                       // as pessoas desse nível mudam de ferramentas
-  aviso("Nível atualizado");
+  renderPessoas();                       // as pessoas desse cargo mudam de ferramentas
+  renderCargos();                        // atualiza o "N ferramentas" do resumo
+  aviso("Cargo atualizado");
 }
 
-async function criarNivel(nome){
-  const { error } = await sb().from("niveis").insert({ nome });
+async function criarCargo(nome){
+  const { error } = await sb().from("cargos").insert({ nome });
   if(!root) return;
-  if(error){ aviso(error.message.includes("duplicate") ? "Já existe um nível com esse nome." : "Não foi possível criar: " + error.message, "erro"); return; }
-  await carregarNiveis();
-  aviso("Nível criado");
+  if(error){ aviso(/duplicate|unique/i.test(error.message) ? "Já existe um cargo com esse nome." : "Não foi possível criar: " + error.message, "erro"); return; }
+  await carregarCargos();
+  aviso("Cargo criado");
 }
 
-async function apagarNivel(id){
-  const nv = niveis.find(n => n.id === id);
-  const gente = pessoas.filter(p => p.nivel_id === id).length;
-  const aviso1 = gente ? `\n\n${gente} ${gente === 1 ? "pessoa está" : "pessoas estão"} nele e ${gente === 1 ? "perde" : "perdem"} as ferramentas que vinham só do nível (as permissões diretas continuam).` : "";
-  if(!confirm(`Apagar o nível "${nv ? nv.nome : ""}"?${aviso1}`)) return;
-  const { error } = await sb().from("niveis").delete().eq("id", id);
+async function apagarCargo(id){
+  const c = cargos.find(x => x.id === id);
+  const gente = pessoas.filter(p => p.cargo_id === id).length;
+  const aviso1 = gente ? `\n\n${gente} ${gente === 1 ? "pessoa tem" : "pessoas têm"} esse cargo e ${gente === 1 ? "fica" : "ficam"} sem cargo: ${gente === 1 ? "perde" : "perdem"} as ferramentas que vinham só dele (as permissões diretas continuam) e o kit de uniforme/EPI.` : "";
+  if(!confirm(`Apagar o cargo "${c ? c.nome : ""}"?${aviso1}\n\nO kit deste cargo também é apagado. Se só quer parar de usar, prefira desativar em Uniformes e EPIs › Cargos e kits.`)) return;
+  const { error } = await sb().from("cargos").delete().eq("id", id);
   if(!root) return;
   if(error){ aviso("Não foi possível apagar: " + erroTxt(error), "erro"); return; }
-  await Promise.all([carregarNiveis(), carregarPessoas()]);
-  aviso("Nível apagado");
+  await Promise.all([carregarCargos(), carregarPessoas()]);
+  aviso("Cargo apagado");
 }
 
 /* ---------- montagem ---------- */
 function ligar(){
   root.addEventListener("change", e => {
-    if(e.target.closest("[data-nivel]") && e.target.matches('input[type="checkbox"]')){ alternarModuloNivel(e.target); return; }
+    if(e.target.matches('input[data-cgmod]')){ alternarModuloCargo(e.target); return; }
     if(e.target.closest(".usr-pessoa")) aoMudarPessoa(e.target);
   });
   root.addEventListener("click", e => {
     const stat = e.target.closest(".usr-stat");
     if(stat){ filtro = stat.dataset.filtro; renderPessoas(); return; }
     const del = e.target.closest(".usr-del-nivel");
-    if(del){ apagarNivel(del.dataset.nivel); return; }
-    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarNiveis(), carregarPessoas(), carregarConvitesPendentes()]).then(() => aviso("Lista atualizada")); return; }
+    if(del){ apagarCargo(del.dataset.cg); return; }
+    if(e.target.closest("#usrAtualizar")){ Promise.all([carregarCargos(), carregarPessoas(), carregarConvitesPendentes()]).then(() => aviso("Lista atualizada")); return; }
     if(e.target.closest("#usrCopiarLink")){
       const inp = q("#usrLinkGerado"); if(!inp) return;
       copiarTexto(inp, "Link copiado");
@@ -653,20 +638,19 @@ function ligar(){
     }
   });
   q("#usrBusca").addEventListener("input", e => { busca = e.target.value; renderPessoas(); });
-  q("#usrNovoNivel").addEventListener("submit", e => {
+  q("#usrNovoCargo").addEventListener("submit", e => {
     e.preventDefault();
-    const input = q("#usrNomeNivel");
+    const input = q("#usrNomeCargo");
     const nome = input.value.trim();
     if(!nome) return;
     input.value = "";
-    criarNivel(nome);
+    criarCargo(nome);
   });
-  q("#usrConvitePapel").addEventListener("change", travarNivelConvite);
   q("#usrNovoConvite").addEventListener("submit", e => {
     e.preventDefault();
     const nome = q("#usrConviteNome").value.trim();
     if(!nome) return;
-    criarConvite(nome, q("#usrConvitePapel").value, q("#usrConviteNivel").value);
+    criarConvite(nome, q("#usrConvitePapel").value, q("#usrConviteCargo").value);
   });
 }
 
@@ -676,10 +660,9 @@ async function mount(el){
   root.classList.add("mod-usuarios");
   root.innerHTML = skel();
   ligar();
-  // níveis primeiro: o cartão de cada pessoa precisa saber o que o nível dela libera
-  await carregarNiveis();
+  // cargos primeiro: o cartão de cada pessoa precisa saber o que o cargo dela libera
+  await carregarCargos();
   await Promise.all([carregarPessoas(), carregarConvitesPendentes()]);
-  renderNiveis(); // atualiza a contagem "N pessoas" de cada nível
 }
 function unmount(){ clearTimeout(toastTimer); root = null; }
 
@@ -688,7 +671,7 @@ window.Platform.register({
   categoria: "configuracoes",
   menu: "Usuários",
   nome: "Usuários",
-  descricao: "Veja quem tem acesso à plataforma e libere ou bloqueie cada ferramenta por pessoa.",
+  descricao: "Veja quem tem acesso à plataforma, defina o cargo de cada pessoa e libere ou bloqueie ferramentas.",
   soAdmin: true,
   icone: '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   mount, unmount

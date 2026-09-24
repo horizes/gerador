@@ -116,11 +116,14 @@
 .usr-sis{padding:6px 0}
 .usr-ativo{margin-left:auto}
 
-/* níveis */
+/* cargos (ferramentas liberadas + kit) */
 .usr-nivel{margin-bottom:10px}
 .usr-nivel .tg{border-bottom:1px solid #221F1A}
 .usr-qtd{font-style:normal;font-family:'Barlow';font-size:11.5px;letter-spacing:.04em;text-transform:none;color:var(--muted);margin-left:8px}
 .usr-del-nivel{margin-top:14px;font-size:11.5px;padding:8px 12px}
+
+.usr-kit-tit{margin:18px 0 6px;font-family:'Oswald';font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.usr-nivel .body>.usr-kit-tit:first-child{margin-top:4px}
 
 .usr-novo-nivel{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
 .usr-novo-nivel input{flex:1 1 260px}

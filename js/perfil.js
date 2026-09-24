@@ -1,4 +1,4 @@
-/* Perfil do usuário logado — papel (admin/usuário), nível e módulos permitidos.
+/* Perfil do usuário logado — papel (admin/usuário), cargo e módulos permitidos.
    Carregado por js/auth.js logo depois do login, antes de abrir a plataforma:
    é o que decide quais ferramentas aparecem no menu e na tela inicial de cada pessoa
    (o admin configura tudo isso na tela "Usuários"). Veja supabase-schema-permissoes.sql. */
@@ -15,16 +15,17 @@ async function carregarPerfil(){
   if(!user) return null;
 
   const { data: perfil, error: e1 } = await sb().from("perfis")
-    .select("nome,papel,nivel_id,ativo").eq("id", user.id).maybeSingle();
+    .select("nome,papel,cargo_id,ativo").eq("id", user.id).maybeSingle();
   if(e1 || !perfil || !perfil.ativo) return null;
 
-  // Ferramentas liberadas = as do nível da pessoa + as permissões diretas dela (tabela perfil_modulos,
-  // criada por supabase-schema-usuarios.sql). Se essa tabela ainda não existir, só o nível vale.
+  // Ferramentas liberadas = as do CARGO da pessoa (tabela cargo_modulos, criada por
+  // supabase-schema-cargos-unificados.sql) + as permissões diretas dela (tabela perfil_modulos,
+  // criada por supabase-schema-usuarios.sql). Se essa tabela ainda não existir, só o cargo vale.
   let modulos = new Set();
   if(perfil.papel !== "admin"){
-    if(perfil.nivel_id){
-      const { data: nm } = await sb().from("nivel_modulos").select("modulo_id").eq("nivel_id", perfil.nivel_id);
-      (nm||[]).forEach(r => modulos.add(r.modulo_id));
+    if(perfil.cargo_id){
+      const { data: cm } = await sb().from("cargo_modulos").select("modulo_id").eq("cargo_id", perfil.cargo_id);
+      (cm||[]).forEach(r => modulos.add(r.modulo_id));
     }
     const { data: pm } = await sb().from("perfil_modulos").select("modulo_id").eq("perfil_id", user.id);
     (pm||[]).forEach(r => modulos.add(r.modulo_id));

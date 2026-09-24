@@ -20,11 +20,11 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    `supabase-schema.sql` (as 3 políticas de `storage.objects`), caso o bucket ainda não existisse na
    primeira vez que você rodou o script.
 3. **Rode o SQL da hierarquia de acesso:** ainda no SQL Editor, cole o conteúdo de
-   `supabase-schema-permissoes.sql` e clique em **Run**. Isso cria os "níveis de permissão" e a tabela de
+   `supabase-schema-permissoes.sql` e clique em **Run**. Isso cria a tabela de
    perfis (veja a seção **Hierarquia de acesso**, abaixo). Depois de rodar, torne a si mesmo admin: no
    final do arquivo há uma linha comentada `update perfis set papel = 'admin' where id = ...` — troque o
    e-mail e rode só essa linha (você precisa fazer isso manualmente uma vez; depois, tudo o resto — criar
-   níveis, promover outras pessoas a admin — é feito pela tela **Usuários** dentro do site).
+   cargos, promover outras pessoas a admin — é feito pela tela **Usuários** dentro do site).
    Por fim, rode também o `supabase-schema-usuarios.sql` (mesmo lugar: **SQL Editor > New query > Run**): ele
    cria as permissões **por pessoa** e a listagem completa da tela **Usuários** (último acesso, e-mail
    confirmado, suspensa etc.). Pode rodar mais de uma vez sem problema.
@@ -32,16 +32,20 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
    clique em **Run** (depois do `supabase-schema-usuarios.sql`). Ele cria a tabela usada pelo cartão
    **Criar acesso** — veja a seção **Criar acesso (convite por link)**, abaixo.
 5. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe o nome da pessoa e já
-   escolha o papel e o nível dela, e o site gera um link único para você copiar e mandar por WhatsApp/e-mail.
-   A própria pessoa escolhe o e-mail e a senha dela ao abrir o link, e a conta já nasce com o papel/nível
+   escolha o papel e o cargo dela, e o site gera um link único para você copiar e mandar por WhatsApp/e-mail.
+   A própria pessoa escolhe o e-mail e a senha dela ao abrir o link, e a conta já nasce com o papel/cargo
    escolhido. Isso precisa de uma **Edge Function** publicada uma vez — veja a seção
    **Criar acesso (convite por link)**, abaixo. Enquanto não publicar a função, ainda dá para criar contas à
    moda antiga: **Authentication > Users > Add user**, informando e-mail e senha e marcando
    **Auto Confirm User**. Nesse caminho antigo, a pessoa aparece sozinha na tela **Usuários** do site, mas
-   sem acesso a nada até você configurar o nível dela por lá.
+   sem acesso a nada até você configurar o cargo dela por lá.
 6. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
-   depois dos scripts acima) e libere as ferramentas e o cargo de cada pessoa na tela **Usuários** — veja a seção
-   **Uniformes e EPI**, abaixo.
+   depois dos scripts acima) — veja a seção **Uniformes e EPI**, abaixo.
+6b. **Rode o SQL de cargos unificados (por último):** cole o conteúdo de `supabase-schema-cargos-unificados.sql`
+   e clique em **Run**. Ele junta o antigo "nível de permissão" com o cargo (um cargo passa a liberar as
+   ferramentas **e** ter o kit de uniforme/EPI) e migra o que você já tinha, sem ninguém perder acesso — veja a
+   seção **Cargos (antigo nível + kit)**, abaixo. Se rodar de novo `supabase-schema-usuarios.sql` ou
+   `supabase-schema-uniformes.sql`, rode este outra vez logo depois.
 7. **Rode o SQL de exclusão de usuário:** ainda no SQL Editor, cole o conteúdo de
    `supabase-schema-excluir-usuario.sql` e clique em **Run** (a qualquer momento, mesmo antes dos passos
    acima). Sem isso, o botão **Excluir conta** da tela "Usuários" falha para quem já lançou algo no Fluxo de
@@ -60,17 +64,19 @@ são salvas na hora, sem botão "Salvar":
   site** ligado. Quando algo impede o login, aparece uma etiqueta explicando o motivo. Os quadrinhos do topo
   (Contas, Podem logar, Sem acesso ao site, Admins) funcionam como filtros, e há busca por nome ou e-mail.
 - **Ferramentas por pessoa:** em cada pessoa há um interruptor por ferramenta (Gerador de propostas, Fluxo de
-  caixa…). Ligar/desligar vale na hora. Se a pessoa recebe a ferramenta pelo **nível** ou por ser **admin**, o
-  interruptor aparece travado com essa indicação — para tirar, mude o nível ou o papel dela.
-- **Papel, nível e acesso ao site:** admin vê todas as ferramentas (inclusive a tela Usuários) e não depende
-  de nível; desligar **Acesso ao site** bloqueia o login e o acesso aos dados na hora, sem apagar a conta no
+  caixa…). Ligar/desligar vale na hora. Se a pessoa recebe a ferramenta pelo **cargo** ou por ser **admin**, o
+  interruptor aparece travado com essa indicação — para tirar, mude o cargo ou o papel dela.
+- **Papel, cargo e acesso ao site:** admin vê todas as ferramentas (inclusive a tela Usuários) e não depende
+  de cargo; desligar **Acesso ao site** bloqueia o login e o acesso aos dados na hora, sem apagar a conta no
   Supabase (dá pra ligar de novo depois). Você não consegue alterar o seu próprio papel nem desativar a si
   mesmo.
 - **Excluir conta:** ao contrário de "Acesso ao site", isso apaga o login de vez — não tem como desfazer.
   Veja a seção **Excluir conta**, abaixo.
-- **Níveis de permissão (opcional):** grupos que você nomeia (ex.: "Financeiro", "Comercial") e para os quais
-  marca quais ferramentas liberam. Mudar as ferramentas de um nível vale para todas as pessoas dele.
-- **Acesso final** a uma ferramenta = admin **ou** o nível libera **ou** permissão direta da pessoa.
+- **Cargos (antigo "nível"):** o cargo que você nomeia (ex.: "Porteiro", "Financeiro") reúne, no mesmo lugar, as
+  **ferramentas que libera** e o **kit de uniforme e EPI**. Marque as ferramentas de cada cargo no cartão
+  **Cargos** (ou em **Uniformes e EPIs › Cargos e kits**, que mostra o mesmo cartão); mudar vale para todas as
+  pessoas daquele cargo. Cada pessoa tem **um** cargo só.
+- **Acesso final** a uma ferramenta = admin **ou** o cargo libera **ou** permissão direta da pessoa.
   A pessoa vê o menu novo ao recarregar a página (ou no próximo login).
 - A restrição não é só visual: as regras de segurança do banco (RLS) também checam o acesso antes de
   deixar ler ou gravar os dados do Fluxo de Caixa — então mesmo alguém tentando acessar direto pela URL
@@ -79,7 +85,7 @@ são salvas na hora, sem botão "Salvar":
   quem está editando), então a permissão dele controla apenas se a ferramenta aparece no menu daquela
   pessoa — não há dado compartilhado nesse módulo para proteger.
 - **Se a lista de pessoas aparecer com um aviso amarelo** (ou não carregar), é porque falta rodar o
-  `supabase-schema-usuarios.sql`. Detalhes técnicos: tabelas `perfis`, `niveis`, `nivel_modulos` e
+  `supabase-schema-usuarios.sql`. Detalhes técnicos: tabelas `perfis`, `cargos`, `cargo_modulos` e
   `perfil_modulos`, e a função `admin_listar_perfis()`.
 
 Pronto — publicando os arquivos normalmente (veja "Como publicar" abaixo), a tela de login aparece antes
@@ -88,10 +94,10 @@ da plataforma.
 ## Criar acesso (convite por link)
 
 No cartão **Criar acesso** da tela "Usuários", o admin informa **o nome** da pessoa e já escolhe o **papel**
-e o **nível** dela (Admin, um dos níveis criados no cartão "Níveis de permissão", ou "— sem nível —" para
+e o **cargo** dela (Admin, um dos cargos criados no cartão "Cargos", ou "— sem cargo —" para
 decidir depois) — sem e-mail — e o site gera um **link único** para copiar e enviar como preferir (WhatsApp,
 e-mail etc). A pessoa abre o link, escolhe o **próprio e-mail e a própria senha** numa telinha dedicada, e só
-nesse momento a conta é criada — já **com o papel/nível escolhido**, sem precisar de nenhum passo a mais do
+nesse momento a conta é criada — já **com o papel/cargo escolhido**, sem precisar de nenhum passo a mais do
 admin — e aparece para ele, na tela "Usuários", assim que termina. Enquanto isso não acontece, o link fica
 listado em "Convites pendentes" (mesmo cartão, mostrando o que vai ser aplicado), onde dá para copiar de novo
 ou cancelar. Cada link vale por 7 dias e só pode ser usado uma vez.
@@ -145,6 +151,25 @@ Enquanto a função não for publicada, a pessoa vê uma mensagem de erro ao ten
 **Authentication > URL Configuration**, configure o **Site URL** com o endereço onde o site fica publicado —
 é para lá que o link de redefinição de senha manda a pessoa de volta depois de ela clicar.
 
+## Cargos (antigo nível + kit)
+
+Antes existiam duas coisas separadas: o **nível** (que liberava ferramentas) e o **cargo** (que definia o kit de
+uniforme e EPI). Agora é uma coisa só — o **cargo**:
+
+- **Uma pessoa, um cargo.** O campo **Nível** sumiu do cartão de cada pessoa; o campo **Cargo** faz os dois papéis.
+- **Um cargo, dois conteúdos:** as **ferramentas** que libera e o **kit de uniforme e EPI**. As ferramentas se marcam
+  no cartão **Cargos** da tela **Usuários** ou em **Uniformes e EPIs › Cargos e kits** (só o administrador); o kit se
+  monta em **Uniformes e EPIs › Cargos e kits**.
+- **Convite:** o cartão **Criar acesso** escolhe papel + cargo, e a conta já nasce com as duas coisas.
+- **Migração automática** (`supabase-schema-cargos-unificados.sql`, roda uma vez): cada nível vira um cargo de mesmo
+  nome (se já existia um cargo com esse nome, os dois viram um só), com as mesmas ferramentas; quem tinha só o nível
+  ganha esse cargo; quem tinha um nível **e** outro cargo fica com o cargo e recebe as ferramentas do antigo nível
+  como permissão direta — ninguém perde acesso. As tabelas antigas (`niveis`, `nivel_modulos`, `perfis.nivel_id`)
+  ficam no banco, sem uso; depois de conferir, podem ser apagadas.
+- **Apagar um cargo** agora também tira o acesso de quem o tem, por isso só o administrador apaga. Para só parar de
+  usar um cargo, desative-o em **Cargos e kits** (desativar bloqueia novos pedidos de uniforme, mas não tira as
+  ferramentas das pessoas que já o têm).
+
 ## Uniformes e EPI
 
 Duas ferramentas ligadas pelo mesmo banco, no grupo **Uniformes e EPI** do menu. A ideia central: **cada pessoa tem um
@@ -160,8 +185,9 @@ máximo cadastrado no kit.
   - **Solicitações:** quem pediu, o cargo e os itens (tipo, tamanho, quantidade escolhida). Permite **marcar como
     pronto para retirada** (com mensagem opcional, ex.: "retirar no RH") ou **recusar** (com motivo), e mostra as
     assinaturas de recebimento. Tem um resumo "O que separar" somando os itens dos pedidos aguardando.
-  - **Cargos e kits:** cria, renomeia, desativa e apaga cargos e monta o kit de cada um (itens e a quantidade
-    **máxima** que pode ser pedida de cada um).
+  - **Cargos e kits:** cria, renomeia e desativa cargos e monta o kit de cada um (itens e a quantidade
+    **máxima** que pode ser pedida de cada um). Para o administrador, o mesmo cartão traz as **ferramentas que o
+    cargo libera** (é o antigo "nível"); só o administrador altera as ferramentas e apaga cargos.
   - **Uniformes e EPIs:** o catálogo de itens. Cada item é **Uniforme** ou **EPI** e tem seus tamanhos (em branco =
     tamanho único). Dá para criar, renomear, trocar a categoria, desativar e apagar.
   Tudo nessas duas últimas abas é salvo na hora e vale para quem tem acesso à tela (e para admin).
@@ -175,9 +201,9 @@ máximo cadastrado no kit.
    Jardineiro e Zelador, com kits iniciais, além de itens de uniforme e de EPI. **Confira e ajuste tudo na aba
    "Cargos e kits"** de acordo com a realidade e as normas de segurança da empresa; os kits de exemplo não são
    uma definição oficial de EPI.
-3. Na tela **Usuários** (só admin), defina o **Cargo** de cada pessoa (campo novo em cada cartão) e libere as
-   ferramentas: **Solicitar uniforme e EPI** para os colaboradores (dica: crie um nível "Colaborador" com essa
-   ferramenta marcada) e **Solicitações de uniforme e EPI** para o responsável. Admin tem as duas automaticamente.
+3. Na tela **Usuários** (só admin), defina o **Cargo** de cada pessoa e marque, em cada cargo, as ferramentas que
+   ele libera: **Solicitar uniforme e EPI** para os colaboradores e **Solicitações de uniforme e EPI** para o
+   responsável (ou dê essa segunda só a uma pessoa, como permissão direta). Admin tem as duas automaticamente.
    Pessoa sem cargo (ou com cargo desativado, ou cujo kit está vazio) vê um aviso em vez do formulário.
 
 **Regras do pedido:** o servidor monta o pedido a partir do kit do cargo no momento do envio, mas quem decide o que
@@ -232,7 +258,8 @@ pedidos de teste, use o **Table Editor** do Supabase); o solicitante é sempre a
 ```
 index.html                 casca da plataforma (tela de login + barra lateral + área da ferramenta)
 supabase-schema.sql        script para rodar uma vez no SQL Editor do Supabase (tabelas, segurança, categorias)
-supabase-schema-permissoes.sql  script da hierarquia de acesso (perfis, níveis de permissão, RLS por módulo)
+supabase-schema-permissoes.sql  script da hierarquia de acesso (perfis, RLS por módulo; os "níveis" antigos viraram cargos)
+supabase-schema-cargos-unificados.sql  junta nível e cargo: cargo_modulos (ferramentas por cargo), migração dos níveis antigos e novas regras de acesso
 supabase-schema-usuarios.sql    permissões por pessoa (perfil_modulos) e listagem completa da tela Usuários
 supabase-schema-uniformes.sql   uniformes e EPI: itens, cargos, kits, pedidos, segurança (RLS), funções e bucket privado das assinaturas
 css/base.css               cores, tipografia, campos e botões compartilhados
@@ -241,16 +268,16 @@ css/platform.css           barra lateral, menu do celular e tela inicial
 css/propostas.css          Gerador de propostas (painel, prévia A4 e impressão)
 css/fluxo.css              Fluxo de caixa (planilha editável, resumo e categorias)
 css/dashboard.css          painel (dashboard) da tela inicial
-css/usuarios.css           tela "Usuários" (pessoas, permissões por ferramenta e níveis)
+css/usuarios.css           tela "Usuários" (pessoas, permissões por ferramenta e cargos)
 css/uniformes.css          "Solicitar uniforme e EPI" e "Solicitações de uniforme e EPI" (kit, pedidos, cargos, janela de recebimento)
 js/supabase.js              conexão com o Supabase (URL + chave do projeto)
-js/perfil.js                carrega o papel/nível/módulos permitidos da pessoa logada
+js/perfil.js                carrega o papel/cargo/módulos permitidos da pessoa logada
 js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
 js/platform.js             barra lateral (com grupos), navegação, tela inicial, registro de módulos e filtro por permissão
 js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caixa no Supabase e monta o resumo/gráfico
 js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
-js/modules/usuarios.js     tela "Usuários" (só para admin): lista as contas, mostra quem pode logar e libera ferramentas por pessoa/nível
+js/modules/usuarios.js     tela "Usuários" (só para admin): lista as contas, mostra quem pode logar e define o cargo e libera ferramentas por pessoa/cargo
 js/modules/uniformes.js    as duas ferramentas (kit por cargo, atendimento, cargos, itens, assinatura por foto) e os avisos do menu
 assets/logo.jpg            logo da Imperium
 assets/clientes/           fotos/logos dos clientes da seção "Clientes e parceiros"
@@ -363,7 +390,7 @@ A tela de login aparece antes de qualquer ferramenta. Não existe cadastro públ
 sempre do administrador, um por pessoa da equipe — pelo cartão **Criar acesso** da tela "Usuários" (gera um
 link com o nome da pessoa; ela mesma escolhe e-mail e senha ao abrir) ou, à moda antiga, no painel do
 Supabase (**Authentication > Users**). Veja **Criar acesso (convite por link)**, acima. Depois do login, a
-pessoa só vê as ferramentas que o nível dela libera (veja **Hierarquia de acesso**, acima) — quem tem acesso
+pessoa só vê as ferramentas que o cargo dela libera (veja **Hierarquia de acesso**, acima) — quem tem acesso
 ao Fluxo de Caixa vê os mesmos dados que os outros com acesso a ele, já que continua sendo uma ferramenta
 compartilhada pela equipe (não há separação "por usuário" dentro de cada ferramenta).
 

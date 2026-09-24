@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     // 2) o convite existe, ainda não foi usado e não expirou?
     const { data: convite } = await admin
       .from("convites_pendentes")
-      .select("token,nome,papel,nivel_id,criado_em,usado_em")
+      .select("token,nome,papel,cargo_id,criado_em,usado_em")
       .eq("token", token)
       .maybeSingle();
 
@@ -86,11 +86,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4) aplica ao perfil o papel/nível que o admin escolheu ao gerar o convite — o gatilho
+    // 4) aplica ao perfil o papel/cargo que o admin escolheu ao gerar o convite — o gatilho
     //    on_auth_user_created_perfil já criou a linha em "perfis" (só com o nome) no passo acima,
-    //    então aqui é só atualizar. Se o admin não escolheu nível nenhum, isso é um "no-op" (fica
-    //    como usuário comum sem nível, igual era antes), então não precisa condicional nenhuma.
-    await admin.from("perfis").update({ papel: convite.papel, nivel_id: convite.nivel_id }).eq("id", criado.user.id);
+    //    então aqui é só atualizar. O cargo é o que libera as ferramentas E define o kit de uniforme/EPI
+    //    (nível e cargo agora são a mesma coisa). Sem cargo escolhido, fica como usuário comum sem cargo.
+    await admin.from("perfis").update({ papel: convite.papel, cargo_id: convite.cargo_id }).eq("id", criado.user.id);
 
     // 5) marca o convite como usado, para o link não poder ser reaproveitado
     await admin.from("convites_pendentes").update({ usado_em: new Date().toISOString() }).eq("token", token);

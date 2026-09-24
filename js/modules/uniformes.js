@@ -7,7 +7,8 @@
                                     pedido. Quando o pedido fica pronto, confirma o recebimento com uma foto do
                                     rosto carimbada com local, data e hora (assinatura digital).
    "Solicitações de uniforme e EPI" (id uniforme_gestao)   — o responsável vê os pedidos, marca como pronto ou recusa,
-                                    confere as assinaturas e edita os itens, os cargos e o kit de cada cargo.
+                                    confere as assinaturas e edita os itens, os cargos e o kit de cada cargo. O cargo também é o que libera as ferramentas
+                                    de cada pessoa (antigo "nível"): o administrador marca as ferramentas de cada cargo no mesmo cartão do kit.
 
    Quem vê cada uma é definido na tela "Usuários". Tabelas, regras de segurança e funções:
    supabase-schema-uniformes.sql. As fotos ficam num bucket PRIVADO ("uniforme-assinaturas") e são abertas
@@ -90,15 +91,19 @@ async function lerMeuKit(){
 }
 
 async function lerCargos(){
-  const [c, k] = await Promise.all([
+  const [c, k, m] = await Promise.all([
     sb().from("cargos").select("*").order("nome"),
-    sb().from("cargo_itens").select("*")
+    sb().from("cargo_itens").select("*"),
+    sb().from("cargo_modulos").select("cargo_id,modulo_id")   // ferramentas que cada cargo libera
   ]);
   if(c.error) throw c.error;
   if(k.error) throw k.error;
   const kits = {};
   (k.data||[]).forEach(r => { (kits[r.cargo_id] = kits[r.cargo_id] || []).push(r); });
-  return { cargos: c.data || [], kits };
+  // se o SQL de cargos unificados ainda não foi rodado, a tabela não existe: só o bloco de ferramentas some
+  const ferr = {}; let ferrOk = !m.error;
+  (m.data||[]).forEach(r => { (ferr[r.cargo_id] = ferr[r.cargo_id] || new Set()).add(r.modulo_id); });
+  return { cargos: c.data || [], kits, ferr, ferrOk };
 }
 
 // as fotos são privadas: cada uma é aberta por um link temporário (1 hora)
@@ -755,7 +760,7 @@ const SOL = (function(){
    ===================================================================================================== */
 const GES = (function(){
   let root = null;
-  let pedidos = [], tipos = [], cargos = [], kits = {}, urls = {};
+  let pedidos = [], tipos = [], cargos = [], kits = {}, ferr = {}, ferrOk = false, urls = {};
   let aba = "pedidos", filtro = "pendente", busca = "";
   const abertos = new Set();   // cargos com o cartão aberto na aba "Cargos e kits"
   const ouvintes = [];
@@ -764,7 +769,7 @@ const GES = (function(){
 
   async function carregar(){
     const [p, t, c] = await Promise.all([lerPedidos(false), lerTipos(false), lerCargos()]);
-    pedidos = p; tipos = t.sort(ordemTipos); cargos = c.cargos; kits = c.kits;
+    pedidos = p; tipos = t.sort(ordemTipos); cargos = c.cargos; kits = c.kits; ferr = c.ferr; ferrOk = c.ferrOk;
     urls = await assinarFotos(pedidos);
   }
   function renderAba(){
@@ -951,19 +956,27 @@ const GES = (function(){
     const kit = kitDe(c.id);
     const livres = tipos.filter(t => t.ativo && !kit.some(k => k.tipo_id === t.id));
     const n = kit.length;
+    const admin = !!perfil().admin;   // só admin mexe nas ferramentas do cargo e apaga cargo
+    const marcadas = ferr[c.id] || new Set();
+    const mods = window.Platform.modulosConfiguraveis();
+    const nFerr = mods.filter(m => marcadas.has(m.id)).length;
     return `<details class="uni-cargo ${c.ativo ? "" : "off"}" data-cargo="${c.id}" ${abertos.has(c.id) ? "open" : ""}>
       <summary>
         <span class="uni-cargo-nome">${esc(c.nome)}</span>
-        <span class="uni-cargo-info">${n} ${n === 1 ? "item" : "itens"}${c.ativo ? "" : " · desativado"}</span>
+        <span class="uni-cargo-info">${ferrOk ? `${nFerr} ${nFerr === 1 ? "ferramenta" : "ferramentas"} · ` : ""}${n} ${n === 1 ? "item" : "itens"} no kit${c.ativo ? "" : " · desativado"}</span>
         <span class="chev">▸</span>
       </summary>
       <div class="uni-cargo-body">
         <div class="uni-cargo-cfg">
           <label class="f"><span>Nome do cargo</span><input type="text" data-cf="nome" maxlength="60" value="${esc(c.nome)}"></label>
           <label class="uni-sw"><input type="checkbox" data-cf="ativo" ${c.ativo ? "checked" : ""}><span>Ativo</span></label>
-          <button class="rm" type="button" data-rmcargo aria-label="Apagar cargo ${esc(c.nome)}">✕</button>
+          ${admin ? `<button class="rm" type="button" data-rmcargo aria-label="Apagar cargo ${esc(c.nome)}">✕</button>` : `<span></span>`}
         </div>
-        <div class="mini">Kit deste cargo</div>
+        ${ferrOk ? `<div class="mini">Ferramentas que este cargo libera</div>
+        ${admin
+          ? (mods.length ? `<div class="uni-cargo-ferr">${mods.map(m => `<label class="uni-sw"><input type="checkbox" data-cgmod="${esc(m.id)}" ${marcadas.has(m.id) ? "checked" : ""}><span>${esc(m.nome)}</span></label>`).join("")}</div>` : `<p class="uni-hint">Nenhuma ferramenta registrada ainda.</p>`)
+          : `<p class="uni-hint">${nFerr ? esc(mods.filter(m => marcadas.has(m.id)).map(m => m.nome).join(", ")) : "Nenhuma ferramenta liberada por este cargo."} (só administradores alteram as ferramentas.)</p>`}` : ""}
+        <div class="mini">Kit de uniforme e EPI deste cargo</div>
         ${kit.length ? `<ul class="uni-kit-lista">${kit.map(k => `
           <li data-kit="${k.tipo_id}">
             <span class="uni-kit-n"><b>${esc(k.tipo.nome)}</b>${tagEpi(k.tipo)}${k.tipo.ativo ? "" : `<em>indisponível: não aparece nos pedidos</em>`}</span>
@@ -984,7 +997,7 @@ const GES = (function(){
     el.innerHTML = `
       <section class="uni-card">
         <h2 class="uni-h2">Cargos e kits</h2>
-        <p class="uni-hint">Cada cargo tem um kit de itens disponíveis. A quantidade cadastrada aqui é o <b>máximo</b> que a pessoa pode pedir de cada item — ao solicitar, ela escolhe quanto precisa (até esse limite) e o tamanho, quando houver. O cargo de cada pessoa é definido na tela <b>Usuários</b> (só administradores). Alterações no kit valem para os próximos pedidos; pedidos já feitos não mudam.</p>
+        <p class="uni-hint">O cargo reúne, num lugar só, as <b>ferramentas</b> que libera para quem o tem e o <b>kit</b> de uniformes e EPIs. No kit, a quantidade cadastrada é o <b>máximo</b> que a pessoa pode pedir de cada item — ao solicitar, ela escolhe quanto precisa (até esse limite) e o tamanho, quando houver. O cargo de cada pessoa é definido na tela <b>Usuários</b> (só administradores). Alterações no kit valem para os próximos pedidos; pedidos já feitos não mudam.</p>
         <div id="cgLista">${cargos.length ? cargos.map(cargoHtml).join("") : `<p class="uni-vazio">Nenhum cargo cadastrado ainda.</p>`}</div>
         <div class="uni-cargo-novo">
           <label class="f"><span>Novo cargo</span><input type="text" id="cgNome" maxlength="60" placeholder="Ex.: Porteiro"></label>
@@ -1015,11 +1028,33 @@ const GES = (function(){
   }
   async function apagarCargo(id){
     const c = cargos.find(x => x.id === id); if(!c) return;
-    if(!confirm(`Apagar o cargo “${c.nome}”? As pessoas que têm esse cargo ficam sem cargo até o administrador definir outro, e o kit é apagado. Se só quer parar de usar, prefira desmarcar “Ativo”.`)) return;
+    if(!confirm(`Apagar o cargo “${c.nome}”? As pessoas que têm esse cargo ficam sem cargo (e sem as ferramentas que vinham dele) até o administrador definir outro, e o kit é apagado. Se só quer parar de usar, prefira desmarcar “Ativo”.`)) return;
     const { error } = await sb().from("cargos").delete().eq("id", id);
     if(error){ erroAba(msgErro(error)); return; }
     cargos = cargos.filter(x => x.id !== id); delete kits[id]; abertos.delete(id);
     renderCargos(); salvo();
+  }
+  async function alternarFerramenta(cid, moduloId, chk){
+    const ligar = chk.checked;
+    chk.disabled = true;
+    const t = sb().from("cargo_modulos");
+    const { error } = ligar
+      ? await t.upsert({ cargo_id: cid, modulo_id: moduloId }, { onConflict: "cargo_id,modulo_id", ignoreDuplicates: true })
+      : await t.delete().eq("cargo_id", cid).eq("modulo_id", moduloId);
+    chk.disabled = false;
+    if(error){ chk.checked = !ligar; erroAba(msgErro(error)); return; }
+    erroAba("");
+    const set = (ferr[cid] = ferr[cid] || new Set());
+    if(ligar) set.add(moduloId); else set.delete(moduloId);
+    // atualiza só o resumo do cabeçalho (não fecha o cartão nem tira o foco)
+    const info = chk.closest("[data-cargo]").querySelector(".uni-cargo-info");
+    if(info){
+      const nF = window.Platform.modulosConfiguraveis().filter(m => set.has(m.id)).length;
+      const nK = (kits[cid] || []).length;
+      const c = cargos.find(x => x.id === cid);
+      info.textContent = `${nF} ${nF === 1 ? "ferramenta" : "ferramentas"} · ${nK} ${nK === 1 ? "item" : "itens"} no kit${c && !c.ativo ? " · desativado" : ""}`;
+    }
+    salvo();
   }
   async function adicionarAoKit(cid, card){
     erroAba("");
@@ -1096,6 +1131,7 @@ const GES = (function(){
         if(nome !== c.nome) salvarCargo(c, "nome", nome, t);
       }else if(t.dataset.cf === "ativo") salvarCargo(c, "ativo", t.checked, t);
       else if(t.hasAttribute("data-kitqtd")) mudarQtdKit(c.id, t.closest("[data-kit]").dataset.kit, t);
+      else if(t.hasAttribute("data-cgmod")) alternarFerramenta(c.id, t.dataset.cgmod, t);
     }
   });
   on("keydown", e => {
