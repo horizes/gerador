@@ -83,6 +83,7 @@ const ESTADO_INICIAL = () => ({
   nomeArquivo:"",
   localCliente:"Campinas",
   fotoLocal:"",
+  fotoAj:{zoom:100,x:50,y:50,alt:54},   // ajuste da foto do posto na capa: zoom %, posição X/Y %, altura mm
   logoConnect:LOGO_CONNECT_PADRAO,
   logoFlash:LOGO_FLASH_PADRAO,
   logoV:2,
@@ -203,6 +204,18 @@ function nomeArquivoPadrao(){ return "Proposta " + nomeCliente(); }
 /* nome que vale de fato para o arquivo: o que a pessoa digitou tem sempre prioridade sobre o padrão */
 function nomeArquivoAtual(){ return (S.nomeArquivo || "").trim() || nomeArquivoPadrao(); }
 
+
+/* ajuste da foto do posto na capa (zoom, enquadramento e altura) */
+function fotoAjuste(){
+  const a = Object.assign({zoom:100,x:50,y:50,alt:54}, S.fotoAj||{});
+  const n = (v,d,mi,ma)=>{ v=parseFloat(v); return isNaN(v)?d:Math.min(ma,Math.max(mi,v)); };
+  return { zoom:n(a.zoom,100,100,300), x:n(a.x,50,0,100), y:n(a.y,50,0,100), alt:n(a.alt,54,30,75) };
+}
+function fotoEstilo(){
+  const a = fotoAjuste();
+  return `width:100%;height:100%;object-fit:cover;display:block;object-position:${a.x}% ${a.y}%;transform:scale(${a.zoom/100});transform-origin:${a.x}% ${a.y}%`;
+}
+
 /* ---------- PAINEL ---------- */
 function campo(label,tipo,path,attrs=""){
   return `<label class="f"><span>${label}</span><input type="${tipo}" data-p="${path}" ${attrs} value="${esc(get(path))}"></label>`;
@@ -322,7 +335,7 @@ function painel(){
       <div class="row" style="align-items:flex-start;margin-top:14px">
         <div style="flex:0 0 68px">
           <div style="width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--rule);background:#0E0C08;display:flex;align-items:center;justify-content:center">
-            ${S.fotoLocal?`<img src="${S.fotoLocal}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--muted);font-size:9px;text-align:center">sem foto</span>'}
+            ${S.fotoLocal?`<img src="${S.fotoLocal}" style="${fotoEstilo()}">`:'<span style="color:var(--muted);font-size:9px;text-align:center">sem foto</span>'}
           </div>
         </div>
         <div style="flex:1;min-width:0">
@@ -330,7 +343,15 @@ function painel(){
           ${S.fotoLocal?'<button class="rm" id="delFotoLocal" style="margin-top:8px">remover foto</button>':""}
         </div>
       </div>
-      <p class="hint">Aparece na capa da proposta, logo abaixo do nome do cliente — ajuda a criar identificação imediata com o próprio espaço.</p>
+      ${S.fotoLocal?(()=>{const a=fotoAjuste();return `
+      <div class="ajfoto">
+        <label class="f"><span>Zoom <b>${a.zoom}%</b></span><input type="range" min="100" max="300" step="5" data-p="fotoAj.zoom" data-aj="zoom" value="${a.zoom}"></label>
+        <label class="f"><span>Posição horizontal <b>${a.x}%</b></span><input type="range" min="0" max="100" step="1" data-p="fotoAj.x" data-aj="x" value="${a.x}"></label>
+        <label class="f"><span>Posição vertical <b>${a.y}%</b></span><input type="range" min="0" max="100" step="1" data-p="fotoAj.y" data-aj="y" value="${a.y}"></label>
+        <label class="f"><span>Altura da foto <b>${a.alt} mm</b></span><input type="range" min="30" max="75" step="1" data-p="fotoAj.alt" data-aj="alt" value="${a.alt}"></label>
+        <button class="rm" id="resetFotoAj" type="button">restaurar enquadramento</button>
+      </div>`;})():""}
+      <p class="hint">Aparece na capa da proposta, logo abaixo do nome do cliente — ajuda a criar identificação imediata com o próprio espaço. Use o zoom e as posições para enquadrar o posto.</p>
     </div>
   </details>
 
@@ -478,8 +499,8 @@ function pgCapa(){
       <div class="cover-motto">A pessoa certa no lugar certo faz a diferença</div>
       <p class="ttl">PROPOSTA DE PARCERIA</p>
       <p class="sub">${esc(nomeCliente())} — ${esc(S.localCliente)}</p>
-      ${S.fotoLocal?`<div class="cover-foto"><img src="${S.fotoLocal}" alt=""></div>`:""}
-      <h2 class="dt center" style="margin:${S.fotoLocal?"32":"40"}px 0 0;font-size:32px">Nossos serviços</h2>
+      ${S.fotoLocal?`<div class="cover-foto" style="height:${fotoAjuste().alt}mm"><img src="${S.fotoLocal}" alt="" style="${fotoEstilo()}"></div>`:""}
+      <h2 class="dt center" style="margin:${S.fotoLocal?"32":"40"}px 0 0;font-size:32px">Serviços solicitados</h2>
       ${grid}
       <div class="cover-fill">
         <div class="cover-orn"><span class="ln"></span><span>Campinas e região</span><span class="ln"></span></div>
@@ -864,6 +885,10 @@ on("input", e=>{
     let v=t.value; if(t.type==="number") v=parseFloat(v)||0;
     set(t.dataset.p,v);
     if(t.dataset.p==="salMin") recalcInsalTodos();
+    if(t.dataset.aj){                       // slider da foto: atualiza o número ao lado e a miniatura
+      const b=t.parentElement.querySelector("b"); if(b) b.textContent = v + (t.dataset.aj==="alt"?" mm":"%");
+      const im=root.querySelector(".ajfoto")?.closest(".body")?.querySelector("img[style*='object-fit']"); if(im) im.setAttribute("style",fotoEstilo());
+    }
     renderPapers(); return;
   }
   if(t.dataset.c){
@@ -912,6 +937,7 @@ on("change", e=>{
     const reader = new FileReader();
     reader.onload = () => {
       S.fotoLocal = reader.result;
+      S.fotoAj = {zoom:100,x:50,y:50,alt:54};
       painel(); renderPapers();
     };
     reader.onerror = () => alert("Não foi possível ler essa imagem.");
@@ -987,7 +1013,8 @@ on("click", e=>{
   if(b.dataset.del){ S.extras.splice(+b.dataset.del.slice(1),1); painel(); renderPapers(); return; }
   if(b.id==="adddif"){ S.difs.push({t:"Novo diferencial",d:""}); painel(); renderPapers(); return; }
   if(b.dataset.deldif){ S.difs.splice(+b.dataset.deldif,1); painel(); renderPapers(); return; }
-  if(b.id==="delFotoLocal"){ S.fotoLocal=""; painel(); renderPapers(); return; }
+  if(b.id==="delFotoLocal"){ S.fotoLocal=""; S.fotoAj={zoom:100,x:50,y:50,alt:54}; painel(); renderPapers(); return; }
+  if(b.id==="resetFotoAj"){ S.fotoAj={zoom:100,x:50,y:50,alt:54}; painel(); renderPapers(); return; }
   if(b.id==="delLogoConnect"){ S.logoConnect=""; painel(); renderPapers(); return; }
   if(b.id==="delLogoFlash"){ S.logoFlash=""; painel(); renderPapers(); return; }
   if(b.id==="addcli"){ S.clientes.push({t:"Empresa",n:"Nome do parceiro",c:"Campinas SP"}); painel(); renderPapers(); return; }
@@ -1124,7 +1151,7 @@ function docBody(){
   P_.push(P([R("A pessoa certa no lugar certo faz a diferença",{b:true,sz:33,color:"C9A227"})],{align:"center",after:480}));
   P_.push(P([R("PROPOSTA DE PARCERIA",{b:true,sz:55})],{align:"center",after:120}));
   P_.push(P([R(nomeCliente()+" — "+S.localCliente,{sz:33,color:"555555"})],{align:"center",after:400}));
-  P_.push(H("Nossos serviços",{sz:43,align:"center"}));
+  P_.push(H("Serviços solicitados",{sz:43,align:"center"}));
   if(cs.length){
     const linhas=[]; for(let i=0;i<cs.length;i+=3) linhas.push(cs.slice(i,i+3));
     P_.push(TBL(linhas.map(l=>TR(l.map(c=>TD((c.curto||c.nome),{b:true}))
