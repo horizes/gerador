@@ -650,7 +650,18 @@ function pgAceite(){
    Esta função mede cada .paper depois de renderizado e, se ultrapassar 297mm, primeiro
    tenta compactar (fonte/entrelinha menores) e, se ainda assim não couber (ex.: lista de
    diferenciais muito longa), move os últimos itens para uma folha de continuação. */
-function alturaMaximaPx(){
+function alturaMaximaPx(paperRef){
+  // Preferimos ler o min-height computado de uma .paper de verdade (paperRef) em vez de uma
+  // sonda separada: os dois deveriam dar o mesmo valor, mas o navegador pode arredondar mm→px
+  // de forma levemente diferente dependendo do contexto do elemento. Antes usávamos só a sonda
+  // com uma margem NEGATIVA (-2px) — como toda .paper "vazia" já nasce exatamente na altura do
+  // min-height, qualquer diferença de arredondamento fazia ela parecer "2px maior que a folha"
+  // e disparava uma quebra desnecessária em praticamente toda página. Por isso agora usamos o
+  // valor computado da própria folha sempre que possível, e uma folga POSITIVA na comparação.
+  if(paperRef){
+    const mh = parseFloat(getComputedStyle(paperRef).minHeight);
+    if(mh) return mh;
+  }
   const sonda = document.createElement("div");
   sonda.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:297mm;width:0;top:0;left:-9999px";
   document.body.appendChild(sonda);
@@ -760,8 +771,9 @@ function transbordarBlocos(paper, maxPx){
 function ajustarTransbordo(){
   const cont = document.getElementById("papers");
   if(!cont) return;
-  const maxPx = alturaMaximaPx();
-  if(!maxPx || maxPx < 200) return;   // sonda deu um valor implausível: não arrisca mexer em nada
+  const primeira = cont.querySelector(".paper");
+  const maxPx = alturaMaximaPx(primeira);
+  if(!maxPx || maxPx < 200) return;   // valor implausível: não arrisca mexer em nada
   _prazoTransbordo = performance.now() + 1500;   // no máximo ~1,5s de ajustes; depois disso, para na hora
   _paginasCriadas = 0;
   // desliga temporariamente o observer que reajusta o zoom no celular: as mudanças que fazemos
@@ -771,7 +783,9 @@ function ajustarTransbordo(){
   try{
     for(const paper of [...cont.querySelectorAll(".paper")]){
       if(tempoEsgotado()) break;
-      ajustarPagina(paper, maxPx - 2);
+      // folga POSITIVA de 1px (não negativa!): uma folha "vazia" já fica exatamente na altura do
+      // min-height, então uma margem negativa aqui fazia ela parecer maior que a folha à toa
+      ajustarPagina(paper, maxPx + 1);
     }
   } finally {
     if(ro) ro.observe(cont);
