@@ -150,10 +150,6 @@ function nomeDoc(c){ return c.nome + (c.acum ? " com acúmulo de função" : "")
 function remun(c){ return (+c.salario||0)+(+c.premio||0)+(+c.insal||0)+(+c.plr||0); }
 function benef(c){ return ((+c.vr||0)+(+c.vt||0))*(+S.dias||0) + (+c.va||0); }
 function totalMensal(){ return listaCargos().reduce((s,c)=>s+(+c.posto||0)*(+c.postos||0),0); }
-/* custo com a equipe = remuneração + benefícios de cada cargo × pessoas alocadas (uso interno, não entra na proposta) */
-function custoEquipe(){ return listaCargos().reduce((s,c)=>s+(remun(c)+benef(c))*(+c.func||0),0); }
-function lucroMensal(){ return totalMensal() - custoEquipe(); }
-function margemPct(){ const t=totalMensal(); return t>0 ? (lucroMensal()/t*100) : 0; }
 function escopoAuto(){
   const f=[...new Set(listaCargos().map(c=>c.frente).filter(Boolean))];
   if(!f.length) return "limpeza e conservação";
@@ -406,15 +402,6 @@ function painel(){
   </details>
 
   <div class="actions">
-    <div class="calc-chip" id="calcChip" tabindex="0" role="button" aria-expanded="false" title="Passe o mouse ou toque para ver custo e lucro">
-      <div class="calc-row total"><span>Total mensal (cliente)</span><b id="chip">${brl(totalMensal())}</b></div>
-      <div class="calc-detalhe">
-        <div class="calc-row"><span>Custo com a equipe</span><b id="chipCusto">${brl(custoEquipe())}</b></div>
-        <div class="calc-row lucro${lucroMensal()<0?" neg":""}" id="chipLucroRow"><span>Lucro estimado</span><b id="chipLucro">${brl(lucroMensal())} <small>(${margemPct().toFixed(1)}%)</small></b></div>
-        <p class="hint" style="margin:6px 0 0">Essa separação é só para sua conferência interna — não aparece na proposta do cliente.</p>
-      </div>
-      <span class="calc-chev">custo e lucro ▾</span>
-    </div>
     <button class="btn wide" id="print2">Imprimir / salvar PDF</button>
     <button class="btn ghost wide" id="word">Exportar para Word (.docx)</button>
     <button class="btn ghost wide" id="zerar">Nova proposta em branco</button>
@@ -797,14 +784,6 @@ function renderPapers(){
   document.getElementById("papers").innerHTML =
     SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
   agendarTransbordo();
-  const chip = document.getElementById("chip");
-  if(chip) chip.textContent = brl(totalMensal());
-  const chipCusto = document.getElementById("chipCusto");
-  if(chipCusto) chipCusto.textContent = brl(custoEquipe());
-  const chipLucro = document.getElementById("chipLucro");
-  if(chipLucro) chipLucro.innerHTML = `${brl(lucroMensal())} <small>(${margemPct().toFixed(1)}%)</small>`;
-  const chipLucroRow = document.getElementById("chipLucroRow");
-  if(chipLucroRow) chipLucroRow.classList.toggle("neg", lucroMensal()<0);
   salvar();
 }
 
@@ -846,10 +825,6 @@ function recalcInsalTodos(){
   });
 }
 
-on("keydown", e=>{
-  const chip = e.target.closest("#calcChip"); if(!chip) return;
-  if(e.key==="Enter" || e.key===" "){ e.preventDefault(); const ab = chip.classList.toggle("aberto"); chip.setAttribute("aria-expanded", ab?"true":"false"); }
-});
 on("input", e=>{
   const t = e.target;
   if(t.type==="checkbox") return;
@@ -962,8 +937,6 @@ on("change", e=>{
 });
 
 on("click", e=>{
-  const chip = e.target.closest("#calcChip");
-  if(chip){ const ab = chip.classList.toggle("aberto"); chip.setAttribute("aria-expanded", ab?"true":"false"); return; }
   const b = e.target.closest("button"); if(!b) return;
   if(b.id==="addcargo"){
     S.extras.push(Object.assign(novoCargo(CATALOGO[0], S.salMin),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));

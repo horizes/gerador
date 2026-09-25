@@ -70,15 +70,6 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 
 .actions{padding:16px 20px;display:flex;flex-direction:column;gap:9px;position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--rule)}
 .hint{font-size:12px;color:var(--muted);line-height:1.45;margin:8px 0 0}
-.calc-chip{display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:#191509;border:1px solid #5B4B24;border-radius:4px;margin-bottom:4px}
-.calc-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.calc-row span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.calc-row b{font-family:'Oswald';font-size:15px;color:var(--cream);font-weight:500;white-space:nowrap}
-.calc-row b small{font-family:'Barlow';font-weight:400;font-size:11px;color:var(--muted)}
-.calc-row.total{padding-bottom:8px;border-bottom:1px dashed #3A331F}
-.calc-row.total b{font-size:20px;color:var(--gold-hi)}
-.calc-row.lucro b{color:#8FD39C}
-.calc-row.lucro.neg b{color:#E59A9A}
 
 /* stage toolbar */
 .stagebar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:0 auto 18px;max-width:210mm}
@@ -248,12 +239,3 @@ ol.dt li{margin-bottom:6px}
   .stage{padding-left:14px;padding-right:14px}
 }
 
-/* Custo/lucro minimizados: só o total aparece; passa o mouse (ou toca, no celular) para detalhar */
-.calc-chip{cursor:pointer;transition:border-color .15s ease}
-.calc-chip .calc-row.total{padding-bottom:0;border-bottom:none}
-.calc-chev{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:2px}
-.calc-detalhe{max-height:0;opacity:0;overflow:hidden;transition:max-height .25s ease,opacity .2s ease}
-.calc-chip:hover,.calc-chip:focus-visible,.calc-chip.aberto{border-color:var(--gold)}
-.calc-chip:hover .calc-detalhe,.calc-chip:focus-visible .calc-detalhe,.calc-chip.aberto .calc-detalhe{max-height:140px;opacity:1;margin-top:8px}
-.calc-chip:hover .calc-row.total,.calc-chip:focus-visible .calc-row.total,.calc-chip.aberto .calc-row.total{padding-bottom:8px;border-bottom:1px dashed #3A331F}
-.calc-chip:hover .calc-chev,.calc-chip:focus-visible .calc-chev,.calc-chip.aberto .calc-chev{display:none}
