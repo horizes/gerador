@@ -7,7 +7,6 @@
 let root = null;          // elemento onde o módulo está montado
 let zoom = 1;
 let ro = null;            // observa a folha para reajustar a escala no celular
-let iniciado = false;     // o rascunho salvo é lido só na primeira abertura
 const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
 
@@ -114,42 +113,10 @@ function novoCargo(base, salMin){
 let S = ESTADO_INICIAL();
 CATALOGO.forEach(c => S.cargos[c.id] = novoCargo(c));
 
-/* ---------- persistência leve (rascunho local) ---------- */
-function salvar(){ try{ localStorage.setItem("imperium_proposta", JSON.stringify(S)); }catch(e){} }
-function carregar(){
-  try{
-    const raw = localStorage.getItem("imperium_proposta");
-    if(!raw) return;
-    const v = JSON.parse(raw);
-    if(v && v.cargos){
-      CATALOGO.forEach(c=>{ if(!v.cargos[c.id]) v.cargos[c.id]=novoCargo(c, v.salMin); });
-      S = Object.assign(ESTADO_INICIAL(), v);
-      if(!v.logoV) S.logoV = 0;   // rascunho de antes das imagens padrão do Connect/Flash
-      migrar();
-    }
-  }catch(e){}
-}
-/* rascunhos salvos antes de existirem gênero e % de insalubridade: completa os campos sem mudar nenhum valor */
-function migrar(){
-  if(!(S.salMin > 0)) S.salMin = PAD.salMin;
-  /* rascunhos antigos: logo vazio ou apontando para assets/ (arquivo que podia não existir) recebem as imagens padrão */
-  const caminho = v => typeof v === "string" && /^assets\//.test(v);
-  if(S.logoConnect==null || caminho(S.logoConnect)) S.logoConnect = LOGO_CONNECT_PADRAO;
-  if(S.logoFlash==null || caminho(S.logoFlash)) S.logoFlash = LOGO_FLASH_PADRAO;
-  if(!S.logoV){
-    if(!S.logoConnect) S.logoConnect = LOGO_CONNECT_PADRAO;
-    if(!S.logoFlash) S.logoFlash = LOGO_FLASH_PADRAO;
-    S.logoV = 2;
-  }
-  CATALOGO.forEach(c=>{ const x=S.cargos[c.id]; if(x && !x.genero) x.genero = c.gen || "F"; });
-  /* rascunho salvo antes desta correção: "Auxiliar de Serviços Gerais" ficava exibido como
-     "Auxiliar de Limpeza" nas tabelas/PDF; corrige só quem nunca personalizou esse nome */
-  if(S.cargos.aux && S.cargos.aux.curto === "Auxiliar de Limpeza") S.cargos.aux.curto = "Auxiliar de Serviços Gerais";
-  S.extras.forEach(x=>{ if(!x.genero) x.genero = "F"; });
-  todosCargos().forEach(([k,x])=>{
-    if(typeof x.insalPct !== "number") x.insalPct = (+x.insal||0) / S.salMin * 100;
-  });
-}
+/* ---------- sem persistência: a proposta vive só na memória da aba aberta.
+   Ao fechar/recarregar o site, o script roda de novo do zero e ESTADO_INICIAL() já
+   traz a data atual — então a próxima abertura sempre começa zerada e com o dia de hoje. */
+function salvar(){ /* intencionalmente não salva mais em localStorage */ }
 
 /* ---------- helpers ---------- */
 const n2 = v => (Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -259,7 +226,6 @@ function cargoCard(key,c){
           <select data-c="${key}.turno">${["Diurno","Noturno","Misto"].map(e=>`<option ${c.turno===e?"selected":""}>${e}</option>`).join("")}</select>
         </label>
       </div>
-      <label class="f" style="margin-top:9px"><span>Valor por posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
       <div class="mini" data-rem="${key}">${c.genero==="M"?"Remuneração do colaborador":"Remuneração da colaboradora"}</div>
       <div class="grid2">
         <label class="f"><span>Salário</span><input type="number" step="0.01" data-c="${key}.salario" value="${c.salario}"></label>
@@ -1375,7 +1341,6 @@ function mount(el){
   root.className = "mod-propostas m-edit";
   root.innerHTML = TEMPLATE;
   zoom = 1;
-  if(!iniciado){ carregar(); iniciado = true; }
   ouvintes.forEach(([t,fn]) => root.addEventListener(t, fn));
   painel();
   renderPapers();

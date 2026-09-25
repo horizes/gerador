@@ -13,6 +13,13 @@ const MES_EXT = ["janeiro","fevereiro","março","abril","maio","junho","julho","
 const hoje = () => new Date().toISOString().slice(0,10);
 const mesDe = iso => (iso||"").slice(0,7);
 
+// Painel é só sobre o Fluxo de Caixa: sem acesso à ferramenta "fluxo", não faz sentido
+// nem citar o nome dela nem carregar os lançamentos — a tela inicial simplesmente não mostra o painel.
+function temAcessoFluxo(){
+  const perfil = window.Imperium && window.Imperium.perfil;
+  return !!(perfil && perfil.podeVer("fluxo"));
+}
+
 function rotuloMesExt(m){
   if(!m) return "";
   const [a,mm] = m.split("-").map(Number);
@@ -153,6 +160,7 @@ function conteudo(lanc, larg){
 
 /* ---------- HTML inicial (placeholder) + montagem assíncrona ---------- */
 function html(){
+  if(!temAcessoFluxo()) return "";
   return `<section class="dash" id="dashPainel">
     <h2 class="home-h">Painel — Fluxo de caixa</h2>
     <p class="hint">Carregando painel…</p>
@@ -181,6 +189,7 @@ window.addEventListener("resize", ()=>{
 });
 
 async function montar(){
+  if(!temAcessoFluxo()) return; // html() já não desenhou a seção — nada para carregar
   const el = document.getElementById("dashPainel");
   if(!el) return;
   const lanc = await buscarLancamentos();
