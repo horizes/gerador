@@ -421,9 +421,11 @@ const SOL = (function(){
       mapaQtd[k.tipo.id] = quantidades[k.tipo.id];
     });
     const btn = $("uniEnviar"); btn.disabled = true; btn.textContent = "Enviando…";
-    const { error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapaTam, p_quantidades: mapaQtd });
+    const { data: pedidoId, error } = await sb().rpc("uniforme_criar_pedido", { p_observacao: obsPedido.trim(), p_tamanhos: mapaTam, p_quantidades: mapaQtd });
     btn.textContent = "Enviar solicitação";
     if(error){ atualizarEnvio(); erroForm(msgErro(error)); return; }
+    // avisa por e-mail o endereço da empresa (só facilita; se falhar, o pedido já foi feito do mesmo jeito)
+    sb().functions.invoke("notificar-pedido-uniforme", { body: { pedido_id: pedidoId } }).catch(() => {});
     tamanhos = {}; quantidades = {}; obsPedido = "";
     if($("uniObs")) $("uniObs").value = "";
     window.Platform.toast("Solicitação enviada. O responsável já foi avisado.");

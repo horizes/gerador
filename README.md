@@ -255,6 +255,33 @@ realmente foi enviada. O cargo de cada pessoa só pode ser alterado por admin.
 **Limites atuais:** a lista mostra os 300 pedidos mais recentes; não existe exclusão de pedidos pela tela (para limpar
 pedidos de teste, use o **Table Editor** do Supabase); o solicitante é sempre a própria pessoa logada.
 
+### Uniformes e EPI: aviso por e-mail
+
+Além do aviso na tela e do número no menu, cada pedido novo pode mandar um e-mail para o endereço da empresa —
+facilita não precisar ficar de olho na plataforma. É opcional: sem configurar nada, tudo continua funcionando
+normalmente, só sem o e-mail.
+
+Usa o **Resend** (resend.com) para enviar, porque é gratuito para o volume de uma empresa (100 e-mails/dia, 3 mil por
+mês no plano grátis) e não exige configurar um servidor de e-mail próprio.
+
+**Configurar (uma vez):**
+1. Crie uma conta grátis em [resend.com](https://resend.com) e pegue uma **API Key** (menu "API Keys").
+2. Em "Domains", adicione e verifique o domínio da empresa (ex.: `imperiumservicos.com`) seguindo as instruções da
+   própria tela do Resend (é adicionar alguns registros no DNS onde o domínio foi comprado). Sem isso, o Resend só
+   deixa mandar e-mail de teste para o próprio e-mail da conta.
+3. No terminal, na pasta do projeto:
+   ```
+   supabase secrets set RESEND_API_KEY=sua-api-key RESEND_FROM_EMAIL="Imperium <pedidos@imperiumservicos.com>" EMAIL_DESTINO=uniformes@imperiumservicos.com
+   supabase functions deploy notificar-pedido-uniforme
+   ```
+   `RESEND_FROM_EMAIL` precisa ser um endereço do domínio verificado no passo 2. `EMAIL_DESTINO` aceita mais de um
+   endereço separado por vírgula (ex.: `rh@imperiumservicos.com,diretoria@imperiumservicos.com`).
+4. Pronto — no próximo pedido enviado pela tela, o e-mail já sai. Para trocar o endereço de destino depois, basta
+   rodar de novo o `supabase secrets set EMAIL_DESTINO=...` (não precisa reinstalar nada).
+
+Se a Edge Function não estiver publicada, ou algum desses três segredos não estiver configurado, o pedido continua
+sendo criado normalmente — só o e-mail não sai (sem erro nenhum para quem está pedindo).
+
 ## Estrutura
 
 ```
