@@ -31,9 +31,7 @@ const CATALOGO = [
   {id:"copa",  nome:"Copeira",                           curto:"Copeira",             cbo:"5134-25", conf:false, salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"copa", gen:"F",
     alt:{nome:"Copeiro", curto:"Copeiro"}},
   {id:"mens",  nome:"Mensageiro",                        curto:"Mensageiro",          cbo:"4122-05", conf:false, salario:1805.43, posto:5798.25, escala:"5x2", turno:"Diurno", frente:"mensageria", gen:"M",
-    alt:{nome:"Mensageira", curto:"Mensageira"}},
-  {id:"enc",   nome:"Encarregado / Supervisor",          curto:"Encarregado",         cbo:"4101-05", conf:false, salario:2600.00, posto:8000.00, escala:"5x2", turno:"Diurno", frente:"supervisão operacional", gen:"M",
-    alt:{nome:"Encarregada / Supervisora", curto:"Encarregada"}}
+    alt:{nome:"Mensageira", curto:"Mensageira"}}
 ];
 
 /* nome e nome curto de um cargo do catálogo no gênero pedido ("M" ou "F") */
@@ -442,12 +440,15 @@ function painel(){
   </details>
 
   <div class="actions">
-    <div class="calc-chip">
+    <div class="calc-chip" id="calcChip" tabindex="0" role="button" aria-expanded="false" title="Passe o mouse ou toque para ver custo e lucro">
       <div class="calc-row total"><span>Total mensal (cliente)</span><b id="chip">${brl(totalMensal())}</b></div>
-      <div class="calc-row"><span>Custo com a equipe</span><b id="chipCusto">${brl(custoEquipe())}</b></div>
-      <div class="calc-row lucro${lucroMensal()<0?" neg":""}" id="chipLucroRow"><span>Lucro estimado</span><b id="chipLucro">${brl(lucroMensal())} <small>(${margemPct().toFixed(1)}%)</small></b></div>
+      <div class="calc-detalhe">
+        <div class="calc-row"><span>Custo com a equipe</span><b id="chipCusto">${brl(custoEquipe())}</b></div>
+        <div class="calc-row lucro${lucroMensal()<0?" neg":""}" id="chipLucroRow"><span>Lucro estimado</span><b id="chipLucro">${brl(lucroMensal())} <small>(${margemPct().toFixed(1)}%)</small></b></div>
+        <p class="hint" style="margin:6px 0 0">Essa separação é só para sua conferência interna — não aparece na proposta do cliente.</p>
+      </div>
+      <span class="calc-chev">custo e lucro ▾</span>
     </div>
-    <p class="hint" style="margin:0 0 2px">Essa separação é só para sua conferência interna — não aparece na proposta do cliente.</p>
     <button class="btn wide" id="print2">Imprimir / salvar PDF</button>
     <button class="btn ghost wide" id="word">Exportar para Word (.docx)</button>
     <button class="btn ghost wide" id="zerar">Nova proposta em branco</button>
@@ -490,8 +491,9 @@ const HEAD = `<div class="phead">${WM("sm")}</div>`;
 const page = (inner,cls="") => `<section class="paper ${cls}">${inner}${FOOT}</section>`;
 
 function pgCapa(){
-  const cs = listaCargos();
-  const grid = cs.length ? `<div class="svcgrid">${cs.map(c=>`<div>${iconeCargo(c)}${esc(c.curto||c.nome)}<em>CBO ${esc(c.cbo)}</em></div>`).join("")}</div>` : "";
+  // "Nossos Serviços" mostra sempre todas as funções do catálogo da Imperium (vitrine da empresa),
+  // e não só as que este cliente contratou — diferente das demais páginas, que usam listaCargos().
+  const grid = `<div class="svcgrid">${CATALOGO.map(c=>`<div>${iconeCargo(c)}${esc(c.curto||c.nome)}<em>CBO ${esc(c.cbo)}</em></div>`).join("")}</div>`;
   return page(`
     <div style="text-align:center;padding-top:6mm;display:flex;flex-direction:column;align-items:center;flex:1;width:100%">
       ${WM("lg")}
@@ -500,7 +502,7 @@ function pgCapa(){
       <p class="ttl">PROPOSTA DE PARCERIA</p>
       <p class="sub">${esc(nomeCliente())} — ${esc(S.localCliente)}</p>
       ${S.fotoLocal?`<div class="cover-foto" style="height:${fotoAjuste().alt}mm"><img src="${S.fotoLocal}" alt="" style="${fotoEstilo()}"></div>`:""}
-      <h2 class="dt center" style="margin:${S.fotoLocal?"32":"40"}px 0 0;font-size:32px">Serviços solicitados</h2>
+      <h2 class="dt center" style="margin:${S.fotoLocal?"32":"40"}px 0 0;font-size:32px">Nossos Serviços</h2>
       ${grid}
       <div class="cover-fill">
         <div class="cover-orn"><span class="ln"></span><span>Campinas e região</span><span class="ln"></span></div>
@@ -878,6 +880,10 @@ function recalcInsalTodos(){
   });
 }
 
+on("keydown", e=>{
+  const chip = e.target.closest("#calcChip"); if(!chip) return;
+  if(e.key==="Enter" || e.key===" "){ e.preventDefault(); const ab = chip.classList.toggle("aberto"); chip.setAttribute("aria-expanded", ab?"true":"false"); }
+});
 on("input", e=>{
   const t = e.target;
   if(t.type==="checkbox") return;
@@ -990,6 +996,8 @@ on("change", e=>{
 });
 
 on("click", e=>{
+  const chip = e.target.closest("#calcChip");
+  if(chip){ const ab = chip.classList.toggle("aberto"); chip.setAttribute("aria-expanded", ab?"true":"false"); return; }
   const b = e.target.closest("button"); if(!b) return;
   if(b.id==="addcargo"){
     S.extras.push(Object.assign(novoCargo(CATALOGO[0], S.salMin),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));
@@ -1151,9 +1159,9 @@ function docBody(){
   P_.push(P([R("A pessoa certa no lugar certo faz a diferença",{b:true,sz:33,color:"C9A227"})],{align:"center",after:480}));
   P_.push(P([R("PROPOSTA DE PARCERIA",{b:true,sz:55})],{align:"center",after:120}));
   P_.push(P([R(nomeCliente()+" — "+S.localCliente,{sz:33,color:"555555"})],{align:"center",after:400}));
-  P_.push(H("Serviços solicitados",{sz:43,align:"center"}));
-  if(cs.length){
-    const linhas=[]; for(let i=0;i<cs.length;i+=3) linhas.push(cs.slice(i,i+3));
+  P_.push(H("Nossos Serviços",{sz:43,align:"center"}));
+  { // vitrine com todas as funções do catálogo (igual à tela), não só as contratadas por este cliente
+    const linhas=[]; for(let i=0;i<CATALOGO.length;i+=3) linhas.push(CATALOGO.slice(i,i+3));
     P_.push(TBL(linhas.map(l=>TR(l.map(c=>TD((c.curto||c.nome),{b:true}))
       .concat(Array(3-l.length).fill(TD("")))))));
     linhas.length && P_.push(P([R("")],{after:0}));

@@ -132,13 +132,13 @@ h3.dt{font-family:'Barlow';font-weight:700;font-size:19.5px;letter-spacing:.01em
 .ajfoto{margin-top:12px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px}
 .ajfoto .f b{float:right;color:var(--gold);font-weight:600}
 .ajfoto input[type=range]{width:100%;padding:0}
-.svcgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px;width:100%}
+.svcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px;width:100%}
 .svcgrid div{
-  border:1px solid #E4DFD3;border-radius:8px;padding:20px 10px 16px;font-weight:700;font-size:16.5px;line-height:1.32;
+  border:1px solid #E4DFD3;border-radius:8px;padding:18px 8px 14px;font-weight:700;font-size:14.5px;line-height:1.28;
   display:flex;flex-direction:column;align-items:center;gap:9px;
   box-shadow:0 2px 10px rgba(20,17,8,.05);background:#FFFDF9;
 }
-.svcgrid svg{width:28px;height:28px;flex:0 0 auto}
+.svcgrid svg{width:26px;height:26px;flex:0 0 auto}
 .svcgrid div em{display:block;font-style:normal;font-weight:400;font-size:13px;color:#8A8375;margin-top:1px;letter-spacing:.05em}
 .cover-fill{flex:1;display:flex;align-items:flex-end;justify-content:center;width:100%;padding-top:26px}
 .cover-orn{display:flex;align-items:center;gap:10px;color:#B7A257;width:100%;max-width:120mm}
@@ -247,3 +247,13 @@ ol.dt li{margin-bottom:6px}
   :root{--rail:360px}
   .stage{padding-left:14px;padding-right:14px}
 }
+
+/* Custo/lucro minimizados: só o total aparece; passa o mouse (ou toca, no celular) para detalhar */
+.calc-chip{cursor:pointer;transition:border-color .15s ease}
+.calc-chip .calc-row.total{padding-bottom:0;border-bottom:none}
+.calc-chev{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.calc-detalhe{max-height:0;opacity:0;overflow:hidden;transition:max-height .25s ease,opacity .2s ease}
+.calc-chip:hover,.calc-chip:focus-visible,.calc-chip.aberto{border-color:var(--gold)}
+.calc-chip:hover .calc-detalhe,.calc-chip:focus-visible .calc-detalhe,.calc-chip.aberto .calc-detalhe{max-height:140px;opacity:1;margin-top:8px}
+.calc-chip:hover .calc-row.total,.calc-chip:focus-visible .calc-row.total,.calc-chip.aberto .calc-row.total{padding-bottom:8px;border-bottom:1px dashed #3A331F}
+.calc-chip:hover .calc-chev,.calc-chip:focus-visible .calc-chev,.calc-chip.aberto .calc-chev{display:none}
