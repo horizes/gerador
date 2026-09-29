@@ -11,7 +11,10 @@ const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
 
 /* insalubridade = % × base. Base padrão = salário mínimo de 2026 (R$ 1.621,00); 20% dá os R$ 324,20 de antes. */
-const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, salMin:1621, insalPct:20};
+const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, salMin:1621, insalPct:20, acumPct:20, fator:1.7};
+/* acumPct: a lei não fixa um % de acúmulo de função (é definido em contrato/convenção coletiva ou arbitrado pela Justiça;
+   na prática costuma ficar entre 10% e 40% do salário) — 20% é só ponto de partida, editável por cargo.
+   fator: quanto cada R$ 1,00 de adicional salarial (insalubridade, acúmulo) pesa no valor do posto, já com encargos. */
 
 /* Catálogo de cargos. confirmado:true = CBO retirado da sua proposta atual.
    Os demais vêm do site/uso de mercado e ficam editáveis para conferência.
@@ -90,6 +93,7 @@ const ESTADO_INICIAL = () => ({
   cargoAssinante:"Diretor/Presidente",
   dias:PAD.dias,
   salMin:PAD.salMin,
+  fator:PAD.fator,
   secoes:{capa:true,carta:true,suporte:true,cbo:true,ponto:true,clientes:true,valores:true,aceite:true},
   difs:JSON.parse(JSON.stringify(DIF_PADRAO)),
   obs:"",
@@ -101,12 +105,14 @@ const ESTADO_INICIAL = () => ({
 const r2 = v => Math.round((+v||0)*100)/100;
 const calcInsal = (base, pct) => r2((+base||0) * (+pct||0) / 100);
 const fmtPct = p => String(Math.round((+p||0)*100)/100);
+/* insalubridade embutida no valor base do posto do catálogo (20% × salário mínimo de referência) */
+const INSAL_REF = calcInsal(PAD.salMin, PAD.insalPct);
 
 function novoCargo(base, salMin){
   const sm = salMin > 0 ? salMin : PAD.salMin;
   return {on:false, acum:false, genero:base.gen || "F", nome:base.nome, curto:base.curto, cbo:base.cbo, conf:base.conf, frente:base.frente,
     postos:1, func:1, escala:base.escala, turno:base.turno, posto:base.posto,
-    salario:base.salario, premio:PAD.premio, insalPct:PAD.insalPct, insal:calcInsal(sm, PAD.insalPct), plr:PAD.plr,
+    salario:base.salario, premio:PAD.premio, insalPct:PAD.insalPct, insal:calcInsal(sm, PAD.insalPct), acumPct:PAD.acumPct, acumVal:r2((+base.salario||0)*PAD.acumPct/100), plr:PAD.plr,
     vr:PAD.vr, vt:PAD.vt, va:PAD.va};
 }
 
@@ -147,9 +153,19 @@ function colab(){
   return           {de:"da Colaboradora",    un:"colaboradora"};
 }
 function nomeDoc(c){ return c.nome + (c.acum ? " com acúmulo de função" : ""); }
-function remun(c){ return (+c.salario||0)+(+c.premio||0)+(+c.insal||0)+(+c.plr||0); }
+/* acúmulo de função só conta quando a caixa está marcada */
+function valAcum(c){ return c.acum ? (+c.acumVal||0) : 0; }
+function remun(c){ return (+c.salario||0)+(+c.premio||0)+(+c.insal||0)+valAcum(c)+(+c.plr||0); }
+/* valor por posto cobrado na proposta = valor base do posto (que já embute a insalubridade padrão)
+   + a diferença de insalubridade e o acúmulo de função, de cada pessoa do posto, × fator de encargos.
+   Insalubridade e acúmulo têm natureza salarial: refletem em 13º, férias + 1/3, FGTS, INSS etc. */
+function valorPosto(c){
+  const fator = (+S.fator>0) ? +S.fator : 1;
+  const adic = ((+c.insal||0) - INSAL_REF + valAcum(c)) * Math.max(1, +c.func||1);
+  return r2((+c.posto||0) + adic*fator);
+}
 function benef(c){ return ((+c.vr||0)+(+c.vt||0))*(+S.dias||0) + (+c.va||0); }
-function totalMensal(){ return listaCargos().reduce((s,c)=>s+(+c.posto||0)*(+c.postos||0),0); }
+function totalMensal(){ return listaCargos().reduce((s,c)=>s+valorPosto(c)*(+c.postos||0),0); }
 function escopoAuto(){
   const f=[...new Set(listaCargos().map(c=>c.frente).filter(Boolean))];
   if(!f.length) return "limpeza e conservação";
@@ -211,6 +227,10 @@ function cargoCard(key,c){
         <input type="checkbox" data-c="${key}.acum" ${c.acum?"checked":""}>
         <span>Com acúmulo de função</span>
       </div>
+      <div class="grid2" data-acumbox="${key}" style="margin-top:9px;${c.acum?"":"display:none"}">
+        <label class="f"><span>Acúmulo % (s/ salário)</span><input type="number" min="0" step="any" data-c="${key}.acumPct" value="${fmtPct(c.acumPct)}"></label>
+        <label class="f"><span>Acúmulo R$</span><input type="number" step="0.01" data-c="${key}.acumVal" value="${(+c.acumVal||0).toFixed(2)}"></label>
+      </div>
       <div class="grid2" style="margin-top:9px">
         <label class="f"><span>Gênero</span>
           <select data-c="${key}.genero">
@@ -232,7 +252,12 @@ function cargoCard(key,c){
         <label class="f"><span>Insalub. R$</span><input type="number" step="0.01" data-c="${key}.insal" value="${(+c.insal||0).toFixed(2)}"></label>
         <label class="f"><span>PLR anual</span><input type="number" step="0.01" data-c="${key}.plr" value="${c.plr}"></label>
       </div>
-      <p class="hint">Mudar a % recalcula o R$ (base da insalubridade em "Cargos e quantidades"). Mudar o R$ recalcula a %. Serve também para o valor de acúmulo.</p>
+      <p class="hint">Mudar a % recalcula o R$ (base da insalubridade em "Cargos e quantidades"). Mudar o R$ recalcula a %. O acúmulo de função é calculado à parte (sobre o salário) e só entra quando a caixa está marcada.</p>
+      <div class="mini">Valor cobrado</div>
+      <div class="grid2">
+        <label class="f"><span>Valor base do posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
+      </div>
+      <p class="hint" data-final="${key}"></p>
       <div class="mini">Benefícios</div>
       <div class="grid3">
         <label class="f"><span>VR/dia</span><input type="number" step="0.01" data-c="${key}.vr" value="${c.vr}"></label>
@@ -319,6 +344,8 @@ function painel(){
     <div class="body">
       <label class="f"><span>Base da insalubridade (R$)</span><input type="number" step="0.01" min="0" data-p="salMin" value="${S.salMin}"></label>
       <p class="hint" style="margin:-4px 0 14px">Salário mínimo vigente (R$ 1.621,00 em 2026). Ao mudar, o R$ de insalubridade de todos os cargos é recalculado pelas suas %.</p>
+      <label class="f"><span>Fator de encargos sobre adicionais</span><input type="number" step="0.01" min="1" data-p="fator" value="${S.fator}"></label>
+      <p class="hint" style="margin:-4px 0 14px">Quanto cada R$ 1,00 de insalubridade ou acúmulo pesa no valor do posto (13º, férias + 1/3, FGTS, INSS, RAT/terceiros, provisões, mais sua margem e tributos). Ajuste ao seu custo real.</p>
       ${CATALOGO.map(c=>cargoCard(c.id,S.cargos[c.id])).join("")}
       ${S.extras.map((c,i)=>cargoCard("x"+i,c)).join("")}
       <button class="btn ghost wide" id="addcargo">+ Cargo personalizado</button>
@@ -571,6 +598,7 @@ function pgValores(){
 function pgTabelas(){
   const cs = listaCargos(), co = colab();
   const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0;
+  const acumCol = cs.some(c=>c.acum);
   const iguais = cs.every(c=>Math.abs(benef(c)-benef(cs[0]||c))<0.01);
   return page(`${HEAD}
     <h2 class="dt" style="font-size:36px">Da Proposta</h2>
@@ -578,8 +606,8 @@ function pgTabelas(){
 
     <p style="font-weight:700;margin-bottom:4px">Remuneração ${co.de}</p>
     <table class="dt">
-      <thead><tr><th>Função</th><th>Salário</th><th>Prêmio Assiduidade</th><th>Insalubridade Acúmulo</th><th>PLR anual</th><th>Total mensal</th></tr></thead>
-      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.salario)}</td><td>${brl(c.premio)}</td><td>${brl(c.insal)}</td><td>${brl(c.plr)}</td><td>${brl(remun(c))}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>Função</th><th>Salário</th><th>Prêmio Assiduidade</th><th>Insalubridade</th>${acumCol?"<th>Acúmulo de função</th>":""}<th>PLR anual</th><th>Total mensal</th></tr></thead>
+      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.salario)}</td><td>${brl(c.premio)}</td><td>${brl(c.insal)}</td>${acumCol?`<td>${c.acum?brl(c.acumVal):"—"}</td>`:""}<td>${brl(c.plr)}</td><td>${brl(remun(c))}</td></tr>`).join("")}</tbody>
     </table>
 
     <p style="font-weight:700;margin-bottom:4px">Benefícios mensais ${co.de}</p>
@@ -592,7 +620,7 @@ function pgTabelas(){
     <table class="dt">
       <thead><tr><th>Função</th><th>Escala</th><th>Turno</th><th>Postos</th><th>Pessoas</th><th>Valor por posto</th><th>Valor total</th></tr></thead>
       <tbody>
-        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td>${brl(c.posto)}</td><td>${brl((+c.posto||0)*(+c.postos||0))}</td></tr>`).join("")}
+        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td>${brl(valorPosto(c))}</td><td>${brl(valorPosto(c)*(+c.postos||0))}</td></tr>`).join("")}
         <tr class="totrow"><td colspan="6" style="text-align:right">Mensal</td><td class="v">${brl(totalMensal())}</td></tr>
       </tbody>
     </table>`, "pg-tabelas");
@@ -778,8 +806,20 @@ function agendarTransbordo(){
   _transbordoAgendado = setTimeout(()=>{ _transbordoAgendado = null; ajustarTransbordo(); }, 200);
 }
 
+/* mostra em cada cargo quanto ele vai custar por posto na proposta (base + adicionais com encargos) */
+function atualizarFinais(){
+  if(!root) return;
+  todosCargos().forEach(([k,o])=>{
+    const el = root.querySelector(`[data-final="${k}"]`); if(!el || !o) return;
+    const fin = valorPosto(o), ad = r2(fin - (+o.posto||0));
+    el.textContent = "Valor por posto na proposta: " + brl(fin) + " (base " + brl(o.posto) +
+      (ad ? (ad>0 ? " + " : " − ") + brl(Math.abs(ad)) + " de adicionais com encargos" : "") + ")";
+  });
+}
+
 function renderPapers(){
   if(!root) return;
+  atualizarFinais();
   const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
   document.getElementById("papers").innerHTML =
     SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
@@ -855,6 +895,17 @@ on("input", e=>{
       o.insalPct = S.salMin > 0 ? v / S.salMin * 100 : 0;
       const el = root.querySelector(`[data-c="${key}.insalPct"]`); if(el) el.value = fmtPct(o.insalPct);
     }
+    // acúmulo de função (separado da insalubridade): % é sobre o salário do cargo
+    if(campo==="acumPct"){
+      o.acumVal = r2((+o.salario||0) * v / 100);
+      const el = root.querySelector(`[data-c="${key}.acumVal"]`); if(el) el.value = o.acumVal.toFixed(2);
+    }else if(campo==="acumVal"){
+      o.acumPct = (+o.salario||0) > 0 ? v / (+o.salario) * 100 : 0;
+      const el = root.querySelector(`[data-c="${key}.acumPct"]`); if(el) el.value = fmtPct(o.acumPct);
+    }else if(campo==="salario"){       // salário mudou: o R$ do acúmulo acompanha a %
+      o.acumVal = r2(v * (+o.acumPct||0) / 100);
+      const el = root.querySelector(`[data-c="${key}.acumVal"]`); if(el) el.value = o.acumVal.toFixed(2);
+    }
     renderPapers(); return;
   }
   if(t.dataset.d){
@@ -923,7 +974,12 @@ on("change", e=>{
   }
   if(t.dataset.c && t.type==="checkbox"){
     const [k,campo]=t.dataset.c.split(".");
-    const o=refCargo(k); if(o){ o[campo]=t.checked; renderPapers(); }
+    const o=refCargo(k);
+    if(o){
+      o[campo]=t.checked;
+      if(campo==="acum"){ const bx=root.querySelector(`[data-acumbox="${k}"]`); if(bx) bx.style.display = t.checked ? "" : "none"; }
+      renderPapers();
+    }
     return;
   }
   if(t.dataset.c && t.tagName==="SELECT" && t.dataset.c.endsWith(".genero")){
@@ -1175,12 +1231,13 @@ function docBody(){
 
   /* valores */
   const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0, co = colab();
+  const acumCol = cs.some(c=>c.acum);
   P_.push(BRK, MARCA(), H("Da Proposta",{sz:51}));
   P_.push(P([R(S.base,{sz:30,color:"444444"})],{after:200}));
 
   P_.push(P([R("Remuneração "+co.de,{b:true})],{after:60}));
-  P_.push(TBL([TR(["Função","Salário","Prêmio Assiduidade","Insalubridade Acúmulo","PLR anual","Total mensal"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
-    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(brl(c.salario)),TD(brl(c.premio)),TD(brl(c.insal)),TD(brl(c.plr)),TD(brl(remun(c)))])))));
+  P_.push(TBL([TR(["Função","Salário","Prêmio Assiduidade","Insalubridade"].concat(acumCol?["Acúmulo de função"]:[]).concat(["PLR anual","Total mensal"]).map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
+    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(brl(c.salario)),TD(brl(c.premio)),TD(brl(c.insal))].concat(acumCol?[TD(c.acum?brl(c.acumVal):"—")]:[]).concat([TD(brl(c.plr)),TD(brl(remun(c)))]))))));
 
   P_.push(P([R("Benefícios mensais "+co.de,{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","VR/ Dia","VT/ Dia","VA Cesta","Total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
@@ -1189,7 +1246,7 @@ function docBody(){
 
   P_.push(P([R("Escopo e valores da proposta",{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","Escala","Turno","Postos","Pessoas","Valor por posto","Valor total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
-    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(c.escala),TD(c.turno),TD(String(c.postos)),TD(String(c.func)),TD(brl(c.posto)),TD(brl((+c.posto||0)*(+c.postos||0)))])))
+    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(c.escala),TD(c.turno),TD(String(c.postos)),TD(String(c.func)),TD(brl(valorPosto(c))),TD(brl(valorPosto(c)*(+c.postos||0)))])))
     .concat([TR([TD("Mensal",{b:true,span:6,align:"right",shade:"111111",color:"FFFFFF"}),TD(brl(totalMensal()),{b:true,shade:"111111",color:"D7B247"})])])));
 
   P_.push(H("Diferenciais e Condições da Proposta",{sz:30}));
