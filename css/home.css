@@ -1,0 +1,50 @@
+/* Página inicial. Estilos restritos à home para preservar as ferramentas. */
+.home{max-width:1280px;padding:44px 40px 32px}
+.home-header{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;padding-bottom:24px;border-bottom:1px solid var(--rule)}
+.home-eyebrow{display:block;color:var(--gold);font-size:10px;letter-spacing:.14em;font-weight:600;text-transform:uppercase}
+.home-header h1{font-family:'Oswald';font-size:clamp(28px,3.5vw,42px);font-weight:500;line-height:1.2;margin:10px 0 10px;overflow-wrap:anywhere}
+.home-header p{margin:0;color:var(--muted);font-size:15px}
+.home-date{max-width:230px;flex:0 0 230px;text-align:right;padding-top:3px}
+.home-date span{display:block;color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
+.home-date time{display:block;color:var(--cream);font-size:14px;line-height:1.6}
+.home-shortcuts{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 28px}
+.home-shortcuts a{text-decoration:none;min-height:44px}
+.home-attention{border:1px solid #514326;background:linear-gradient(105deg,#1c180e,var(--panel));border-radius:10px;padding:18px 22px;margin:24px 0 30px}
+.home-attention-head{display:flex;align-items:center;gap:9px}
+.home-attention-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+.home-attention h2{font-size:14px;font-weight:600;margin:0}
+.home-attention-empty{margin:8px 0 0 16px;color:var(--muted);font-size:13px}
+.home-attention-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.home-attention-item{display:flex;align-items:center;justify-content:space-between;gap:16px;text-decoration:none;color:var(--cream);padding:12px 14px;border:1px solid var(--rule);border-radius:6px;min-height:64px}
+.home-attention-item:hover{border-color:var(--gold);background:var(--panel-2)}
+.home-attention-item b{font-weight:500;font-size:14px;display:block;overflow-wrap:anywhere}
+.home-attention-item small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+.home-tools-section{margin-top:28px}
+.home-section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:16px}
+.home-section-head h2,.home .dash-head h2{font-family:'Oswald';font-size:23px;font-weight:400;line-height:1.3;color:var(--cream);letter-spacing:0;text-transform:none;margin:5px 0 0}
+.home-count{font-size:12px;color:var(--muted)}
+.home-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;list-style:none;margin:0;padding:0}
+.home-tool{height:100%;min-height:208px;display:flex;flex-direction:column;padding:20px;border:1px solid var(--rule);border-radius:10px;background:var(--panel);color:var(--cream);text-decoration:none}
+.home-tool:hover{border-color:#8d7338;background:var(--panel-2)}
+.home-tool-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+.home-tool .mod-ico{width:40px;height:40px;flex-basis:40px;border-radius:8px}
+.home-tool .mod-ico svg{width:21px;height:21px}
+.home-tool-category{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;text-align:right}
+.home-tool h3{font-family:'Oswald';font-weight:400;font-size:20px;line-height:1.3;margin:0 0 7px}
+.home-tool p{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 18px;flex:1}
+.home-tool-action{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--rule);padding-top:12px;font-size:12px;font-weight:500;color:var(--gold)}
+.home-tool-action span{font-size:18px}
+.home .dash{margin-top:36px;border-top:1px solid var(--rule);padding-top:24px}
+.home .dash-head{margin:0 0 18px;align-items:flex-end}
+.home .dash > .home-h{margin:0 0 14px;color:var(--cream);font-size:20px;letter-spacing:0;text-transform:none}
+.home .dash-grid{gap:12px}
+.home .dash-card{border-radius:10px;padding:18px 16px;gap:10px}
+.home .dash-val{font-size:22px}
+.home .dash-lbl{font-size:10px;letter-spacing:.05em}
+.home .dash-panel{border-radius:10px}
+.home .dash-head a{text-decoration:none;min-height:44px}
+.home-footer{display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--rule);margin-top:36px;padding-top:18px;color:var(--muted);font-size:11px}
+.home-footer span{font-style:italic;text-align:right}
+@media(max-width:1100px){.home{padding:32px 24px}.home-tools{grid-template-columns:repeat(2,minmax(0,1fr))}.home .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home .dash-saldo{grid-column:1/-1}}
+@media(max-width:640px){.home{padding:24px 16px}.home-header{flex-direction:column;gap:16px}.home-date{flex:auto;max-width:none;text-align:left;display:flex;gap:10px;align-items:baseline}.home-date span{margin:0}.home-date time{font-size:12px}.home-header p{font-size:14px}.home-count{display:none}.home-attention{padding:16px}.home-attention-list{grid-template-columns:1fr}.home-section-head h2{font-size:22px}.home-tools{grid-template-columns:1fr;gap:10px}.home-tool{min-height:0;padding:18px}.home-tool-top{margin-bottom:12px}.home-tool p{margin-bottom:14px}.home .dash-head{align-items:stretch}.home .dash-val{font-size:20px}.home-footer{flex-direction:column;gap:6px}.home-footer span{text-align:left}.home-shortcuts a{flex:1;min-width:150px}}
+@media(prefers-reduced-motion:no-preference){.home-tool{transition:background .15s,border-color .15s}}

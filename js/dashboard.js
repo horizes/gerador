@@ -117,7 +117,7 @@ function conteudo(lanc, larg){
 
   return `
     <div class="dash-head">
-      <h2 class="home-h">Painel — Fluxo de caixa</h2>
+      <div><span class="home-eyebrow">Gestão em números</span><h2 class="home-h">Visão financeira</h2></div>
       <a class="btn ghost" href="#/fluxo">Abrir Fluxo de Caixa</a>
     </div>
     <div class="dash-grid">
@@ -160,7 +160,7 @@ function conteudo(lanc, larg){
 function html(){
   if(!temAcessoFluxo()) return "";
   return `<section class="dash" id="dashPainel">
-    <h2 class="home-h">Painel — Fluxo de caixa</h2>
+    <h2 class="home-h">Visão financeira</h2>
     <p class="hint">Carregando painel…</p>
   </section>`;
 }
@@ -191,13 +191,14 @@ async function montar(){
   const el = document.getElementById("dashPainel");
   if(!el) return;
   const lanc = await buscarLancamentos();
+  if(document.getElementById("dashPainel") !== el) return;
   if(lanc === null){
-    el.innerHTML = `<h2 class="home-h">Painel — Fluxo de caixa</h2><p class="hint">Não foi possível carregar o painel agora.</p>`;
+    el.innerHTML = `<h2 class="home-h">Visão financeira</h2><p class="hint">Não foi possível carregar o painel agora.</p>`;
     return;
   }
   if(!lanc.length){
     el.innerHTML = `
-      <h2 class="home-h">Painel — Fluxo de caixa</h2>
+      <h2 class="home-h">Visão financeira</h2>
       <div class="dash-vazio">
         <p>Ainda não há lançamentos no Fluxo de Caixa.</p>
         <a class="btn" href="#/fluxo">Lançar o primeiro</a>

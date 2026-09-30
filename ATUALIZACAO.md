@@ -1,5 +1,13 @@
 # Atualização da Plataforma Imperium
 
+## Tela inicial repaginada
+
+Esta versão inclui uma nova home com saudação e data, atalhos conforme as permissões, cartões de ferramentas, avisos reais de pedidos de uniformes/EPI e visão financeira para quem tem acesso. O restante das ferramentas foi preservado.
+
+Se as correções anteriores já foram publicadas, esta repaginação exige apenas substituir `index.html`, `js/platform.js`, `js/dashboard.js`, `sw.js` e adicionar `css/home.css` na hospedagem. Não há nova alteração de banco para a home. Se ainda não publicou as correções anteriores, siga as etapas abaixo.
+
+A home foi conferida no navegador com dados simulados: computador (1440px), tablet (768px), celulares (390px e 320px), permissões de administrador/colaborador, pendências e usuário sem ferramentas. Não foram identificados erros JavaScript ou rolagem horizontal nesses cenários.
+
 As sete correções estão nos arquivos deste pacote. A proposta continua apenas na memória da aba; foi alterada somente sua data inicial para usar o dia local.
 
 ## Aplicar no ambiente da empresa

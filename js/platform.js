@@ -58,6 +58,7 @@ const textoBadge = n => n > 99 ? "99+" : String(n);
 
 function setBadge(id, n){
   badges[id] = n > 0 ? n : 0;
+  atualizarHomePendencias();
   const a = document.querySelector(`.sd-item[data-mod="${id}"]`);
   if(a){
     let b = a.querySelector(".sd-badge");
@@ -133,33 +134,60 @@ function gaveta(abrir){
 }
 
 /* ---------- tela inicial ---------- */
+const escHome = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const HOME_ACOES = {
+  propostas: { titulo:"Preparar proposta", texto:"Monte e exporte uma proposta comercial.", acao:"Criar proposta" },
+  fluxo: { titulo:"Acompanhar o caixa", texto:"Consulte lançamentos, saldos e movimentações.", acao:"Abrir financeiro" },
+  uniforme_solicitar: { titulo:"Meus uniformes e EPIs", texto:"Solicite seu kit e confirme o recebimento.", acao:"Ver meus pedidos" },
+  uniforme_gestao: { titulo:"Gerenciar solicitações", texto:"Atenda pedidos e organize os kits da equipe.", acao:"Ver solicitações" },
+  usuarios: { titulo:"Acessos da equipe", texto:"Gerencie pessoas, cargos e permissões.", acao:"Gerenciar acessos" }
+};
 function homeFerramentas(){
-  const grupos = agrupar(modulosVisiveis());
-  if(!grupos.length){
-    return `<p class="home-vazio">Você ainda não tem ferramentas liberadas. Fale com o administrador para pedir acesso.</p>`;
-  }
-  return grupos.map(g => `
-    <h2 class="home-h">${g.cat.nome}</h2>
-    <ul class="home-list">
-      ${g.itens.map(m => `
-      <li>
-        <a class="mod-row" href="#/${m.id}">
-          <span class="mod-ico">${icone(m.icone)}</span>
-          <span class="mod-txt"><b>${m.nome}</b><small>${m.descricao}</small></span>
-          <span class="btn ghost mod-go">Abrir</span>
-        </a>
-      </li>`).join("")}
-    </ul>`).join("");
+  const lista = modulosVisiveis();
+  if(!lista.length) return `<p class="home-vazio">Você ainda não tem ferramentas liberadas. Fale com o administrador para pedir acesso.</p>`;
+  return `<div class="home-section-head"><div><span class="home-eyebrow">Acesso rápido</span><h2>O que você precisa fazer?</h2></div><span class="home-count">${lista.length} ${lista.length === 1 ? "ferramenta disponível" : "ferramentas disponíveis"}</span></div>
+    <ul class="home-tools">${lista.map(m => {
+      const info = HOME_ACOES[m.id] || { titulo:m.nome, texto:m.descricao, acao:"Abrir ferramenta" };
+      return `<li><a class="home-tool" href="#/${m.id}">
+        <div class="home-tool-top"><span class="mod-ico">${icone(m.icone)}</span><span class="home-tool-category">${escHome(categoriaDe(m).nome)}</span></div>
+        <h3>${escHome(info.titulo)}</h3><p>${escHome(info.texto)}</p>
+        <span class="home-tool-action">${escHome(info.acao)} <span aria-hidden="true">↗</span></span>
+      </a></li>`;
+    }).join("")}</ul>`;
 }
-
+function homePendencias(){
+  const itens = modulosVisiveis().filter(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao');
+  if(!itens.length) return '';
+  const conhecidas = itens.every(m => Object.prototype.hasOwnProperty.call(badges, m.id));
+  const pendentes = itens.filter(m => badges[m.id] > 0);
+  return `<div class="home-attention-head"><span class="home-attention-dot" aria-hidden="true"></span><h2>Precisa da sua atenção</h2></div>
+    ${pendentes.length ? `<div class="home-attention-list">${pendentes.map(m => `<a href="#/${m.id}" class="home-attention-item"><span><b>${badges[m.id]} ${m.id === 'uniforme_gestao' ? 'pedido(s) aguardando atendimento' : 'pedido(s) disponível(is) para recebimento'}</b><small>${m.id === 'uniforme_gestao' ? 'Confira as solicitações de uniforme e EPI da equipe.' : 'Confira os itens liberados e registre o recebimento.'}</small></span><span aria-hidden="true">→</span></a>`).join('')}</div>` : `<p class="home-attention-empty">${conhecidas ? 'Nenhuma pendência de uniformes e EPI neste momento.' : 'Abra suas solicitações para conferir o andamento dos pedidos.'}</p>`}`;
+}
+function atualizarHomePendencias(){
+  const el = $('homePendencias');
+  if(el) el.innerHTML = homePendencias();
+}
 function telaInicial(){
-  return `
-  <section class="home">
-    <h1 class="home-motto">A pessoa certa no lugar certo faz a diferença</h1>
-    <p class="home-sub">Ferramentas internas da Imperium Terceirização e Serviços.</p>
-    ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ""}
-    ${homeFerramentas()}
-  </section>`;
+  const perfil = window.Imperium.perfil;
+  const nome = String(perfil.nome || '').trim().split(/\s+/)[0];
+  const d = new Date();
+  const saudacao = d.getHours() < 12 ? 'Bom dia' : d.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+  const data = d.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const acessos = modulosVisiveis();
+  const ordem = acessos.some(m => m.id === 'uniforme_gestao') ? ['uniforme_gestao','fluxo','propostas','uniforme_solicitar','usuarios'] : ['uniforme_solicitar','fluxo','propostas','usuarios'];
+  const destaques = ordem.map(id => acessos.find(m => m.id === id)).filter(Boolean).slice(0,2);
+  return `<main class="home">
+    <header class="home-header"><div><span class="home-eyebrow">Imperium · Seu espaço de trabalho</span>
+      <h1>${saudacao}${nome ? ', ' + escHome(nome) : ''}.</h1>
+      <p>Suas ferramentas e informações importantes, em um só lugar.</p></div>
+      <div class="home-date"><span>Hoje</span><time datetime="${window.Imperium.hojeLocal()}">${escHome(data)}</time></div>
+    </header>
+    ${destaques.length ? `<div class="home-shortcuts" aria-label="Atalhos principais">${destaques.map((m,i) => `<a class="btn ${i ? 'ghost' : ''}" href="#/${m.id}">${escHome(HOME_ACOES[m.id].acao)}</a>`).join('')}</div>` : ''}
+    ${acessos.some(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao') ? `<section id="homePendencias" class="home-attention" aria-live="polite" aria-atomic="true">${homePendencias()}</section>` : ''}
+    <section class="home-tools-section" aria-label="Ferramentas disponíveis">${homeFerramentas()}</section>
+    ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ''}
+    <footer class="home-footer">Imperium Terceirização e Serviços <span>A pessoa certa no lugar certo faz a diferença.</span></footer>
+  </main>`;
 }
 
 /* ---------- rotas ---------- */
