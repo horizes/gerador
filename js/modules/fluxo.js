@@ -269,7 +269,7 @@ async function conectarBanco(itemId){
     const [{ accessToken }] = await Promise.all([chamarBanco({ acao: "token", itemId }), carregarWidget()]);
     const w = new window.PluggyConnect({
       connectToken: accessToken,
-      includeSandbox: true, // TESTE: remover (ou false) antes de conectar bancos reais
+      includeSandbox: false, // Exibe apenas conectores reais liberados para o aplicativo Pluggy.
       updateItem: itemId || undefined,
       onSuccess: async (d) => {
         definirBanco("Banco conectado. Importando movimentações…", true);

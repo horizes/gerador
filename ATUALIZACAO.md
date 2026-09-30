@@ -49,3 +49,8 @@ Não houve acesso ao Supabase ou à hospedagem da empresa. As funções SQL, as 
 A atualização previne novas falhas de importação. Ela não recria automaticamente movimentações antigas já marcadas sem lançamento, pois não é possível distinguir essas falhas de exclusões intencionais sem conferir o histórico.
 
 Se os scripts antigos forem reaplicados, rode `supabase-schema-melhorias.sql` novamente por último para restabelecer as correções.
+
+
+## Módulo de ponto em homologação
+
+Esta versão inclui Meu ponto e Gestão de ponto. Instalação e limites em `PONTO-INSTALACAO.md`. Execute a nova migração apenas em ambiente de testes: não substitui o ponto oficial. Permissões são configuradas em Usuários.

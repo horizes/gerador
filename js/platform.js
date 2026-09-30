@@ -17,6 +17,7 @@ function register(m){ modulos.push(m); }
    no Platform.register. Para criar uma classificação nova, basta acrescentar uma linha aqui (a ordem desta
    lista é a ordem no menu). Ferramenta sem categoria, ou com uma que não existe, cai em "Outras ferramentas". */
 const CATEGORIAS = [
+  { id: "jornada", nome: "Jornada de trabalho" },
   { id: "geradores",     nome: "Geradores" },
   { id: "financeiro",    nome: "Financeiro" },
   { id: "uniformes",     nome: "Uniformes e EPI" },
@@ -136,6 +137,8 @@ function gaveta(abrir){
 /* ---------- tela inicial ---------- */
 const escHome = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const HOME_ACOES = {
+  ponto_meu: {titulo:"Meu ponto",texto:"Registre sua jornada no ambiente de teste.",acao:"Abrir meu ponto"},
+  ponto_gestao: {titulo:"Gestão de ponto",texto:"Confira vínculos e pedidos de ajuste.",acao:"Gerenciar ponto"},
   propostas: { titulo:"Preparar proposta", texto:"Monte e exporte uma proposta comercial.", acao:"Criar proposta" },
   fluxo: { titulo:"Acompanhar o caixa", texto:"Consulte lançamentos, saldos e movimentações.", acao:"Abrir financeiro" },
   uniforme_solicitar: { titulo:"Meus uniformes e EPIs", texto:"Solicite seu kit e confirme o recebimento.", acao:"Ver meus pedidos" },
