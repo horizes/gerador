@@ -330,6 +330,17 @@ python3 -m http.server 8000
 
 A navegação usa o hash da URL (`#/propostas`), então não é preciso configurar redirecionamentos na hospedagem.
 
+## Gerador de propostas: PDF pelo celular
+
+O botão **Baixar / compartilhar PDF** gera o arquivo direto no aparelho (sem a caixa de impressão, que no celular é
+limitada). Cada folha A4 da pré-visualização vira uma página do PDF, com a mesma paginação da tela. Ao terminar,
+aparece uma janelinha com **Compartilhar / salvar em Arquivos** (WhatsApp, e-mail, Arquivos) e **Baixar PDF**.
+- Precisa de internet só na primeira vez de cada uso: a biblioteca `html2canvas` é carregada da CDN (cdnjs, com
+  jsDelivr de reserva) na hora. Se não carregar, a janelinha oferece a impressão do navegador como alternativa.
+- O PDF sai como imagem (fiel à tela, mas o texto não é selecionável). Para um PDF com texto selecionável, no
+  computador use o botão **Imprimir** e escolha "Salvar como PDF".
+- O nome do arquivo é o campo "Nome do arquivo" do gerador.
+
 ## Barra lateral
 
 - **Computador, tela inicial:** o menu fica sempre aberto e não tem botão de recolher.

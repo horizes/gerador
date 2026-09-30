@@ -239,3 +239,15 @@ ol.dt li{margin-bottom:6px}
   .stage{padding-left:14px;padding-right:14px}
 }
 
+
+
+/* ---------- PDF direto: folhas fora da tela (não aparecem) e janelinha de andamento ---------- */
+.pdf-palco{position:absolute;top:0;left:0;width:210mm;z-index:-1;background:#fff;pointer-events:none}
+.pdf-palco .papers{margin:0 !important;transform:none !important;width:210mm}
+.pdf-palco .paper{box-shadow:none !important;margin:0 !important}
+.pdf-modal{position:fixed;inset:0;z-index:9999;background:rgba(6,6,5,.94);display:flex;align-items:center;justify-content:center;padding:20px}
+.pdf-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:22px 20px;color:var(--cream)}
+.pdf-box h3{margin:0 0 10px;font-family:'Oswald';font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:15px;color:var(--gold)}
+.pdf-msg{margin:0 0 16px;font-size:15px;line-height:1.45}
+.pdf-acoes{display:flex;flex-direction:column;gap:9px}
+@media print{.pdf-modal,.pdf-palco{display:none !important}}

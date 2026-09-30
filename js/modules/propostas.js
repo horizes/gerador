@@ -429,7 +429,8 @@ function painel(){
   </details>
 
   <div class="actions">
-    <button class="btn wide" id="print2">Imprimir / salvar PDF</button>
+    <button class="btn wide" id="pdf2">Baixar / compartilhar PDF</button>
+    <button class="btn ghost wide" id="print2">Imprimir (caixa do navegador)</button>
     <button class="btn ghost wide" id="word">Exportar para Word (.docx)</button>
     <button class="btn ghost wide" id="zerar">Nova proposta em branco</button>
   </div>`;
@@ -772,8 +773,9 @@ function transbordarBlocos(paper, maxPx){
   ajustarPagina(continuacao, maxPx);   // a própria continuação também pode transbordar
 }
 
-function ajustarTransbordo(){
-  const cont = document.getElementById("papers");
+function ajustarTransbordo(alvo){
+  const principal = !alvo;                 // sem argumento = a pré-visualização da tela
+  const cont = alvo || document.getElementById("papers");
   if(!cont) return;
   const primeira = cont.querySelector(".paper");
   const maxPx = alturaMaximaPx(primeira);
@@ -783,7 +785,7 @@ function ajustarTransbordo(){
   // desliga temporariamente o observer que reajusta o zoom no celular: as mudanças que fazemos
   // aqui (compactar, criar folhas de continuação) mudam o tamanho de #papers, e isso poderia
   // disparar o observer de novo no meio do processo — melhor religar só depois de terminar
-  if(ro) ro.unobserve(cont);
+  if(principal && ro) ro.unobserve(cont);
   try{
     for(const paper of [...cont.querySelectorAll(".paper")]){
       if(tempoEsgotado()) break;
@@ -792,8 +794,8 @@ function ajustarTransbordo(){
       ajustarPagina(paper, maxPx + 1);
     }
   } finally {
-    if(ro) ro.observe(cont);
-    ajustarEscala();   // já que o observer ficou desligado durante o ajuste, recalcula a escala manualmente agora
+    if(principal){ if(ro) ro.observe(cont);
+    ajustarEscala(); }  // já que o observer ficou desligado durante o ajuste, recalcula a escala manualmente agora
   }
 }
 
@@ -817,12 +819,15 @@ function atualizarFinais(){
   });
 }
 
+function htmlPapers(){
+  const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
+  return SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
+}
+
 function renderPapers(){
   if(!root) return;
   atualizarFinais();
-  const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
-  document.getElementById("papers").innerHTML =
-    SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
+  document.getElementById("papers").innerHTML = htmlPapers();
   agendarTransbordo();
   salvar();
 }
@@ -1022,6 +1027,7 @@ on("click", e=>{
   if(b.id==="delLogoFlash"){ S.logoFlash=""; painel(); renderPapers(); return; }
   if(b.id==="addcli"){ S.clientes.push({t:"Empresa",n:"Nome do parceiro",c:"Campinas SP"}); painel(); renderPapers(); return; }
   if(b.dataset.delcli){ S.clientes.splice(+b.dataset.delcli,1); painel(); renderPapers(); return; }
+  if(b.id==="pdf"||b.id==="pdf2"){ exportarPdf(); return; }
   if(b.id==="print"||b.id==="print2"){ imprimir(); return; }
   if(b.id==="word"){ exportarWord(); return; }
   if(b.id==="zerar"){
@@ -1302,6 +1308,159 @@ async function exportarWord(){
 }
 
 
+/* ---------- PDF direto (funciona no celular, sem a caixa de impressão) ----------
+   Cada folha A4 é "fotografada" (html2canvas, carregado só na hora de usar) e as imagens viram as
+   páginas de um PDF montado aqui mesmo (sem outra biblioteca). O arquivo sai como imagem: fica
+   idêntico à pré-visualização em qualquer celular, mas o texto do PDF não é selecionável — para
+   isso, no computador, use o botão "Imprimir". */
+const HTML2CANVAS_URLS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+  "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+];
+function carregarScript(url){
+  return new Promise((ok,falha)=>{
+    const sc = document.createElement("script");
+    sc.src = url; sc.async = true;
+    sc.onload = ok;
+    sc.onerror = () => { sc.remove(); falha(new Error("falha ao carregar "+url)); };
+    document.head.appendChild(sc);
+  });
+}
+async function garantirHtml2Canvas(){
+  if(window.html2canvas) return window.html2canvas;
+  for(const u of HTML2CANVAS_URLS){
+    try{ await carregarScript(u); if(window.html2canvas) return window.html2canvas; }catch(e){ /* tenta o próximo endereço */ }
+  }
+  throw new Error("Não foi possível carregar o gerador de PDF (sem internet?).");
+}
+
+/* monta o arquivo PDF: uma imagem JPEG por página A4 */
+function pdfBlob(paginas, titulo){
+  const enc = new TextEncoder(), partes = [], offs = [];
+  let pos = 0;
+  const put = x => { const b = typeof x==="string" ? enc.encode(x) : x; partes.push(b); pos += b.length; };
+  const W = 595.28, H = 841.89, n = paginas.length;
+  put("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n");
+  offs[1] = pos; put("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  offs[2] = pos; put(`2 0 obj\n<< /Type /Pages /Kids [${paginas.map((_,i)=>(3+i*3)+" 0 R").join(" ")}] /Count ${n} >>\nendobj\n`);
+  paginas.forEach((p,i)=>{
+    const pg = 3+i*3, ct = pg+1, im = pg+2;
+    let w = W, h = W*p.h/p.w;
+    if(h > H){ h = H; w = H*p.w/p.h; }          // folha mais alta que A4: reduz para caber
+    const conteudo = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${((W-w)/2).toFixed(2)} ${(H-h).toFixed(2)} cm /Im0 Do Q`;
+    offs[pg] = pos; put(`${pg} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ct} 0 R >>\nendobj\n`);
+    offs[ct] = pos; put(`${ct} 0 obj\n<< /Length ${conteudo.length} >>\nstream\n${conteudo}\nendstream\nendobj\n`);
+    offs[im] = pos; put(`${im} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>\nstream\n`);
+    put(p.jpg); put("\nendstream\nendobj\n");
+  });
+  const info = n*3+3;
+  const hex = "FEFF" + Array.from({length:titulo.length},(_,i)=>titulo.charCodeAt(i).toString(16).padStart(4,"0")).join("").toUpperCase();
+  offs[info] = pos; put(`${info} 0 obj\n<< /Title <${hex}> /Producer (Imperium) >>\nendobj\n`);
+  const xref = pos, total = info+1;
+  put(`xref\n0 ${total}\n0000000000 65535 f \n`);
+  for(let i=1;i<total;i++) put(String(offs[i]).padStart(10,"0")+" 00000 n \n");
+  put(`trailer\n<< /Size ${total} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(partes, {type:"application/pdf"});
+}
+
+/* renderiza uma cópia da proposta fora da tela (com a mesma paginação da prévia) e devolve o PDF */
+async function gerarPdf(aoProgresso){
+  const h2c = await garantirHtml2Canvas();
+  if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(_){} }
+  const palco = document.createElement("div");
+  palco.className = "pdf-palco";
+  const cont = document.createElement("div");
+  cont.className = "papers";
+  cont.innerHTML = htmlPapers();
+  palco.appendChild(cont);
+  document.body.appendChild(palco);
+  const rolagem = window.scrollY;
+  window.scrollTo(0,0);
+  try{
+    if(_transbordoAgendado){ clearTimeout(_transbordoAgendado); _transbordoAgendado = null; }
+    ajustarTransbordo(cont);
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const folhas = [...cont.querySelectorAll(".paper")];
+    if(!folhas.length) throw new Error("Nenhuma seção da proposta está marcada para sair no documento.");
+    const paginas = [];
+    for(let i=0;i<folhas.length;i++){
+      aoProgresso(i+1, folhas.length);
+      await new Promise(r=>setTimeout(r,30));            // deixa a tela atualizar o andamento
+      const cv = await h2c(folhas[i], {scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false, scrollX:0, scrollY:0});
+      const blob = await new Promise(r=>cv.toBlob(r,"image/jpeg",0.9));
+      if(!blob) throw new Error("O celular ficou sem memória para gerar a página "+(i+1)+".");
+      paginas.push({jpg:new Uint8Array(await blob.arrayBuffer()), w:cv.width, h:cv.height});
+      cv.width = cv.height = 0;                           // libera a memória da imagem
+    }
+    return pdfBlob(paginas, nomeArquivoAtual());
+  } finally {
+    palco.remove();
+    window.scrollTo(0,rolagem);
+  }
+}
+
+/* janelinha: andamento -> "PDF pronto" com Compartilhar / Baixar (o compartilhamento do celular só
+   funciona com um toque novo, por isso não é chamado automaticamente ao terminar) */
+function modalPdf(){
+  const fundo = document.createElement("div");
+  fundo.className = "pdf-modal";
+  fundo.innerHTML = `<div class="pdf-box" role="dialog" aria-modal="true" aria-live="polite"><h3>PDF da proposta</h3><p class="pdf-msg"></p><div class="pdf-acoes"></div></div>`;
+  document.body.appendChild(fundo);
+  const msg = fundo.querySelector(".pdf-msg"), acoes = fundo.querySelector(".pdf-acoes");
+  let url = null;
+  const btn = (txt, fn, ghost) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn wide" + (ghost ? " ghost" : ""); b.textContent = txt;
+    b.addEventListener("click", fn); acoes.appendChild(b); return b;
+  };
+  const fechar = () => { if(url) URL.revokeObjectURL(url); fundo.remove(); };
+  return {
+    progresso(t){ msg.textContent = t; acoes.innerHTML = ""; },
+    pronto(blob, paginas){
+      const nome = nomeArquivo() + ".pdf";
+      const arq = (typeof File==="function") ? new File([blob], nome, {type:"application/pdf"}) : null;
+      url = URL.createObjectURL(blob);
+      msg.textContent = `Pronto: ${nome} (${(blob.size/1048576).toFixed(1).replace(".",",")} MB).`;
+      acoes.innerHTML = "";
+      if(arq && navigator.canShare && navigator.canShare({files:[arq]})){
+        btn("Compartilhar / salvar em Arquivos", async () => {
+          try{ await navigator.share({files:[arq], title:nomeArquivoAtual()}); }
+          catch(e){ if(e && e.name!=="AbortError") alert("Não foi possível abrir o compartilhamento. Use \"Baixar PDF\"."); }
+        });
+      }
+      btn("Baixar PDF", () => {
+        const a = document.createElement("a"); a.href = url; a.download = nome;
+        document.body.appendChild(a); a.click(); a.remove();
+      }, !!(arq && navigator.canShare && navigator.canShare({files:[arq]})));
+      btn("Fechar", fechar, true);
+    },
+    erro(err){
+      msg.textContent = "Não foi possível gerar o PDF: " + ((err && err.message) || err);
+      acoes.innerHTML = "";
+      btn("Tentar de novo", () => { fechar(); exportarPdf(); });
+      btn("Usar a impressão do navegador", () => { fechar(); imprimir(); }, true);
+      btn("Fechar", fechar, true);
+    }
+  };
+}
+
+let _pdfEmAndamento = false;
+async function exportarPdf(){
+  if(_pdfEmAndamento) return;
+  _pdfEmAndamento = true;
+  const m = modalPdf();
+  m.progresso("Preparando as páginas…");
+  try{
+    const blob = await gerarPdf((i,n)=>m.progresso(`Gerando página ${i} de ${n}…`));
+    m.pronto(blob);
+  }catch(err){
+    m.erro(err);
+  }finally{
+    _pdfEmAndamento = false;
+  }
+}
+
+
 function imprimir(){
   function disparar(){
     // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
@@ -1359,7 +1518,8 @@ const TEMPLATE = `
       <div class="zoom">Pré-visualização A4</div>
       <div>
         <button id="zout" aria-label="Diminuir zoom">−</button><button id="zin" aria-label="Aumentar zoom">+</button>
-        <button id="print">Imprimir / salvar PDF</button>
+        <button id="pdf">Baixar PDF</button>
+        <button id="print">Imprimir</button>
       </div>
     </div>
     <div class="papers-fit" id="fit"><div class="papers" id="papers"></div></div>
