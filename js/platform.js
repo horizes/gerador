@@ -158,14 +158,18 @@ function homeFerramentas(){
 function homePendencias(){
   const itens = modulosVisiveis().filter(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao');
   if(!itens.length) return '';
-  const conhecidas = itens.every(m => Object.prototype.hasOwnProperty.call(badges, m.id));
   const pendentes = itens.filter(m => badges[m.id] > 0);
+  if(!pendentes.length) return '';
   return `<div class="home-attention-head"><span class="home-attention-dot" aria-hidden="true"></span><h2>Precisa da sua atenção</h2></div>
-    ${pendentes.length ? `<div class="home-attention-list">${pendentes.map(m => `<a href="#/${m.id}" class="home-attention-item"><span><b>${badges[m.id]} ${m.id === 'uniforme_gestao' ? 'pedido(s) aguardando atendimento' : 'pedido(s) disponível(is) para recebimento'}</b><small>${m.id === 'uniforme_gestao' ? 'Confira as solicitações de uniforme e EPI da equipe.' : 'Confira os itens liberados e registre o recebimento.'}</small></span><span aria-hidden="true">→</span></a>`).join('')}</div>` : `<p class="home-attention-empty">${conhecidas ? 'Nenhuma pendência de uniformes e EPI neste momento.' : 'Abra suas solicitações para conferir o andamento dos pedidos.'}</p>`}`;
+    ${`<div class="home-attention-list">${pendentes.map(m => `<a href="#/${m.id}" class="home-attention-item"><span><b>${badges[m.id]} ${m.id === 'uniforme_gestao' ? 'pedido(s) aguardando atendimento' : 'pedido(s) disponível(is) para recebimento'}</b><small>${m.id === 'uniforme_gestao' ? 'Confira as solicitações de uniforme e EPI da equipe.' : 'Confira os itens liberados e registre o recebimento.'}</small></span><span aria-hidden="true">→</span></a>`).join('')}</div>`}`;
 }
 function atualizarHomePendencias(){
   const el = $('homePendencias');
-  if(el) el.innerHTML = homePendencias();
+  if(el){
+    const conteudo = homePendencias();
+    el.innerHTML = conteudo;
+    el.hidden = !conteudo;
+  }
 }
 function telaInicial(){
   const perfil = window.Imperium.perfil;
@@ -183,7 +187,7 @@ function telaInicial(){
       <div class="home-date"><span>Hoje</span><time datetime="${window.Imperium.hojeLocal()}">${escHome(data)}</time></div>
     </header>
     ${destaques.length ? `<div class="home-shortcuts" aria-label="Atalhos principais">${destaques.map((m,i) => `<a class="btn ${i ? 'ghost' : ''}" href="#/${m.id}">${escHome(HOME_ACOES[m.id].acao)}</a>`).join('')}</div>` : ''}
-    ${acessos.some(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao') ? `<section id="homePendencias" class="home-attention" aria-live="polite" aria-atomic="true">${homePendencias()}</section>` : ''}
+    ${acessos.some(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao') ? `<section id="homePendencias" class="home-attention" ${homePendencias() ? '' : 'hidden'} aria-live="polite" aria-atomic="true">${homePendencias()}</section>` : ''}
     <section class="home-tools-section" aria-label="Ferramentas disponíveis">${homeFerramentas()}</section>
     ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ''}
     <footer class="home-footer">Imperium Terceirização e Serviços <span>A pessoa certa no lugar certo faz a diferença.</span></footer>

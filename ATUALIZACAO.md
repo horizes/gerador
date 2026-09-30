@@ -4,6 +4,8 @@
 
 Esta versão inclui uma nova home com saudação e data, atalhos conforme as permissões, cartões de ferramentas, avisos reais de pedidos de uniformes/EPI e visão financeira para quem tem acesso. O restante das ferramentas foi preservado.
 
+O bloco “Precisa da sua atenção” aparece apenas quando existe pelo menos uma pendência. Sem pendências, o bloco inteiro fica oculto, sem mensagem vazia ou espaço reservado; ele reaparece quando uma nova pendência é identificada.
+
 Se as correções anteriores já foram publicadas, esta repaginação exige apenas substituir `index.html`, `js/platform.js`, `js/dashboard.js`, `sw.js` e adicionar `css/home.css` na hospedagem. Não há nova alteração de banco para a home. Se ainda não publicou as correções anteriores, siga as etapas abaixo.
 
 A home foi conferida no navegador com dados simulados: computador (1440px), tablet (768px), celulares (390px e 320px), permissões de administrador/colaborador, pendências e usuário sem ferramentas. Não foram identificados erros JavaScript ou rolagem horizontal nesses cenários.
