@@ -9,7 +9,6 @@ const modulos = [];
 let atual = null;
 
 const $ = id => document.getElementById(id);
-const CHAVE_MENU = "imperium_menu";   // "open" | "closed" (preferência do menu lateral)
 
 function register(m){ modulos.push(m); }
 
@@ -111,19 +110,8 @@ function renderNav(id){
     </div>`).join("");
 }
 
-function lerPreferencia(){
-  try{ return localStorage.getItem(CHAVE_MENU) !== "closed"; }catch(e){ return true; }
-}
 function aplicarMenu(aberto){
   $("shell").classList.toggle("is-open", aberto);
-  const b = $("sidetoggle");
-  b.setAttribute("aria-pressed", String(aberto));
-  b.querySelector(".sd-lbl").textContent = aberto ? "Recolher menu" : "Fixar menu aberto";
-}
-function alternarMenu(){
-  const aberto = !$("shell").classList.contains("is-open");
-  aplicarMenu(aberto);
-  try{ localStorage.setItem(CHAVE_MENU, aberto ? "open" : "closed"); }catch(e){}
 }
 
 /* gaveta (celular e tablet) */
@@ -220,9 +208,9 @@ function ir(){
     if(window.ImperiumDashboard) window.ImperiumDashboard.montar();
   }
   $("shell").classList.toggle("in-module", !!m);
-  // Tela inicial: o menu fica sempre aberto (recolher não ajuda ali). Dentro das ferramentas vale a
-  // preferência salva da pessoa. No celular/tablet o menu é a gaveta, que não depende disso.
-  aplicarMenu(m ? lerPreferencia() : true);
+  // Início: menu aberto. Ferramentas: ícones, expandindo ao passar o mouse ou focar.
+  // No celular/tablet permanece a gaveta pelo botão superior.
+  aplicarMenu(!m);
   renderNav(m ? m.id : "");
 
   view.classList.remove("enter"); void view.offsetWidth; view.classList.add("enter");
@@ -233,8 +221,7 @@ let iniciado = false;
 function iniciar(){
   if(iniciado) return; // evita reiniciar se o login disparar mais de uma vez
   iniciado = true;
-  aplicarMenu(lerPreferencia());
-  $("sidetoggle").addEventListener("click", alternarMenu);
+  aplicarMenu(true);
   $("menu").addEventListener("click", () => gaveta(!$("shell").classList.contains("drawer-open")));
   $("scrim").addEventListener("click", () => gaveta(false));
   const sair = $("sairBtn");

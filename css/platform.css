@@ -66,13 +66,9 @@
 .sd-item[aria-current="page"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:var(--gold);border-radius:0 2px 2px 0}
 .sd-item:focus-visible{outline-offset:-2px}
 
-.sd-toggle{flex:0 0 auto;height:52px;border-top:1px solid var(--rule)}
-.sd-toggle svg{transition:transform .2s}
-.shell:not(.is-open) .sd-toggle svg{transform:rotate(180deg)}
 .sd-sair{flex:0 0 auto;height:52px}
 /* na tela inicial o menu não recolhe: sem o botão (e o "Sair" ganha a linha de separação dele) */
-.shell:not(.in-module) .sd-toggle{display:none}
-.shell:not(.in-module) .sd-sair{border-top:1px solid var(--rule)}
+.sd-sair{border-top:1px solid var(--rule)}
 .sd-sair:hover{color:#E59A9A}
 .sd-instalar{flex:0 0 auto;height:52px;border-top:1px solid var(--rule);color:var(--gold)}
 .sd-instalar[hidden]{display:none}
