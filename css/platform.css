@@ -74,6 +74,16 @@
 .shell:not(.in-module) .sd-toggle{display:none}
 .shell:not(.in-module) .sd-sair{border-top:1px solid var(--rule)}
 .sd-sair:hover{color:#E59A9A}
+.sd-instalar{flex:0 0 auto;height:52px;border-top:1px solid var(--rule);color:var(--gold)}
+.sd-instalar[hidden]{display:none}
+.sd-instalar + .sd-sair{border-top:none}
+
+/* aplicativo instalado (tela cheia): respeita o entalhe/barra de status e a barra inferior do celular */
+@media (display-mode: standalone){
+  .mobbar{padding-top:env(safe-area-inset-top,0px);height:calc(var(--topbar) + env(safe-area-inset-top,0px))}
+  .side-in{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .viewwrap{padding-bottom:env(safe-area-inset-bottom,0px)}
+}
 
 /* nas telas médias, dentro de uma ferramenta, o menu fica sempre recolhido (a folha A4 precisa do espaço) */
 @media (min-width:1101px) and (max-width:1499px){
