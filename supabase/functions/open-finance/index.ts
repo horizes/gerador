@@ -49,6 +49,12 @@ async function pluggy(key: string, caminho: string, init: RequestInit = {}) {
 const formaDe = (d: string) =>
   /pix/i.test(d) ? "Pix" : /boleto/i.test(d) ? "Boleto" : /\b(ted|doc)\b|transf/i.test(d) ? "Transferência" : "Outro";
 
+async function verificar(consulta: PromiseLike<any>) {
+  const resultado = await consulta;
+  if (resultado.error) throw resultado.error;
+  return resultado.data;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ erro: "Método não permitido." }, 405);
@@ -86,7 +92,7 @@ Deno.serve(async (req) => {
       const { data: c } = await admin.from("banco_conexoes").select("id,item_id").eq("id", corpo.conexaoId).maybeSingle();
       if (!c) return json({ erro: "Conexão não encontrada." }, 404);
       await pluggy(key, `/items/${c.item_id}`, { method: "DELETE" }).catch(() => {}); // se já sumiu lá, segue
-      await admin.from("banco_conexoes").delete().eq("id", c.id);
+      await verificar(admin.from("banco_conexoes").delete().eq("id", c.id));
       return json({ ok: true });
     }
 
@@ -95,10 +101,10 @@ Deno.serve(async (req) => {
       const itemId = String(corpo.itemId || "").trim();
       if (!itemId) return json({ erro: "Falta o itemId da conexão." }, 400);
       const item = await pluggy(key, `/items/${itemId}`);
-      await admin.from("banco_conexoes").upsert(
+      await verificar(admin.from("banco_conexoes").upsert(
         { item_id: itemId, instituicao: item.connector?.name || "Banco", status: item.status || "", criado_por: u.user.id },
         { onConflict: "item_id" },
-      );
+      ));
     } else if (corpo.acao !== "sincronizar") {
       return json({ erro: "Ação desconhecida." }, 400);
     }
@@ -107,14 +113,15 @@ Deno.serve(async (req) => {
     let q = admin.from("banco_conexoes").select("*");
     if (corpo.acao === "registrar") q = q.eq("item_id", corpo.itemId);
     else if (corpo.conexaoId) q = q.eq("id", corpo.conexaoId);
-    const { data: conexoes } = await q;
+    const { data: conexoes, error: erroConexoes } = await q;
+    if (erroConexoes) throw erroConexoes;
 
     let novos = 0;
     const avisos: string[] = [];
 
     for (const c of conexoes || []) {
       const item = await pluggy(key, `/items/${c.item_id}`);
-      await admin.from("banco_conexoes").update({ status: item.status || "", instituicao: item.connector?.name || c.instituicao }).eq("id", c.id);
+      await verificar(admin.from("banco_conexoes").update({ status: item.status || "", instituicao: item.connector?.name || c.instituicao }).eq("id", c.id));
 
       if (item.status === "UPDATING" || item.status === "LOGIN_IN_PROGRESS") {
         avisos.push(`${c.instituicao}: o banco ainda está sendo lido. Sincronize de novo em alguns minutos.`);
@@ -127,10 +134,10 @@ Deno.serve(async (req) => {
 
       const contas = (await pluggy(key, `/accounts?itemId=${c.item_id}`)).results || [];
       if (contas.length) {
-        await admin.from("banco_contas").upsert(contas.map((a: any) => ({
+        await verificar(admin.from("banco_contas").upsert(contas.map((a: any) => ({
           id: a.id, conexao_id: c.id, nome: a.marketingName || a.name || "Conta", tipo: a.type || "",
           saldo: a.balance ?? 0, atualizado_em: new Date().toISOString(),
-        })));
+        }))));
       }
 
       // Só contas correntes/poupança viram lançamentos. Cartão de crédito fica só com o saldo: a fatura
@@ -145,12 +152,7 @@ Deno.serve(async (req) => {
           const movs = (r.results || []).filter((t: any) => t.status !== "PENDING");
           if (!movs.length) continue;
 
-          // registra o que é novo; só o que for novo vira lançamento (apagar o lançamento depois não o traz de volta)
-          const { data: inseridas } = await admin.from("banco_transacoes")
-            .upsert(movs.map((t: any) => ({ id: t.id, conta_id: conta.id })), { onConflict: "id", ignoreDuplicates: true })
-            .select("id");
-          const idsNovos = new Set((inseridas || []).map((x: any) => x.id));
-          const linhas = movs.filter((t: any) => idsNovos.has(t.id)).map((t: any) => {
+          const linhas = movs.map((t: any) => {
             const entrada = t.type === "CREDIT";
             return {
               data: String(t.date).slice(0, 10),
@@ -165,13 +167,15 @@ Deno.serve(async (req) => {
             };
           });
           if (linhas.length) {
-            const { error } = await admin.from("fluxo_lancamentos").insert(linhas);
+            const { data: quantidade, error } = await admin.rpc("importar_movimentacoes", {
+              p_conta: conta.id, p_usuario: u.user.id, p_linhas: linhas,
+            });
             if (error) throw new Error("Não foi possível gravar os lançamentos: " + error.message);
-            novos += linhas.length;
+            novos += Number(quantidade) || 0;
           }
         }
       }
-      await admin.from("banco_conexoes").update({ ultima_sincronizacao: new Date().toISOString() }).eq("id", c.id);
+      await verificar(admin.from("banco_conexoes").update({ ultima_sincronizacao: new Date().toISOString() }).eq("id", c.id));
     }
 
     return json({ ok: true, novos, avisos });

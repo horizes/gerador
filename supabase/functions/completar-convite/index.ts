@@ -4,11 +4,9 @@
 // "Usuários" > "Criar acesso"), o que gera um link com um token aleatório — sem nenhum e-mail
 // guardado ainda, e sem o papel/nível na URL (fica só no banco). A pessoa abre esse link, escolhe o
 // PRÓPRIO e-mail e a própria senha numa telinha (ver js/auth.js), e o navegador dela chama esta
-// função. Ela confere se o token existe e ainda não foi usado, cria a conta de verdade no Supabase
-// Auth (usando o nome que o admin digitou), aplica o papel/nível escolhido no convite ao perfil
-// recém-criado, e marca o convite como usado, para o link não poder ser reaproveitado. Assim o
-// acesso já vale desde o primeiro login — não precisa mais voltar na tela "Usuários" para liberar
-// nada.
+// função. O servidor consome o convite atomicamente ANTES de criar a conta e só devolve sucesso
+// depois de confirmar a gravação do cargo/papel. Se o cadastro falhar, o admin emite novo convite.
+// Isso impede reutilização concorrente, inclusive para convites de administrador.
 //
 // Por que uma Edge Function e não algo direto no navegador? Criar contas só é possível com a
 // "service role key" do Supabase — uma chave que dá acesso total ao banco e por isso NUNCA pode
@@ -30,7 +28,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -57,18 +55,9 @@ Deno.serve(async (req) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ erro: "E-mail inválido." }, 400);
     if (senha.length < 6) return json({ erro: "A senha precisa ter pelo menos 6 caracteres." }, 400);
 
-    // 2) o convite existe, ainda não foi usado e não expirou?
-    const { data: convite } = await admin
-      .from("convites_pendentes")
-      .select("token,nome,papel,cargo_id,criado_em,usado_em")
-      .eq("token", token)
-      .maybeSingle();
-
-    if (!convite) return json({ erro: "Link inválido ou já cancelado pelo administrador." }, 400);
-    if (convite.usado_em) return json({ erro: "Este link já foi usado. Peça um novo convite ao administrador." }, 400);
-    if (Date.now() - new Date(convite.criado_em).getTime() > SETE_DIAS_MS) {
-      return json({ erro: "Este link expirou (vale por 7 dias). Peça um novo convite ao administrador." }, 400);
-    }
+    // Consumo atômico no banco; falhas nunca reabrem um convite privilegiado.
+    const { data: convite, error: erroConvite } = await admin.rpc("reservar_convite", { p_token: token });
+    if (erroConvite || !convite) return json({ erro: "Convite inválido, expirado ou já utilizado. Peça outro ao administrador." }, 400);
 
     // 3) cria a conta de verdade, já com e-mail confirmado (a pessoa acabou de escolher o próprio
     //    e-mail e senha, então não precisa confirmar por e-mail de novo)
@@ -81,19 +70,20 @@ Deno.serve(async (req) => {
     if (erroCriar) {
       const jaExiste = /already.*(registr|exist)/i.test(erroCriar.message || "");
       return json(
-        { erro: jaExiste ? "Esse e-mail já tem conta na plataforma. Use outro e-mail ou vá para a tela de login." : erroCriar.message },
+        { erro: jaExiste ? "Esse e-mail já tem conta na plataforma. Vá para a tela de login ou peça outro convite ao administrador." : "Não foi possível criar a conta. Peça outro convite ao administrador." },
         400,
       );
     }
 
-    // 4) aplica ao perfil o papel/cargo que o admin escolheu ao gerar o convite — o gatilho
-    //    on_auth_user_created_perfil já criou a linha em "perfis" (só com o nome) no passo acima,
-    //    então aqui é só atualizar. O cargo é o que libera as ferramentas E define o kit de uniforme/EPI
-    //    (nível e cargo agora são a mesma coisa). Sem cargo escolhido, fica como usuário comum sem cargo.
-    await admin.from("perfis").update({ papel: convite.papel, cargo_id: convite.cargo_id }).eq("id", criado.user.id);
-
-    // 5) marca o convite como usado, para o link não poder ser reaproveitado
-    await admin.from("convites_pendentes").update({ usado_em: new Date().toISOString() }).eq("token", token);
+    // Exige que o perfil exista e que o papel/cargo tenha sido realmente aplicado.
+    const { data: perfil, error: erroPerfil } = await admin.from("perfis")
+      .update({ papel: convite.papel, cargo_id: convite.cargo_id })
+      .eq("id", criado.user.id).select("id").single();
+    if (erroPerfil || !perfil) {
+      const { error: erroExcluir } = await admin.auth.admin.deleteUser(criado.user.id);
+      if (erroExcluir) console.error("Cadastro incompleto requer revisão administrativa", criado.user.id);
+      return json({ erro: "Não foi possível concluir a configuração do acesso. O convite foi consumido; peça outro ao administrador." }, 500);
+    }
 
     return json({ ok: true });
   } catch (e) {

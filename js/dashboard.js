@@ -10,7 +10,7 @@ const brl = v => "R$ " + n2(v);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const MES_ABR = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 const MES_EXT = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
-const hoje = () => new Date().toISOString().slice(0,10);
+const hoje = () => window.Imperium.hojeLocal();
 const mesDe = iso => (iso||"").slice(0,7);
 
 // Painel é só sobre o Fluxo de Caixa: sem acesso à ferramenta "fluxo", não faz sentido
@@ -30,9 +30,7 @@ function rotuloMesExt(m){
 /* ---------- leitura dos dados do Fluxo de Caixa (Supabase) ---------- */
 async function buscarLancamentos(){
   try{
-    const { data, error } = await window.Imperium.supabase
-      .from("fluxo_lancamentos")
-      .select("data,tipo,categoria,valor,status");
+    const { data, error } = await window.Imperium.supabase.rpc("fluxo_dados_painel");
     if(error) throw error;
     return data || [];
   }catch(e){

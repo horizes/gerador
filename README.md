@@ -4,8 +4,7 @@ Site estático (HTML + CSS + JS puro) — não precisa de build nem de Node. Ago
 e um **banco de dados compartilhado** (Supabase): os lançamentos do Fluxo de Caixa não ficam mais presos a
 um navegador, qualquer pessoa da equipe que fizer login vê e edita os mesmos dados.
 
-Hoje a plataforma tem quatro ferramentas (o grupo **Uniformes e EPI** tem duas, veja a seção **Uniformes e EPI**, abaixo): o **Gerador de propostas** (como antes, com o rascunho salvo só no
-navegador de quem está editando) e o **Fluxo de caixa**, para lançar entradas e saídas, acompanhar o saldo
+Hoje a plataforma tem quatro ferramentas (o grupo **Uniformes e EPI** tem duas, veja a seção **Uniformes e EPI**, abaixo): o **Gerador de propostas** (com a proposta apenas na memória da aba aberta) e o **Fluxo de caixa**, para lançar entradas e saídas, acompanhar o saldo
 por período e exportar para planilha — agora com os dados no banco. A tela inicial também mostra um
 **painel (dashboard)** com o resumo do Fluxo de Caixa.
 
@@ -14,11 +13,9 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 1. **Rode o SQL:** no painel do Supabase, abra **SQL Editor > New query**, cole o conteúdo de
    `supabase-schema.sql` e clique em **Run**. Isso cria as tabelas do Fluxo de Caixa, protege o acesso
    (só quem estiver logado consegue ler/gravar) e já cadastra as categorias padrão.
-2. **Crie o bucket de anexos:** em **Storage**, clique em **New bucket**, nomeie exatamente `anexos` e
-   marque **Public bucket** (as notas fiscais/fotos ficam acessíveis por link direto, só para quem tiver
-   o link — não aparecem em nenhuma lista pública). Depois disso, rode de novo só a parte final do
-   `supabase-schema.sql` (as 3 políticas de `storage.objects`), caso o bucket ainda não existisse na
-   primeira vez que você rodou o script.
+2. **Bucket de anexos privado:** o script `supabase-schema-melhorias.sql`, aplicado por último,
+   cria ou converte `anexos` para privado. Nunca marque Public bucket. As notas fiscais e fotos são
+   abertas após validar a sessão e a permissão, usando links que expiram em cinco minutos.
 3. **Rode o SQL da hierarquia de acesso:** ainda no SQL Editor, cole o conteúdo de
    `supabase-schema-permissoes.sql` e clique em **Run**. Isso cria a tabela de
    perfis (veja a seção **Hierarquia de acesso**, abaixo). Depois de rodar, torne a si mesmo admin: no
@@ -83,8 +80,8 @@ são salvas na hora, sem botão "Salvar":
 - A restrição não é só visual: as regras de segurança do banco (RLS) também checam o acesso antes de
   deixar ler ou gravar os dados do Fluxo de Caixa — então mesmo alguém tentando acessar direto pela URL
   ou pela API não vê dados de um módulo que ela não pode usar.
-- **Limitação atual:** o Gerador de propostas não usa banco de dados (o rascunho fica só no navegador de
-  quem está editando), então a permissão dele controla apenas se a ferramenta aparece no menu daquela
+- **Limitação atual:** o Gerador de propostas não usa banco de dados (a proposta fica apenas na memória da aba de
+  quem está editando, sem recuperação após fechar ou recarregar), então a permissão dele controla apenas se a ferramenta aparece no menu daquela
   pessoa — não há dado compartilhado nesse módulo para proteger.
 - **Se a lista de pessoas aparecer com um aviso amarelo** (ou não carregar), é porque falta rodar o
   `supabase-schema-usuarios.sql`. Detalhes técnicos: tabelas `perfis`, `cargos`, `cargo_modulos` e
@@ -304,7 +301,7 @@ js/perfil.js                carrega o papel/cargo/módulos permitidos da pessoa 
 js/auth.js                  login por e-mail/senha; libera a plataforma só depois de autenticado e com perfil ativo
 js/platform.js             barra lateral (com grupos), navegação, tela inicial, registro de módulos e filtro por permissão
 js/dashboard.js            painel da tela inicial: lê a tabela do Fluxo de Caixa no Supabase e monta o resumo/gráfico
-js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — rascunho salvo só no navegador
+js/modules/propostas.js    Gerador de propostas (lógica, páginas e exportação .docx) — proposta apenas na memória da aba
 js/modules/fluxo.js        Fluxo de caixa (lançamentos, anexo de nota fiscal/foto, planilha, exportação .csv e backup .json) — dados no Supabase
 js/modules/usuarios.js     tela "Usuários" (só para admin): lista as contas, mostra quem pode logar e define o cargo e libera ferramentas por pessoa/cargo
 js/modules/uniformes.js    as duas ferramentas (kit por cargo, atendimento, cargos, itens, assinatura por foto) e os avisos do menu
@@ -392,9 +389,9 @@ O menu lateral e a tela inicial separam as ferramentas por classificação, cada
 ## Observações
 
 - **Privacidade:** a ferramenta contém valores e margens internos. O site está com `noindex` (meta tag + robots.txt), mas isso não impede acesso por quem tiver o link. Se for de uso interno, proteja com senha (Cloudflare Access, Netlify Password Protection, ou `.htaccess` no cPanel). Para liberar a indexação, remova a meta `robots` do `index.html` e apague o `robots.txt`.
-- **Rascunhos e lançamentos:** os dados preenchidos (inclusive os lançamentos do Fluxo de caixa) ficam salvos no `localStorage` do navegador de cada usuário (não vão para o servidor). Trocar de navegador/computador ou de domínio começa do zero — no Fluxo de caixa, use "Salvar backup (.json)" e "Importar backup (.json)" para levar os dados de um lugar para o outro, ou para não perder nada ao limpar o navegador.
+- **Rascunhos e lançamentos:** a proposta vive somente na memória da aba. Os lançamentos financeiros ficam no Supabase e são compartilhados pela equipe autorizada. Backups JSON incluem os arquivos anexos, permitindo recuperar os documentos em outra instalação.
 - **Painel da tela inicial:** o dashboard (`js/dashboard.js`) lê o mesmo `localStorage` do Fluxo de Caixa, então mostra os lançamentos daquele navegador/computador — a mesma limitação de "por navegador" descrita abaixo. Sem nenhum lançamento ainda, ele mostra uma mensagem convidando a lançar o primeiro.
-- **Anexo de nota fiscal/foto:** cada lançamento pode ter uma foto ou PDF anexado, escolhido no formulário "Novo lançamento" (à esquerda) antes de adicionar. Na planilha, a coluna Anexo mostra a miniatura (clique para abrir) e o "×" para remover; lançamentos sem anexo mostram um traço. Fotos são reduzidas automaticamente antes de salvar; ainda assim, como tudo fica no `localStorage` do navegador (que costuma ter uns 5–10 MB de limite no total), anexar muitas fotos ao longo do tempo pode aproximar desse limite. Exportar backups (.json) com frequência também serve para não perder os anexos.
+- **Anexo de nota fiscal/foto:** fotos e PDFs são armazenados no bucket privado `anexos`. A miniatura usa um link temporário e o clique solicita um novo link válido por cinco minutos. O backup JSON inclui o conteúdo dos arquivos; se algum documento não puder ser baixado, o backup não é gerado.
 - **Fontes:** Oswald e Barlow vêm do Google Fonts (precisa de internet).
 - **Imagens do Connect e do Flash:** ficam embutidas em `js/modules/propostas.js` (constantes `LOGO_CONNECT_PADRAO` e `LOGO_FLASH_PADRAO`), então aparecem mesmo sem a pasta `assets/`. Dentro da ferramenta dá para enviar outra imagem por proposta.
 - **Fotos de clientes padrão:** para trocar, substitua os arquivos em `assets/clientes/` mantendo o nome, ou edite `CLIENTES_PADRAO` no início de `js/modules/propostas.js`.
@@ -478,3 +475,9 @@ pessoa continua logada mesmo depois de fechar o navegador. Desligada, a sessão 
 estiver aberto — indicado para computadores compartilhados. A escolha fica em `js/supabase.js`
 (`imperium_manter_conectado`). Para o padrão ser desligado, tire o `checked` do checkbox `#loginManter` no
 `index.html` e troque `!== "0"` por `=== "1"` em `lerManter()`.
+
+
+## Atualização de segurança e confiabilidade
+
+Siga `ATUALIZACAO.md`. O script `supabase-schema-melhorias.sql` deve ser aplicado por último,
+inclusive em uma instalação nova ou depois de reaplicar os scripts anteriores.

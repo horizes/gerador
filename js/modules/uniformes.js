@@ -459,10 +459,9 @@ const SOL = (function(){
 
   async function cancelar(id){
     if(!confirm("Cancelar este pedido?")) return;
-    const { data, error } = await sb().from("uniforme_pedidos").update({ status: "cancelado" })
-      .eq("id", id).eq("status", "pendente").select("id");
+    const { data, error } = await sb().rpc("uniforme_cancelar_pedido", { p_pedido: id });
     if(error){ alert(msgErro(error)); return; }
-    if(!data || !data.length) alert("Este pedido já foi atendido e não pode mais ser cancelado.");
+    if(!data) alert("Este pedido já foi atendido e não pode mais ser cancelado.");
     await recarregar();
   }
 

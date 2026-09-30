@@ -71,7 +71,7 @@ const DIF_PADRAO = [
   {t:"Flexibilidade Contratual", d:"O contrato não exige fidelidade nem prazo mínimo de permanência, garantindo total liberdade para o cliente decidir sobre a continuidade dos serviços a qualquer momento."}
 ];
 
-function hoje(){const d=new Date();return d.toISOString().slice(0,10);}
+function hoje(){return window.Imperium.hojeLocal();}
 
 const ESTADO_INICIAL = () => ({
   cidade:"Campinas",

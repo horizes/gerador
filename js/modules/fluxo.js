@@ -14,6 +14,7 @@ const sb = () => window.Imperium.supabase;
 const BUCKET_ANEXOS = "anexos";
 
 let root = null;
+let resumoTimer = null, resumoVersao = 0, gravacoes = 0;
 let anexoPendente = null; // anexo (nota fiscal/foto) já processado, aguardando o próximo "Adicionar lançamento"
 const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
@@ -26,7 +27,7 @@ const CATEGORIAS_PADRAO = {
 };
 const FORMAS = ["Pix", "Dinheiro", "Cartão", "Boleto", "Transferência", "Outro"];
 
-const hoje = () => new Date().toISOString().slice(0,10);
+const hoje = () => window.Imperium.hojeLocal();
 const mesDe = iso => (iso||"").slice(0,7);
 
 const ESTADO_INICIAL = () => ({
@@ -168,8 +169,23 @@ async function enviarAnexo(pendente){
     return null;
   }
 }
-function urlAnexo(caminho){
-  return sb().storage.from(BUCKET_ANEXOS).getPublicUrl(caminho).data.publicUrl;
+async function urlAnexo(caminho){
+  const { data, error } = await sb().storage.from(BUCKET_ANEXOS).createSignedUrl(caminho, 300);
+  if(error) throw error;
+  return data.signedUrl;
+}
+async function abrirAnexo(id){
+  const l = achar(id);
+  if(!l || !l.anexo) return;
+  const aba = window.open("about:blank", "_blank");
+  if(aba) aba.opener = null;
+  try{
+    const url = await urlAnexo(l.anexo.path);
+    if(aba) aba.location.replace(url); else location.assign(url);
+  }catch(e){
+    if(aba) aba.close();
+    alert("Não foi possível abrir o anexo: " + e.message);
+  }
 }
 
 /* ---------- carregamento a partir do Supabase ---------- */
@@ -178,21 +194,22 @@ function mapRow(r){
     id: r.id, data: r.data, tipo: r.tipo, categoria: r.categoria,
     descricao: r.descricao || "", forma: r.forma || "Pix", status: r.status, valor: +r.valor || 0,
     criado_em: r.criado_em, banco: !!r.banco_transacao_id,
-    anexo: r.anexo_path ? { nome: r.anexo_nome, tipo: r.anexo_tipo, path: r.anexo_path, url: urlAnexo(r.anexo_path) } : null
+    anexo: r.anexo_path ? { nome: r.anexo_nome, tipo: r.anexo_tipo, path: r.anexo_path } : null
   };
 }
 async function carregarCategorias(){
-  const { data, error } = await sb().from("fluxo_categorias").select("tipo,nome").order("nome");
+  const data = await window.Imperium.lerTodas(() => sb().from("fluxo_categorias")
+    .select("id,tipo,nome").order("id", { ascending:true }));
   const cat = { entrada: [], saida: [] };
-  if(!error && data) data.forEach(r=>{ if(cat[r.tipo]) cat[r.tipo].push(r.nome); });
+  data.forEach(r=>{ if(cat[r.tipo]) cat[r.tipo].push(r.nome); });
+  cat.entrada.sort(); cat.saida.sort();
   if(!cat.entrada.length && !cat.saida.length) return JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
   return cat;
 }
 async function carregarLancamentos(){
-  const { data, error } = await sb().from("fluxo_lancamentos").select("*")
-    .order("data", { ascending:false }).order("criado_em", { ascending:false });
-  if(error){ alert("Não foi possível carregar os lançamentos: " + error.message); return []; }
-  return (data||[]).map(mapRow);
+  const data = await window.Imperium.lerTodas(() => sb().from("fluxo_lancamentos").select("*")
+    .order("id", { ascending:true }));
+  return data.map(mapRow);
 }
 async function carregarBancos(){
   const [c, a] = await Promise.all([
@@ -288,7 +305,7 @@ function renderBancos(){
     ${conexoes.length ? `
     <div class="calc-chip">
       <div class="calc-row total"><span>Saldo nas contas dos bancos</span><b class="${saldoBanco<0?"neg":""}">${brl(saldoBanco)}</b></div>
-      <div class="calc-row"><span>Saldo pelos lançamentos pagos</span><b>${brl(saldoAtual())}</b></div>
+      <div class="calc-row"><span>Saldo pelos lançamentos pagos</span><b>${brl(saldo)}</b></div>
       <div class="calc-row"><span>Diferença (a conciliar)</span><b class="${Math.abs(dif)>=0.005?"neg":""}">${brl(dif)}</b></div>
     </div>
     ${conexoes.map(c=>`
@@ -308,10 +325,13 @@ function renderBancos(){
 
 /* ---------- ações sobre lançamentos (gravam direto no Supabase) ---------- */
 const timers = {};
-function salvarCampos(id, patch){
-  sb().from("fluxo_lancamentos").update(patch).eq("id", id).then(({error})=>{
-    if(error) alert("Não foi possível salvar a alteração: " + error.message);
-  });
+async function salvarCampos(id, patch){
+  gravacoes++;
+  try{
+    const { error } = await sb().from("fluxo_lancamentos").update(patch).eq("id", id);
+    if(error) throw error;
+  }catch(e){ alert("Não foi possível salvar a alteração: " + e.message); }
+  finally{ gravacoes--; if(root && $("resumo")) renderResumo(); }
 }
 function agendarSalvar(id, patch){
   timers[id+"_patch"] = Object.assign(timers[id+"_patch"] || {}, patch);
@@ -328,6 +348,7 @@ async function adicionarLancamento(){
   btn.disabled = true; const txt = btn.textContent; btn.textContent = "Adicionando…";
 
   const anexoInfo = anexoPendente ? await enviarAnexo(anexoPendente) : null;
+  if(anexoPendente && !anexoInfo){ btn.disabled = false; btn.textContent = txt; return; }
   const linha = {
     data: $("qzData").value || hoje(),
     tipo: $("qzTipo").value,
@@ -421,43 +442,99 @@ function exportarCSV(){
   });
   baixar(new Blob(["\uFEFF"+linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}), "fluxo-de-caixa.csv");
 }
-function exportarBackup(){
-  baixar(new Blob([JSON.stringify(S,null,2)], {type:"application/json"}), "fluxo-de-caixa-backup.json");
+async function anexoBackup(anexo){
+  if(!anexo) return null;
+  if(anexo.dataUrl){
+    if(!/^data:(image\/(jpeg|png|webp)|application\/pdf);base64,/i.test(anexo.dataUrl))
+      throw new Error("Formato de anexo não permitido no backup.");
+    const blob = await (await fetch(anexo.dataUrl)).blob();
+    if(blob.size > ANEXO_TAMANHO_MAX) throw new Error("Anexo maior que 8 MB.");
+    return { nome: anexo.nome || "anexo", tipo: blob.type, dataUrl: anexo.dataUrl };
+  }
+  if(!anexo.path) throw new Error("O backup tem um anexo sem arquivo ou caminho.");
+  const { data, error } = await sb().storage.from(BUCKET_ANEXOS).download(anexo.path);
+  if(error) throw new Error("Não foi possível recuperar o anexo " + (anexo.nome || anexo.path));
+  return { nome: anexo.nome || "anexo", tipo: data.type || anexo.tipo, dataUrl: await lerArquivo(data) };
 }
-function importarBackup(file){
-  const r = new FileReader();
-  r.onload = async () => {
-    let v;
-    try{
-      v = JSON.parse(r.result);
-      if(!v || !Array.isArray(v.lancamentos)) throw new Error("formato inválido");
-    }catch(e){ alert("Não foi possível importar: arquivo inválido."); return; }
-
-    if(!confirm(`Isso vai ADICIONAR ${v.lancamentos.length} lançamento(s) deste arquivo aos dados atuais (compartilhados pela empresa, não só deste navegador). Continuar?`)) return;
-
+async function exportarBackup(){
+  const btn = $("expJson");
+  if(btn.disabled) return;
+  btn.disabled = true;
+  const texto = btn.textContent;
+  try{
+    btn.textContent = "Preparando backup…";
+    const [lancamentos, categorias] = await Promise.all([carregarLancamentos(), carregarCategorias()]);
+    for(let i = 0; i < lancamentos.length; i++){
+      btn.textContent = `Backup ${i+1}/${lancamentos.length}…`;
+      lancamentos[i].anexo = await anexoBackup(lancamentos[i].anexo);
+    }
+    const backup = { versao: 2, exportado_em: new Date().toISOString(), categorias, lancamentos };
+    baixar(new Blob([JSON.stringify(backup)], {type:"application/json"}), "fluxo-de-caixa-backup.json");
+  }catch(e){ alert("Backup não gerado: " + e.message); }
+  finally{ btn.disabled = false; btn.textContent = texto; }
+}
+let importandoBackup = false;
+async function importarBackup(file){
+  if(importandoBackup) return;
+  importandoBackup = true;
+  const btn = $("impJsonBtn");
+  if(btn) btn.disabled = true;
+  let gravados = 0, total = 0;
+  try{
+    const v = JSON.parse(await file.text());
+    if(!v || !Array.isArray(v.lancamentos)) throw new Error("Arquivo inválido.");
+    total = v.lancamentos.length;
+    // Valida todo o conteúdo antes de começar a gravar.
+    for(const l of v.lancamentos){
+      if(!l || !/^\d{4}-\d{2}-\d{2}$/.test(l.data || "") ||
+         new Date(l.data + "T12:00:00Z").toISOString().slice(0,10) !== l.data ||
+         !["entrada","saida"].includes(l.tipo) || !["pago","pendente"].includes(l.status) ||
+         typeof l.valor !== "number" || !Number.isFinite(l.valor) ||
+         typeof l.categoria !== "string" ||
+         (l.anexo && (!l.anexo.dataUrl && !l.anexo.path))) throw new Error("Há lançamentos inválidos no arquivo.");
+    }
+    if(!confirm(`Isso vai ADICIONAR ${total} lançamento(s) aos dados compartilhados da empresa. Importar novamente duplica os lançamentos. Continuar?`)) return;
+    // Backups antigos só recuperam documentos se ainda existirem no Storage de origem.
+    for(const l of v.lancamentos){
+      l.anexo = await anexoBackup(l.anexo);
+    }
     if(v.categorias){
+      const linhas = [];
       for(const tipo of ["entrada","saida"]){
-        for(const nome of (v.categorias[tipo]||[])){
-          if(!S.categorias[tipo].includes(nome)) await adicionarCategoria(tipo, nome);
+        if(v.categorias[tipo] && !Array.isArray(v.categorias[tipo])) throw new Error("Categorias inválidas.");
+        for(const nome of (v.categorias[tipo] || [])){
+          if(typeof nome !== "string" || !nome.trim()) throw new Error("Categoria inválida.");
+          linhas.push({ tipo, nome });
         }
+      }
+      if(linhas.length){
+        const { error } = await sb().from("fluxo_categorias").upsert(linhas, { onConflict:"tipo,nome", ignoreDuplicates:true });
+        if(error) throw error;
       }
     }
     for(const l of v.lancamentos){
-      const anexoInfo = (l.anexo && l.anexo.dataUrl) ? await enviarAnexo(l.anexo) : null;
-      await sb().from("fluxo_lancamentos").insert({
-        data: l.data || hoje(), tipo: l.tipo==="entrada" ? "entrada" : "saida",
-        categoria: l.categoria || "", descricao: l.descricao || "", forma: l.forma || "Pix",
-        status: l.status==="pago" ? "pago" : "pendente", valor: +l.valor || 0,
-        anexo_nome: anexoInfo ? anexoInfo.nome : null,
-        anexo_tipo: anexoInfo ? anexoInfo.tipo : null,
-        anexo_path: anexoInfo ? anexoInfo.path : null
+      const anexoInfo = l.anexo ? await enviarAnexo(l.anexo) : null;
+      if(l.anexo && !anexoInfo) throw new Error("O anexo não foi enviado; o lançamento não foi importado.");
+      const { error } = await sb().from("fluxo_lancamentos").insert({
+        data:l.data, tipo:l.tipo, categoria:l.categoria, descricao:l.descricao || "", forma:l.forma || "Pix",
+        status:l.status, valor:l.valor,
+        anexo_nome:anexoInfo ? anexoInfo.nome : null, anexo_tipo:anexoInfo ? anexoInfo.tipo : null,
+        anexo_path:anexoInfo ? anexoInfo.path : null
       });
+      if(error) throw error;
+      gravados++;
     }
     await carregar();
-    renderTudo();
-    alert("Importação concluída.");
-  };
-  r.readAsText(file);
+    if(root) renderTudo();
+    alert(`Importação concluída: ${gravados} de ${total} lançamento(s), com seus anexos.`);
+  }catch(e){
+    alert(`Importação interrompida: ${gravados} de ${total} lançamento(s) confirmados. ${e.message}. Confira os dados antes de tentar novamente.`);
+    try{ await carregar(); if(root) renderTudo(); }catch(_){}
+  }finally{
+    importandoBackup = false;
+    if(btn) btn.disabled = false;
+    const input = $("impJson"); if(input) input.value = "";
+  }
 }
 
 /* ---------- painel da esquerda (rail): só o novo lançamento ---------- */
@@ -584,31 +661,66 @@ function linhaHtml(l){
     </select></td>
     <td class="vcell ${l.tipo}"><input type="number" data-f="valor" step="0.01" value="${+l.valor||0}"></td>
     <td class="anexo-cell">${l.anexo ? `
-      <a class="anexo-thumb" href="${l.anexo.url}" target="_blank" rel="noopener" title="${esc(l.anexo.nome)}">${anexoIconeHtml(l.anexo)}</a>
+      <button type="button" class="anexo-thumb" data-abriranexo="${l.id}" title="${esc(l.anexo.nome)}" aria-label="Abrir ${esc(l.anexo.nome)}">${l.anexo.tipo.startsWith("image/") ? `<img data-miniatura="${l.id}" alt="Foto">` : '<span class="anexo-ico">PDF</span>'}</button>
       <button type="button" class="anexo-rm" data-rmanexo="${l.id}" aria-label="Remover anexo">×</button>
     ` : `<span class="anexo-vazio" aria-label="Sem anexo">—</span>`}</td>
     <td><button class="rm" data-del="${l.id}" aria-label="Excluir">✕</button></td>
   </tr>`;
 }
 
+const miniaturas = new Map();
+async function carregarMiniaturas(){
+  if(!root) return;
+  const imagens = [...root.querySelectorAll("img[data-miniatura]")];
+  for(const img of imagens){
+    const l = achar(img.dataset.miniatura);
+    if(!l || !l.anexo) continue;
+    const caminho = l.anexo.path;
+    try{
+      let cache = miniaturas.get(caminho);
+      if(!cache || cache.expira < Date.now()){
+        cache = { expira:Date.now() + 240000, url:urlAnexo(caminho) };
+        miniaturas.set(caminho, cache);
+      }
+      img.src = await cache.url;
+    }catch(_){ miniaturas.delete(caminho); img.alt = "Abrir foto"; }
+  }
+}
 function renderStage(){
   const f = filtrados();
   $("tbody").innerHTML = f.length ? f.map(linhaHtml).join("") :
     `<tr class="vazio"><td colspan="9">Nenhum lançamento neste filtro ainda.</td></tr>`;
+  carregarMiniaturas();
 }
 
-function renderResumo(){
+function renderResumo(resumoBanco){
+  const versao = ++resumoVersao;
+  clearTimeout(resumoTimer);
+  if(!resumoBanco){
+    resumoTimer = setTimeout(async () => {
+      if(!root || gravacoes || Object.keys(timers).some(k => k.endsWith("_patch"))) return;
+      try{
+        const { data, error } = await sb().rpc("fluxo_resumo", {
+          p_mes:S.filtro.mes || "", p_tipo:S.filtro.tipo, p_categoria:S.filtro.categoria || ""
+        });
+        if(!error && data && root && versao === resumoVersao && !gravacoes &&
+           !Object.keys(timers).some(k => k.endsWith("_patch"))) renderResumo(data);
+      }catch(_){ /* Mantém o resumo dos dados completos carregados em caso de falha de rede. */ }
+    }, 700);
+  }
   if($("bancos") && S.bancos.conexoes.length) renderBancos();
-  const t = totaisPeriodo();
+  const t = resumoBanco ? { entradas:+resumoBanco.entradas, saidas:+resumoBanco.saidas,
+    saldo:+resumoBanco.entradas - +resumoBanco.saidas } : totaisPeriodo();
+  const saldo = resumoBanco ? +resumoBanco.saldoAtual : saldoAtual();
   const rotulo = S.filtro.mes ? rotuloMes(S.filtro.mes) : "todos os períodos";
   $("resumo").innerHTML = `
     <div class="calc-chip">
-      <div class="calc-row total"><span>Saldo atual (lançamentos pagos)</span><b class="${saldoAtual()<0?"neg":""}">${brl(saldoAtual())}</b></div>
+      <div class="calc-row total"><span>Saldo atual (lançamentos pagos)</span><b class="${saldo<0?"neg":""}">${brl(saldo)}</b></div>
       <div class="calc-row"><span>Entradas — ${esc(rotulo)}</span><b>${brl(t.entradas)}</b></div>
       <div class="calc-row"><span>Saídas — ${esc(rotulo)}</span><b>${brl(t.saidas)}</b></div>
       <div class="calc-row lucro ${t.saldo<0?"neg":""}"><span>Saldo do período</span><b>${brl(t.saldo)}</b></div>
     </div>`;
-  const cats = porCategoria();
+  const cats = resumoBanco ? resumoBanco.categorias : porCategoria();
   const maxCat = Math.max(1, ...cats.map(c=>c.total));
   $("porcat").innerHTML = !cats.length ? "" : `
     <div class="mini">Por categoria — ${esc(rotulo)}</div>
@@ -710,6 +822,7 @@ on("click", e=>{
     return;
   }
 
+  if(b.dataset.abriranexo){ abrirAnexo(b.dataset.abriranexo); return; }
   if(b.dataset.rmanexo){ removerAnexo(b.dataset.rmanexo); return; }
 
   if(b.id==="expCsv"){ exportarCSV(); return; }
@@ -799,7 +912,11 @@ async function mount(el){
   root.className = "mod-fluxo m-edit";
   root.innerHTML = TEMPLATE_CARREGANDO;
 
-  await carregar();
+  try{ await carregar(); }
+  catch(e){
+    if(root === el) el.innerHTML = '<p class="hint" role="alert">Não foi possível carregar os dados completos. Reabra o Fluxo de Caixa para tentar novamente.</p>';
+    return;
+  }
   if(root !== el) return; // usuário já saiu do módulo antes de terminar de carregar
 
   root.innerHTML = TEMPLATE;
@@ -817,6 +934,7 @@ async function mount(el){
 }
 
 function unmount(){
+  clearTimeout(resumoTimer); resumoVersao++; miniaturas.clear();
   if(!root) return;
   ouvintes.forEach(([t,fn]) => root.removeEventListener(t, fn));
   root = null;
