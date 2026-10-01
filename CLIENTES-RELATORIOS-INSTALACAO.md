@@ -17,7 +17,7 @@
 - Consulte a competência desejada. O período usa a hora do SERVIDOR em Brasília: de 00:00 do primeiro dia até, sem incluir, 00:00 do mês seguinte. O mês do pedido e a hora do aparelho não determinam o fechamento.
 - Apenas os itens efetivamente vinculados a cada confirmação entram no documento, inclusive recebimentos parciais feitos em meses diferentes. Pedidos pendentes ficam fora.
 - **Baixar PDF do posto** gera resumo e páginas de comprovação com as fotos já registradas, nomes, cargos, horários e identificadores. A foto é a confirmação utilizada pelo sistema atual; o relatório não cria uma assinatura ICP-Brasil.
-- **Baixar pacote para o contador** reúne os PDFs em um ZIP, organizado por cliente, com índice CSV. Registros sem posto bloqueiam o pacote geral para evitar fechamento incompleto; PDFs individuais dos postos identificados continuam disponíveis.
+- **Baixar PDF** permite escolher **Resumo geral — todos os postos** ou **Por posto**. Na opção geral, reúne os resumos e comprovantes em um único PDF, organizado por cliente e posto, com numeração contínua das páginas. Registros sem posto bloqueiam o PDF geral para evitar fechamento incompleto; PDFs individuais dos postos identificados continuam disponíveis.
 - Postos/clientes ativos sem entregas recebem PDF indicando ausência de recebimentos. Postos inativos com recebimentos no mês também aparecem.
 - O PDF incorpora a imagem, não o link temporário: continua legível após o link expirar. Se a foto não puder ser acessada, a exportação falha com mensagem explícita.
 - Não há envio automático, integração contábil ou contato com clientes. Você baixa os documentos e encaminha externamente.
@@ -26,4 +26,4 @@
 
 As fotos permanecem em bucket privado, com acesso adicional apenas ao módulo de relatórios. Os PDFs contêm nomes e fotos; entregue cada documento ao destinatário correto. O PDF conserva a foto original carimbada pelo módulo existente, que pode conter informações de local. Não são incluídas colunas extras com coordenadas.
 
-Testes locais verificaram formulários, agrupamento por posto, PDF com foto, ZIP por cliente, funcionamento em quatro larguras e bibliotecas. A migração e as políticas SQL precisam ser homologadas no Supabase real: não houve acesso administrativo ao banco publicado nesta entrega.
+Testes locais verificaram formulários, agrupamento por posto, PDF com foto, PDF mensal consolidado por cliente e posto, funcionamento em quatro larguras e bibliotecas. A migração e as políticas SQL precisam ser homologadas no Supabase real: não houve acesso administrativo ao banco publicado nesta entrega.
