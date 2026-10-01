@@ -1198,7 +1198,7 @@ const GES = (function(){
 /* ---------- registro na plataforma ---------- */
 window.Platform.register({
   id: MOD_SOL,
-  categoria: "uniformes",
+  categoria: "rotina",
   menu: "Solicitar uniforme e EPI",
   nome: "Solicitar uniforme e EPI",
   descricao: "Peça o kit de uniforme e EPI do seu cargo escolhendo só o tamanho e confirme o recebimento com uma foto.",
@@ -1209,7 +1209,7 @@ window.Platform.register({
 
 window.Platform.register({
   id: MOD_GES,
-  categoria: "uniformes",
+  categoria: "operacao",
   menu: "Solicitações de uniforme e EPI",
   nome: "Solicitações de uniforme e EPI",
   descricao: "Atenda os pedidos, confira as assinaturas e edite os cargos, os kits e os uniformes e EPIs.",

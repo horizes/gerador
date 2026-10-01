@@ -16,21 +16,24 @@ function register(m){ modulos.push(m); }
    no Platform.register. Para criar uma classificação nova, basta acrescentar uma linha aqui (a ordem desta
    lista é a ordem no menu). Ferramenta sem categoria, ou com uma que não existe, cai em "Outras ferramentas". */
 const CATEGORIAS = [
-  { id:"operacao", nome:"Operação" },
-  { id: "jornada", nome: "Jornada de trabalho" },
-  { id: "geradores",     nome: "Geradores" },
+  { id: "rotina",       nome: "Minha rotina" },
+  { id: "operacao",     nome: "Gestão dos postos" },
+  { id: "geradores",    nome: "Comercial" },
   { id: "financeiro",    nome: "Financeiro" },
-  { id: "uniformes",     nome: "Uniformes e EPI" },
-  { id: "configuracoes", nome: "Configurações" }
+  { id: "configuracoes", nome: "Administração" }
 ];
 const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };
+// A sequência acompanha o trabalho: uso pessoal, organização do posto,
+// acompanhamento da equipe e documentação. Não depende da ordem dos scripts.
+const ORDEM_MODULOS = ["ponto_meu", "uniforme_solicitar", "clientes", "ponto_gestao", "uniforme_gestao", "uniforme_relatorios", "propostas", "fluxo", "usuarios"];
+const ordemDe = m => { const i = ORDEM_MODULOS.indexOf(m.id); return i < 0 ? ORDEM_MODULOS.length : i; };
 
 const categoriaDe = m => CATEGORIAS.find(c => c.id === m.categoria) || CATEGORIA_OUTROS;
 
 // [{cat, itens:[módulos]}] na ordem das categorias; categorias sem nenhuma ferramenta visível não aparecem
 function agrupar(lista){
   return [...CATEGORIAS, CATEGORIA_OUTROS]
-    .map(cat => ({ cat, itens: lista.filter(m => categoriaDe(m).id === cat.id) }))
+    .map(cat => ({ cat, itens: lista.filter(m => categoriaDe(m).id === cat.id).sort((a,b) => ordemDe(a) - ordemDe(b)) }))
     .filter(g => g.itens.length);
 }
 
@@ -137,7 +140,7 @@ const HOME_ACOES = {
   usuarios: { titulo:"Acessos da equipe", texto:"Gerencie pessoas, cargos e permissões.", acao:"Gerenciar acessos" }
 };
 function homeFerramentas(){
-  const lista = modulosVisiveis();
+  const lista = agrupar(modulosVisiveis()).flatMap(g => g.itens);
   if(!lista.length) return `<p class="home-vazio">Você ainda não tem ferramentas liberadas. Fale com o administrador para pedir acesso.</p>`;
   return `<div class="home-section-head"><div><span class="home-eyebrow">Acesso rápido</span><h2>O que você precisa fazer?</h2></div><span class="home-count">${lista.length} ${lista.length === 1 ? "ferramenta disponível" : "ferramentas disponíveis"}</span></div>
     <ul class="home-tools">${lista.map(m => {

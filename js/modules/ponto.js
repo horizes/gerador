@@ -95,6 +95,6 @@ async function mount(el,gestao){unmount();raiz=el;gerencia=gestao;
  try{await Promise.all([carregar(),sincronizar()]);if(!raiz)return;relogio();timer=setInterval(()=>{relogio();if(performance.now()-sincronizado>60000){sincronizado=performance.now();sincronizar().catch(()=>{});}},1000);}catch(err){aviso('Não foi possível carregar o ponto. Confira a instalação do SQL e suas permissões. '+err.message,true);}
 }
 function unmount(){++versao;clearInterval(timer);timer=null;if(raiz){raiz.removeEventListener('click',click);raiz.removeEventListener('submit',submit);}raiz=null;dados=null;epoca=0;}
-window.Platform.register({id:'ponto_meu',categoria:'jornada',menu:'Meu ponto',nome:'Meu ponto',descricao:'Registre batidas de teste e acompanhe seus pedidos de ajuste.',icone:ico,mount:el=>mount(el,false),unmount});
-window.Platform.register({id:'ponto_gestao',categoria:'jornada',menu:'Gestão de ponto',nome:'Gestão de ponto',descricao:'Cadastre vínculos e analise ajustes preservando as batidas originais.',icone:ico,mount:el=>mount(el,true),unmount});
+window.Platform.register({id:'ponto_meu',categoria:'rotina',menu:'Meu ponto',nome:'Meu ponto',descricao:'Registre batidas de teste e acompanhe seus pedidos de ajuste.',icone:ico,mount:el=>mount(el,false),unmount});
+window.Platform.register({id:'ponto_gestao',categoria:'operacao',menu:'Gestão de ponto',nome:'Gestão de ponto',descricao:'Cadastre vínculos e analise ajustes preservando as batidas originais.',icone:ico,mount:el=>mount(el,true),unmount});
 })();
