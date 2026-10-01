@@ -94,12 +94,11 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 .papers.para-impressao .paper{min-height:296mm}
 .phead{display:flex;justify-content:flex-end;margin-bottom:10mm}
 
-/* wordmark (CSS, para papel branco) */
+/* Identidade da Imperium nos cabeçalhos e na assinatura. */
 .wm{display:inline-block;text-align:center;line-height:1}
-.wm .w1{font-family:'Oswald';font-weight:500;letter-spacing:.14em;color:#C9A227;font-size:39px;display:block}
-.wm .w2{font-family:'Oswald';font-weight:400;letter-spacing:.115em;font-size:14px;color:#111;display:block;border-top:2.5px solid #111;padding-top:2px;margin-top:1px}
-.wm.sm .w1{font-size:27.5px}.wm.sm .w2{font-size:10.5px;border-top-width:2px}
-.wm.lg .w1{font-size:73.5px;letter-spacing:.13em}.wm.lg .w2{font-size:25.5px;border-top-width:4px;padding-top:4px}
+.wm img{display:block;width:42mm;max-width:100%;height:auto;aspect-ratio:580/260;object-fit:contain}
+.wm.sm img{width:40mm}
+.wm.lg img{width:121.5mm}
 
 h2.dt{font-family:'Oswald';font-weight:500;font-size:30px;letter-spacing:.015em;margin:0 0 18px;color:#161512;position:relative;padding-bottom:11px}
 h2.dt::after{content:"";position:absolute;left:0;bottom:0;width:40px;height:2px;background:var(--gold)}
@@ -261,23 +260,30 @@ ol.dt li{margin-bottom:6px}
 .paper.carta .motto{font-size:19px;margin:18px 0;padding-bottom:10px}
 .paper.carta .carta-assinatura{margin-top:16px;break-inside:avoid;page-break-inside:avoid}
 .paper.carta .carta-cordial{margin-bottom:12px}
-.paper.carta .carta-assinatura .w1{font-size:31px}
-.paper.carta .carta-assinatura .w2{font-size:11px}
 .paper.carta.compacto2 p{font-size:15px;line-height:1.35;margin-bottom:6px}
 .paper.carta.compacto2 h3.dt{margin:10px 0 4px;font-size:16px}
 
 /* Capa oficial e apresentação dos recursos operacionais. */
-.cover-logo-imperium{display:block;width:150mm;max-width:100%;height:auto;aspect-ratio:580/260;object-fit:contain;margin:0 auto}
+.cover-logo-imperium{display:block;width:121.5mm;max-width:100%;height:auto;aspect-ratio:580/260;object-fit:contain;margin:0 auto}
 .paper.operacao-proposta{padding-top:13mm;padding-bottom:17mm}
 .operacao-proposta .phead{margin-bottom:6mm}
 .paper.operacao-proposta .operacao-intro{font-size:15px;line-height:1.45;margin-bottom:18px;color:#6B6455}
-.operacao-recursos{display:flex;flex-direction:column;gap:15px}
-.operacao-recurso{display:grid;grid-template-columns:64px minmax(0,1fr);gap:18px;padding:16px 18px;background:#FFFDF9;border:1px solid #E4DFD3;border-left:3px solid var(--gold);border-radius:5px;break-inside:avoid;page-break-inside:avoid}
-.operacao-icone{display:flex;align-items:flex-start;justify-content:center;padding-top:4px}
-.operacao-icone img{max-width:64px;max-height:64px;object-fit:contain}
+.operacao-recursos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.operacao-recurso{padding:18px;background:#FFFDF9;border:1px solid #E4DFD3;border-top:3px solid var(--gold);border-radius:5px;break-inside:avoid;page-break-inside:avoid}
+.operacao-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.operacao-sistema{display:block;font-size:10px;line-height:1.4;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#74684D;margin-bottom:5px}
+.operacao-icone{display:flex;align-items:center;justify-content:center;flex:0 0 42px}
+.operacao-icone img{max-width:42px;max-height:42px;object-fit:contain}
 .operacao-icone svg{width:34px;height:34px}
-.operacao-recurso h3.dt{font-size:19px;margin:0 0 7px;color:#8A6A1E}
-.paper .operacao-recurso p{font-size:14px;line-height:1.45;margin:0 0 9px;text-align:left}
-.operacao-recurso ul{padding-left:18px;margin:0;font-size:13px;line-height:1.4}
-.operacao-recurso li{margin-bottom:4px}
+.operacao-recurso h3.dt{font-size:21px;line-height:1.2;margin:0;color:#28251E}
+.paper .operacao-recurso p{font-size:13px;line-height:1.45;margin:0;text-align:left}
+.operacao-etapas{list-style:none;display:grid;gap:14px;padding:0;margin:18px 0}
+.operacao-etapas li{display:flex;align-items:flex-start;gap:10px;margin:0}
+.operacao-numero{flex:0 0 25px;height:25px;display:flex;align-items:center;justify-content:center;border:1px solid #DCCCA5;border-radius:50%;background:#F6EFDf;color:#856619;font-size:10px;font-weight:700}
+.operacao-etapas strong{display:block;font-size:13px;line-height:1.3;margin:0 0 4px;color:#342F25}
+.paper .operacao-etapas p{font-size:12px;line-height:1.4;color:#645C4E}
+.operacao-resultado{padding-top:12px;border-top:1px solid #E4DFD3;font-size:12px;line-height:1.4;font-weight:600;color:#856619}
+.operacao-propria{grid-column:1 / -1;background:#F8F4EA}
+.operacao-propria .operacao-etapas{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:22px;row-gap:17px}
+.operacao-propria .operacao-sistema{color:#856619}
 .paper.operacao-proposta.compacto2 .operacao-recurso{padding:12px 15px}
