@@ -505,12 +505,12 @@ function pgCarta(){
     <h3 class="dt">Compromisso de Parceria e Alinhamento</h3>
     <p>Será um prazer ter vocês como parceiros e servir o seu espaço com a nossa dedicação diária. Ficamos à disposição para qualquer dúvida ou ajuste que seja necessário; nosso objetivo é conversar abertamente para chegarmos a um alinhamento justo e benéfico para todos os envolvidos.</p>
     ${S.obs?`<p>${esc(S.obs)}</p>`:""}
-    <div style="margin-top:26px">
-      <p style="margin-bottom:22px">Cordialmente,</p>
+    <div class="carta-assinatura">
+      <p class="carta-cordial">Cordialmente,</p>
       <p style="margin:0;font-weight:700">${esc(S.assinante)}</p>
       <p style="margin:0 0 10px;font-weight:700">${esc(S.cargoAssinante)}</p>
       ${WM()}
-    </div>`);
+    </div>`,"carta");
 }
 
 function pgSuporte(){

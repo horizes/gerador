@@ -253,3 +253,15 @@ ol.dt li{margin-bottom:6px}
 .pdf-msg{margin:0 0 16px;font-size:15px;line-height:1.45}
 .pdf-acoes{display:flex;flex-direction:column;gap:9px}
 @media print{.pdf-modal,.pdf-palco{display:none !important}}
+
+/* Carta institucional: texto e assinatura juntos, com corpo confortável para A4. */
+.paper.carta .phead{margin-bottom:6mm}
+.paper.carta p{font-size:16px;line-height:1.45;margin-bottom:8px}
+.paper.carta h3.dt{font-size:17px;margin:16px 0 6px}
+.paper.carta .motto{font-size:19px;margin:18px 0;padding-bottom:10px}
+.paper.carta .carta-assinatura{margin-top:16px;break-inside:avoid;page-break-inside:avoid}
+.paper.carta .carta-cordial{margin-bottom:12px}
+.paper.carta .carta-assinatura .w1{font-size:31px}
+.paper.carta .carta-assinatura .w2{font-size:11px}
+.paper.carta.compacto2 p{font-size:15px;line-height:1.35;margin-bottom:6px}
+.paper.carta.compacto2 h3.dt{margin:10px 0 4px;font-size:16px}

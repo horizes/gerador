@@ -45,6 +45,7 @@
   font-family:'Oswald';font-weight:400;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C7365;
 }
 @container side (max-width:140px){
+  .sd-brand>span{visibility:hidden}
   .sd-cat{padding:0 16px}
   .sd-cat-lbl{position:absolute;opacity:0;pointer-events:none}  /* continua acessível a leitores de tela */
 }
@@ -216,4 +217,8 @@ a.toast:hover{background:#26221A}
 @media print{
   .side,.mobbar,.scrim{display:none !important}
   .shell{display:block;min-height:0}
+}
+
+@media(min-width:1101px){
+  .shell:not(.is-open) .side:not(:hover):not(:focus-within) .sd-brand>span{visibility:hidden}
 }
