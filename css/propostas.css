@@ -89,7 +89,9 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
   position:absolute;left:0;right:0;bottom:0;background:#000;color:#fff;
   text-align:center;font-size:13pt;padding:7px 0;font-weight:600;letter-spacing:.01em;
 }
-.paper .pfoot a{color:#2F6BD8;text-decoration:underline}
+.paper .pfoot{border-top:2px solid var(--gold)}
+.paper .pfoot a{color:var(--gold-hi);text-decoration:none}
+.papers.para-impressao .paper{min-height:296mm}
 .phead{display:flex;justify-content:flex-end;margin-bottom:10mm}
 
 /* wordmark (CSS, para papel branco) */
@@ -224,11 +226,11 @@ ol.dt li{margin-bottom:6px}
   html,body,.paper,.paper *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
   body{background:#fff}
   .rail,.stagebar,.tabs{display:none !important}
-  .app{min-height:0}
+  .app{display:block;min-height:0}
   .stage{padding:0;background:#fff;overflow:visible}
   .papers-fit{width:auto !important;height:auto !important;overflow:visible !important;margin:0 !important}
   .papers{width:auto;transform:none !important;margin-bottom:0 !important}
-  .paper{width:210mm;min-height:297mm;box-shadow:none;margin:0;page-break-after:always;break-after:page}
+  .paper{width:210mm;min-height:296mm;box-shadow:none;margin:0;page-break-inside:avoid;break-inside:avoid;page-break-after:always;break-after:page}
   .paper:last-child{page-break-after:auto;break-after:auto}
   table.dt,.card-box,.svcgrid,.clientes{page-break-inside:avoid;break-inside:avoid}
 }

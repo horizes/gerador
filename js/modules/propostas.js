@@ -1462,6 +1462,9 @@ async function exportarPdf(){
 
 
 function imprimir(){
+  const folhas = document.getElementById("papers");
+  // Mede com a mesma altura da impressão, reservando 1 mm para arredondamentos do navegador.
+  if(folhas) folhas.classList.add("para-impressao");
   function disparar(){
     // o navegador usa document.title como nome sugerido ao "Salvar como PDF"/compartilhar na caixa de impressão
     const tituloAnterior = document.title;
@@ -1471,6 +1474,7 @@ function imprimir(){
       if(restaurado) return;
       restaurado = true;
       document.title = tituloAnterior;
+      if(folhas) folhas.classList.remove("para-impressao");
       window.removeEventListener("afterprint", restaurar);
       document.removeEventListener("visibilitychange", aoVisivelDeNovo);
     }

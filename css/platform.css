@@ -76,7 +76,6 @@
 
 /* aplicativo instalado (tela cheia): respeita o entalhe/barra de status e a barra inferior do celular */
 @media (display-mode: standalone){
-  .mobbar{padding-top:env(safe-area-inset-top,0px);height:calc(var(--topbar) + env(safe-area-inset-top,0px))}
   .side-in{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
   .viewwrap{padding-bottom:env(safe-area-inset-bottom,0px)}
 }
@@ -127,13 +126,13 @@
 
 /* ---------- Celular e tablet: menu vira gaveta ---------- */
 @media (max-width:1100px){
-  :root{--topbar:56px}
+  :root{--mobile-safe-top:env(safe-area-inset-top,0px);--topbar:calc(64px + var(--mobile-safe-top))}
   .shell{display:block}
   .mobbar{
     display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:30;height:var(--topbar);
-    padding:0 10px;background:var(--panel);border-bottom:1px solid var(--rule);
+    padding:calc(8px + var(--mobile-safe-top)) max(10px,env(safe-area-inset-right,0px)) 8px max(10px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--rule);
   }
-  .mb-menu{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--cream);cursor:pointer;border-radius:4px}
+  .mb-menu{flex:0 0 48px;width:48px;height:48px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--cream);cursor:pointer;border-radius:4px}
   .mb-menu:hover{background:var(--panel-2)}
   .mb-menu svg{width:24px;height:24px}
   .mb-brand{display:flex;align-items:center;gap:10px;color:var(--cream);text-decoration:none}
