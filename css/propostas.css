@@ -265,3 +265,19 @@ ol.dt li{margin-bottom:6px}
 .paper.carta .carta-assinatura .w2{font-size:11px}
 .paper.carta.compacto2 p{font-size:15px;line-height:1.35;margin-bottom:6px}
 .paper.carta.compacto2 h3.dt{margin:10px 0 4px;font-size:16px}
+
+/* Capa oficial e apresentação dos recursos operacionais. */
+.cover-logo-imperium{display:block;width:150mm;max-width:100%;height:auto;aspect-ratio:580/260;object-fit:contain;margin:0 auto}
+.paper.operacao-proposta{padding-top:13mm;padding-bottom:17mm}
+.operacao-proposta .phead{margin-bottom:6mm}
+.paper.operacao-proposta .operacao-intro{font-size:15px;line-height:1.45;margin-bottom:18px;color:#6B6455}
+.operacao-recursos{display:flex;flex-direction:column;gap:15px}
+.operacao-recurso{display:grid;grid-template-columns:64px minmax(0,1fr);gap:18px;padding:16px 18px;background:#FFFDF9;border:1px solid #E4DFD3;border-left:3px solid var(--gold);border-radius:5px;break-inside:avoid;page-break-inside:avoid}
+.operacao-icone{display:flex;align-items:flex-start;justify-content:center;padding-top:4px}
+.operacao-icone img{max-width:64px;max-height:64px;object-fit:contain}
+.operacao-icone svg{width:34px;height:34px}
+.operacao-recurso h3.dt{font-size:19px;margin:0 0 7px;color:#8A6A1E}
+.paper .operacao-recurso p{font-size:14px;line-height:1.45;margin:0 0 9px;text-align:left}
+.operacao-recurso ul{padding-left:18px;margin:0;font-size:13px;line-height:1.4}
+.operacao-recurso li{margin-bottom:4px}
+.paper.operacao-proposta.compacto2 .operacao-recurso{padding:12px 15px}

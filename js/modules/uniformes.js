@@ -466,7 +466,14 @@ const SOL = (function(){
   }
 
   /* ----- confirmação de recebimento (itens + foto + local) ----- */
-  function abrirRecebimento(pedido){
+  async function abrirRecebimento(pedido){
+    const usuarioOriginal = perfil().id;
+    const {data: posto, error: erroPosto} = await sb().rpc("uniforme_meu_posto");
+    if(!root || perfil().id !== usuarioOriginal) return;
+    if(erroPosto || !posto){
+      window.Platform.toast(erroPosto ? "Não foi possível conferir seu posto. Confira a instalação do módulo de clientes e tente novamente." : "Solicite à gestão o cadastro do seu posto antes de confirmar o recebimento.");
+      return;
+    }
     const pend = pedido.itens.filter(i => !i.recebimento_id);
     if(!pend.length) return;
     const R = {
@@ -477,6 +484,7 @@ const SOL = (function(){
 
     const el = abrirModal(`
       <h2 class="uni-m-h">Recebi uniforme e EPI</h2>
+      <p class="uni-m-sub">${esc(posto.cliente)} · ${esc(posto.posto)}</p>
       <p class="uni-m-sub">Pedido #${curto(pedido.id)}. Marque o que você recebeu. O que ficar desmarcado continua pendente e você confirma depois.</p>
 
       <div class="uni-m-sec">

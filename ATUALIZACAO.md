@@ -54,3 +54,8 @@ Se os scripts antigos forem reaplicados, rode `supabase-schema-melhorias.sql` no
 ## Módulo de ponto em homologação
 
 Esta versão inclui Meu ponto e Gestão de ponto. Instalação e limites em `PONTO-INSTALACAO.md`. Execute a nova migração apenas em ambiente de testes: não substitui o ponto oficial. Permissões são configuradas em Usuários.
+
+
+## Clientes e relatórios mensais
+
+Consulte `CLIENTES-RELATORIOS-INSTALACAO.md`. A nova migração exige alocação do colaborador no posto antes de confirmar novos recebimentos de uniformes/EPI. Cadastre clientes, postos e alocações antes de liberar o uso.
