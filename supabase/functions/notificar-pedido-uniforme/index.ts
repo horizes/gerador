@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
       <h2>Novo pedido de uniforme / EPI</h2>
       <p><b>Solicitante:</b> ${esc(pedido.solicitante_nome)}<br>
          <b>Cargo:</b> ${esc(pedido.cargo_nome)}<br>
-         <b>Data:</b> ${esc(new Date(pedido.criado_em).toLocaleString("pt-BR"))}</p>
+         <b>Data (horário de Brasília):</b> ${esc(new Date(pedido.criado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }))}</p>
       <p><b>Itens pedidos:</b></p>
       <ul>${linhasItens}</ul>
       ${pedido.observacao ? `<p><b>Observação:</b> ${esc(pedido.observacao)}</p>` : ""}

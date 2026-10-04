@@ -268,12 +268,13 @@ mês no plano grátis) e não exige configurar um servidor de e-mail próprio.
    deixa mandar e-mail de teste para o próprio e-mail da conta.
 3. No terminal, na pasta do projeto:
    ```
-   supabase secrets set RESEND_API_KEY=sua-api-key RESEND_FROM_EMAIL="Imperium <pedidos@imperiumservicos.com>" EMAIL_DESTINO=uniformes@imperiumservicos.com
+   supabase secrets set RESEND_API_KEY=sua-api-key RESEND_FROM_EMAIL="Imperium <pedidos@imperiumservicos.com>" EMAIL_DESTINO=wilson.cyriaco@imperiumservicos.com
    supabase functions deploy notificar-pedido-uniforme
    ```
    `RESEND_FROM_EMAIL` precisa ser um endereço do domínio verificado no passo 2. `EMAIL_DESTINO` aceita mais de um
    endereço separado por vírgula (ex.: `rh@imperiumservicos.com,diretoria@imperiumservicos.com`).
-4. Pronto — no próximo pedido enviado pela tela, o e-mail já sai. Para trocar o endereço de destino depois, basta
+4. Pronto — no próximo pedido enviado pela tela, o e-mail já sai. A data do pedido no aviso é exibida no horário de
+   Brasília (`America/Sao_Paulo`), independentemente do fuso do servidor. Para trocar o endereço de destino depois, basta
    rodar de novo o `supabase secrets set EMAIL_DESTINO=...` (não precisa reinstalar nada).
 
 Se a Edge Function não estiver publicada, ou algum desses três segredos não estiver configurado, o pedido continua
