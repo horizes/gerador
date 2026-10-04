@@ -51,13 +51,28 @@ Deno.serve(async (req) => {
     const token = String(corpo.token || "").trim();
     const email = String(corpo.email || "").trim().toLowerCase();
     const senha = String(corpo.senha || "");
-    if (!token) return json({ erro: "Link inválido — falta o código do convite." }, 400);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) return json({ erro: "Link inválido — confira o endereço completo do convite." }, 400);
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ erro: "E-mail inválido." }, 400);
     if (senha.length < 6) return json({ erro: "A senha precisa ter pelo menos 6 caracteres." }, 400);
 
     // Consumo atômico no banco; falhas nunca reabrem um convite privilegiado.
     const { data: convite, error: erroConvite } = await admin.rpc("reservar_convite", { p_token: token });
-    if (erroConvite || !convite) return json({ erro: "Convite inválido, expirado ou já utilizado. Peça outro ao administrador." }, 400);
+    if (erroConvite) {
+      // Uma falha de instalação/conexão não significa que o convite foi utilizado.
+      const codigo = erroConvite.code || "";
+      const conviteIndisponivel = codigo === "P0002" ||
+        (codigo === "P0001" && /^Convite inválido, expirado ou já utilizado\./.test(erroConvite.message || ""));
+      if (conviteIndisponivel) return json({ erro: "Convite inválido, expirado ou já utilizado. Peça outro ao administrador.", codigo: "CONVITE_INDISPONIVEL" }, 400);
+      console.error("Falha ao reservar convite", { codigo }); // Nunca registrar token, e-mail ou senha.
+      const configuracao = ["PGRST202", "42883", "42P01", "42703", "42501"].includes(codigo);
+      return json({ erro: configuracao
+        ? "O cadastro por convite precisa de uma atualização no servidor. Avise o administrador para instalar a correção de convites."
+        : "Não foi possível validar o convite agora. Tente novamente mais tarde. Se o problema continuar, avise o administrador.",
+        codigo: configuracao ? "CADASTRO_DESCONFIGURADO" : "VALIDACAO_INDISPONIVEL" }, 503);
+    }
+    if (!convite || typeof convite.nome !== "string" || !["admin", "usuario"].includes(convite.papel)) {
+      return json({ erro: "Não foi possível confirmar os dados do convite. Avise o administrador.", codigo: "CONVITE_SEM_DADOS" }, 500);
+    }
 
     // 3) cria a conta de verdade, já com e-mail confirmado (a pessoa acabou de escolher o próprio
     //    e-mail e senha, então não precisa confirmar por e-mail de novo)

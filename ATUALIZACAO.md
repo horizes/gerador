@@ -59,3 +59,7 @@ Esta versão inclui Meu ponto e Gestão de ponto. Instalação e limites em `PON
 ## Clientes e relatórios mensais
 
 Consulte `CLIENTES-RELATORIOS-INSTALACAO.md`. A nova migração exige alocação do colaborador no posto antes de confirmar novos recebimentos de uniformes/EPI. Cadastre clientes, postos e alocações antes de liberar o uso.
+
+## Correção de convites
+
+Para falhas ao completar cadastro por link, consulte `CONVITES-CORRECAO.md`. Execute `supabase-schema-correcao-convites.sql`, publique a função `completar-convite` e atualize os arquivos públicos do site. A correção diferencia erros técnicos de convite indisponível e encaminha à tela de login quando a conta foi criada, mas o login automático falhou.

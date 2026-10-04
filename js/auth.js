@@ -128,11 +128,13 @@ function ligarFormularioCadastro(){
   const form = $("cadastroForm");
   if(form.dataset.ligado) return;
   form.dataset.ligado = "1";
+  let cadastroEmAndamento = false;
 
   if(nomeConvite) $("cadastroTitulo").textContent = `Bem-vindo(a), ${nomeConvite}`;
 
   form.addEventListener("submit", async e=>{
     e.preventDefault();
+    if(cadastroEmAndamento) return;
     erroCadastro("");
     const email = $("cadastroEmail").value.trim();
     const senha = $("cadastroSenha").value;
@@ -142,33 +144,41 @@ function ligarFormularioCadastro(){
 
     const btn = form.querySelector('button[type="submit"]');
     const txt = btn.textContent;
+    cadastroEmAndamento = true;
     btn.disabled = true; btn.textContent = "Criando acesso…";
+    let acessoCriado = false;
+    try{
+      const { data, error } = await sb.functions.invoke("completar-convite", { body: { token: tokenConvite, email, senha } });
+      // Erros 4xx/5xx trazem a explicação no corpo da resposta.
+      let falha = null;
+      if(error){
+        falha = error.message || "Não foi possível criar o acesso.";
+        try{ const corpo = await error.context.json(); if(corpo && corpo.erro) falha = corpo.erro; }catch(_){}
+      }else if(data && data.erro){ falha = data.erro; }
+      if(falha){ erroCadastro(falha); return; }
+      if(!data || data.ok !== true){ erroCadastro("O servidor não confirmou a criação do acesso. Avise o administrador."); return; }
 
-    const { data, error } = await sb.functions.invoke("completar-convite", { body: { token: tokenConvite, email, senha } });
-
-    // mesmo caso de sempre: erro 4xx/5xx não vem pronto em error.message, precisa ler o corpo
-    let falha = null;
-    if(error){
-      falha = error.message || "Não foi possível criar o acesso.";
-      try{ const corpo = await error.context.json(); if(corpo && corpo.erro) falha = corpo.erro; }catch(_){}
-    }else if(data && data.erro){ falha = data.erro; }
-    if(falha){
+      // O convite já foi consumido. Se o login falhar, a próxima ação é entrar na conta criada.
+      acessoCriado = true;
+      history.replaceState(null, "", location.pathname + location.search);
+      tokenConvite = null;
+      $("cadastroSenha").value = ""; $("cadastroConfirma").value = "";
+      const { error: erroLogin } = await sb.auth.signInWithPassword({ email, password: senha });
+      if(erroLogin){
+        mostrar("login"); $("loginEmail").value = email;
+        erro("Acesso criado! Entre com o e-mail e a senha que você acabou de escolher.", true);
+      }
+      iniciarSessaoNormal();
+    }catch(_){
+      if(acessoCriado){
+        mostrar("login"); $("loginEmail").value = email;
+        erro("Acesso criado! Entre com o e-mail e a senha que você acabou de escolher.", true);
+        iniciarSessaoNormal();
+      }else erroCadastro("Não foi possível confirmar o cadastro. Confira sua conexão. Se já criou o acesso, entre pela tela de login.");
+    }finally{
+      cadastroEmAndamento = false;
       btn.disabled = false; btn.textContent = txt;
-      erroCadastro(falha);
-      return;
     }
-
-    // conta criada — agora entra de verdade, com o e-mail/senha que a pessoa acabou de escolher
-    const { error: erroLogin } = await sb.auth.signInWithPassword({ email, password: senha });
-    btn.disabled = false; btn.textContent = txt;
-    if(erroLogin){
-      erroCadastro("Acesso criado! Mas não deu para entrar sozinho agora — vá para a tela de login e entre com o e-mail e a senha que você acabou de escolher.");
-      return;
-    }
-
-    history.replaceState(null, "", location.pathname + location.search);
-    tokenConvite = null;
-    iniciarSessaoNormal();
   });
 }
 

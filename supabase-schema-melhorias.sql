@@ -14,7 +14,7 @@ begin
   update public.convites_pendentes set usado_em = now()
   where token = p_token and usado_em is null and criado_em >= now() - interval '7 days'
   returning * into v;
-  if not found then raise exception 'Convite inválido, expirado ou já utilizado.'; end if;
+  if not found then raise exception using errcode = 'P0002', message = 'Convite inválido, expirado ou já utilizado.'; end if;
   return jsonb_build_object('nome', v.nome, 'papel', v.papel, 'cargo_id', v.cargo_id);
 end;
 $$;
