@@ -238,5 +238,8 @@ async function iniciar(){
 
 document.addEventListener("DOMContentLoaded", iniciar);
 
-window.ImperiumAuth = { sair: () => sb.auth.signOut() };
+window.ImperiumAuth = { sair: async () => {
+  try{ if(window.ImperiumPush) await window.ImperiumPush.desligarAparelho(true); }catch(_){}
+  return sb.auth.signOut();
+} };
 })();

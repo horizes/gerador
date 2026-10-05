@@ -3,7 +3,7 @@
    Estratégia "rede primeiro": sempre tenta buscar a versão nova no servidor (assim toda atualização
    que você publicar chega sozinha) e só usa a cópia guardada se estiver sem internet.
    NÃO mexe em nada de outro domínio — login, banco de dados (Supabase) e Open Finance passam direto. */
-const VERSAO = "imperium-v21";
+const VERSAO = "imperium-v23";
 
 const BASICO = [
   "./",
@@ -50,4 +50,31 @@ self.addEventListener("fetch", e => {
         )
       )
   );
+});
+
+/* Recebido pelo sistema mesmo sem nenhuma aba aberta. Links ficam dentro desta plataforma. */
+const ROTAS_PUSH = new Set(['','uniforme_solicitar','uniforme_gestao']);
+self.addEventListener('push', event => {
+ let payload={};try{payload=event.data?.json()||{};}catch{}
+ const route=ROTAS_PUSH.has(payload.route)?payload.route:'';
+ event.waitUntil(self.registration.showNotification(String(payload.title||'Imperium — novo aviso').slice(0,120),{
+  body:String(payload.body||'Acesse a plataforma para conferir.').slice(0,300),
+  icon:new URL('assets/icons/icon-192.png',self.registration.scope).href,
+  badge:new URL('assets/icons/icon-192.png',self.registration.scope).href,
+  tag:String(payload.tag||'imperium-aviso').slice(0,80),
+  data:{url:self.registration.scope+'#/'+route}
+ }));
+});
+self.addEventListener('notificationclick', event => {
+ event.notification.close();
+ event.waitUntil((async()=>{
+  const scope=self.registration.scope;let url=scope+'#/';
+  try{const target=new URL(event.notification.data?.url||url);
+   if(target.origin===new URL(scope).origin&&target.pathname===new URL(scope).pathname&&ROTAS_PUSH.has(target.hash.replace(/^#\//,'')))url=target.href;
+  }catch{}
+  const abertas=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  const janela=abertas.find(c=>c.url.startsWith(scope));
+  if(janela){const navegada=await janela.navigate(url);return (navegada||janela).focus();}
+  return self.clients.openWindow(url);
+ })());
 });

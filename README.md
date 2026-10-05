@@ -254,6 +254,8 @@ pedidos de teste, use o **Table Editor** do Supabase); o solicitante é sempre a
 
 ### Uniformes e EPI: aviso por e-mail
 
+Para avisos no aparelho com o site fechado, consulte [NOTIFICACOES-PUSH.md](NOTIFICACOES-PUSH.md). O push é independente do envio de e-mail abaixo.
+
 Além do aviso na tela e do número no menu, cada pedido novo pode mandar um e-mail para o endereço da empresa —
 facilita não precisar ficar de olho na plataforma. É opcional: sem configurar nada, tudo continua funcionando
 normalmente, só sem o e-mail.

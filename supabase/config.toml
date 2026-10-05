@@ -7,3 +7,7 @@ verify_jwt = false
 # A própria função valida o JWT com auth.getUser e a permissão no banco.
 [functions.open-finance]
 verify_jwt = false
+
+# O usuário é validado com auth.getUser; o cron usa um segredo exclusivo conferido na função.
+[functions.push-notificacoes]
+verify_jwt = false

@@ -1,5 +1,17 @@
 # Atualização da Plataforma Imperium
 
+## WhatsApp dos responsáveis e avisos no aparelho
+
+Clientes e postos ganhou “Chamar no WhatsApp” no contato do responsável/síndico. Use telefone com DDD; números brasileiros recebem o prefixo 55 automaticamente. Para números internacionais, informe `+` e código do país. O atalho abre a conversa, sem enviar mensagens automaticamente.
+
+O menu “Notificações” permite ativar exclusivamente avisos de uniforme/EPI no aparelho, mesmo com o site fechado. Requer configuração do servidor e autorização de cada aparelho. Siga `NOTIFICACOES-PUSH.md`; no iPhone, primeiro instale a plataforma na Tela de Início.
+
+## Endereço dos postos no mapa
+
+Em Clientes e postos, cada endereço preenchido agora tem o botão “Abrir no mapa”, com área de toque de pelo menos 44px. Ele usa Mapas da Apple no iPhone/iPad e Google Maps nos demais dispositivos; o navegador pode abrir a versão web conforme os aplicativos instalados e suas configurações. Preencha rua, número, cidade e estado para facilitar a localização.
+
+Para aplicar esta mudança, publique `index.html`, `js/modules/clientes-relatorios.js`, `css/clientes-relatorios.css` e `sw.js`. Não exige SQL, chave de mapa ou configuração no Supabase.
+
 ## Tela inicial repaginada
 
 Esta versão inclui uma nova home com saudação e data, atalhos conforme as permissões, cartões de ferramentas, avisos reais de pedidos de uniformes/EPI e visão financeira para quem tem acesso. O restante das ferramentas foi preservado.

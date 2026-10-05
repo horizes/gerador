@@ -1,0 +1,15 @@
+.sd-notificacoes{flex:0 0 auto;border-top:1px solid var(--rule);height:52px}
+.sd-notificacoes[hidden]{display:none}
+.sd-notificacoes.push-ativo{color:var(--gold-hi)}
+.push-dialog{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);overflow:auto;background:var(--panel);color:var(--cream);border:1px solid var(--rule);border-radius:8px;padding:24px;box-shadow:0 24px 80px #0009}
+.push-dialog::backdrop{background:#000a}
+.push-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.push-head h2{font-family:Oswald,sans-serif;font-size:22px;font-weight:500;margin:0}
+.push-dialog p,.push-dialog li{color:var(--muted);font-size:14px;line-height:1.6}
+.push-dialog ul{padding-left:20px}
+.push-status{border:1px solid var(--rule);padding:12px;border-radius:4px;color:var(--cream)!important;overflow-wrap:anywhere}
+.push-acoes{display:flex;flex-wrap:wrap;gap:10px}
+.push-dialog .btn{min-height:44px}
+.push-dialog .btn:disabled{opacity:.5;cursor:default}
+.push-dialog [hidden]{display:none!important}
+@media(max-width:600px){.push-dialog{padding:18px}.push-acoes .btn{width:100%}}

@@ -227,6 +227,7 @@ let iniciado = false;
 function iniciar(){
   if(iniciado) return; // evita reiniciar se o login disparar mais de uma vez
   iniciado = true;
+  if(window.ImperiumPush) window.ImperiumPush.iniciar();
   aplicarMenu(true);
   $("menu").addEventListener("click", () => gaveta(!$("shell").classList.contains("drawer-open")));
   $("scrim").addEventListener("click", () => gaveta(false));
