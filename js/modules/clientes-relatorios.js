@@ -5,6 +5,8 @@ const sb=()=>window.Imperium.supabase,uid=()=>window.Imperium.perfil.id;
 const fmt=s=>new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(s));
 const slug=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w-]+/g,'-').slice(0,65);
 const meses=()=>window.Imperium.hojeLocal().slice(0,7);
+// WhatsApp: Bootstrap Icons (MIT); licença em assets/licenses/bootstrap-icons.txt.
+const WHATSAPP_ICONE='<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/></svg>';
 let atual=null;
 async function rpc(n,a){const r=await sb().rpc(n,a);if(r.error)throw Error(r.error.message);return r.data;}
 async function ler(t){return window.Imperium.lerTodas(()=>sb().from(t).select('*').order('criado_em'));}
@@ -17,7 +19,7 @@ function contatoCliente(c){
  if(!/^\+?[\d\s().-]+$/.test(telefone))numero='';
  else if(!telefone.startsWith('+')&&(numero.length===10||numero.length===11))numero='55'+numero;
  if(!/^[1-9]\d{7,14}$/.test(numero)||(numero.startsWith('55')&&!/^55\d{10,11}$/.test(numero))||(!telefone.startsWith('+')&&!/^55\d{10,11}$/.test(numero)))numero='';
- return `<div class="op-contato"><span>${esc(c.contato)}<small>${esc([c.email,telefone].filter(Boolean).join(' · '))}</small></span>${numero?`<a class="btn ghost op-whatsapp" href="https://wa.me/${numero}" target="_blank" rel="noopener noreferrer" aria-label="${esc('Chamar '+(c.contato||c.nome)+' no WhatsApp')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a9 9 0 0 1-13.3 8L3 21l1.5-4.7A9 9 0 1 1 21 11.5Z"/><path d="M8 7c-2 2 2 7 5 8l2-2-2-1-1 1-2-2 1-1-1-3Z"/></svg>Chamar no WhatsApp</a>`:''}</div>`;
+ return `<div class="op-contato"><span>${esc(c.contato)}<small>${esc([c.email,telefone].filter(Boolean).join(' · '))}</small></span>${numero?`<a class="btn ghost op-whatsapp" href="https://wa.me/${numero}" target="_blank" rel="noopener noreferrer" aria-label="${esc('Chamar '+(c.contato||c.nome)+' no WhatsApp')}">${WHATSAPP_ICONE}Chamar no WhatsApp</a>`:''}</div>`;
 }
 function enderecoPosto(p){
  const endereco=String(p.endereco??'').trim();if(!endereco)return '<span class="op-endereco-vazio">Endereço não informado</span>';
