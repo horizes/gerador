@@ -7,3 +7,10 @@
 .op-contato{display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:320px;overflow-wrap:anywhere}
 .op .op-whatsapp{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;color:var(--gold-hi);text-decoration:none;white-space:nowrap}
 .op-whatsapp svg{display:block;width:20px;height:20px;flex-shrink:0}
+.op [hidden]{display:none!important}
+.op-abas{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 20px;border-bottom:1px solid var(--rule)}
+.op-abas button{display:flex;align-items:center;gap:9px;min-height:44px;padding:12px 18px;background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted);font-family:Oswald,sans-serif;font-size:13px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
+.op-abas button:hover{color:var(--cream)}
+.op-abas button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.op-abas button:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.op-abas span{font-family:Barlow,sans-serif;font-size:12px;letter-spacing:0;line-height:1.5;min-width:22px;padding:0 6px;border-radius:10px;background:var(--panel-2);color:var(--gold-hi)}

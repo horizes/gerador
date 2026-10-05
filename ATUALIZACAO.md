@@ -1,5 +1,11 @@
 # Atualização da Plataforma Imperium
 
+## Abas de clientes e postos
+
+**Clientes e postos** foi separado em duas abas com contadores. **Clientes** reúne cadastros e contatos, incluindo o WhatsApp dos responsáveis. **Postos** reúne os postos, endereços/atalhos de mapas e a alocação dos colaboradores. Trocar de aba preserva os campos preenchidos nos formulários. Após salvar, a aba selecionada continua aberta.
+
+Esta organização exige apenas publicar `index.html`, `js/modules/clientes-relatorios.js`, `css/clientes-relatorios.css` e `sw.js`, ou atualizar o pacote completo. Não exige SQL adicional.
+
 ## Padrão de propostas por conta
 
 O botão **Definir configurações atuais como padrão**, ao final da configuração do gerador, salva um modelo exclusivamente para a conta logada. O modelo é recuperado ao abrir o site em outro aparelho com essa mesma conta. Outras contas têm seus próprios padrões, inclusive contas administrativas.
