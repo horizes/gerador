@@ -331,12 +331,13 @@ function carimbar(g, w, h, linhas){
    ===================================================================================================== */
 const SOL = (function(){
   const CATEGORIAS = [
+    { id: "solicitar", rotulo: "Solicitar uniforme", estados: [] },
     { id: "pedidos", rotulo: "Pedidos", estados: ["pendente"], descricao: "Solicitações enviadas que aguardam atendimento." },
     { id: "andamento", rotulo: "Em andamento", estados: ["pronto", "parcial"], descricao: "Pedidos prontos para retirada ou com entrega parcial. Confirme os itens quando recebê-los." },
     { id: "concluidos", rotulo: "Concluídos", estados: ["concluido"], descricao: "Pedidos com recebimento concluído e seus comprovantes." },
     { id: "encerrados", rotulo: "Cancelados e recusados", estados: ["cancelado", "recusado"], descricao: "Histórico de solicitações canceladas ou recusadas." }
   ];
-  let categoria = "pedidos";
+  let categoria = "solicitar";
   let root = null;
   let cargo = null, kit = [], pedidos = [], urls = {};
   // tamanhos: { idDoItem: "M" } · quantidades: { idDoItem: 2 } — os dois começam vazios: a pessoa só pede o que preencher
@@ -439,6 +440,7 @@ const SOL = (function(){
     categoria = "pedidos";
     await recarregar();
     renderKit();
+    $("uniMeusCategorias").querySelector('[data-uni-categoria="pedidos"]').focus({ preventScroll: true });
     const meus = $("uniMeusCard"); if(meus) meus.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -446,23 +448,33 @@ const SOL = (function(){
   function renderMeus(){
     const el = $("uniMeus"); if(!el) return;
     const categorias = CATEGORIAS.filter(c => c.id !== "encerrados" || pedidos.some(p => c.estados.includes(p.status)));
-    if(!categorias.some(c => c.id === categoria)) categoria = "pedidos";
+    if(!categorias.some(c => c.id === categoria)) categoria = "solicitar";
     const atual = categorias.find(c => c.id === categoria);
     const lista = pedidos.filter(p => atual.estados.includes(p.status));
+    const foco = document.activeElement && document.activeElement.dataset.uniCategoria;
     $("uniMeusCategorias").innerHTML = categorias.map(c => {
       const n = pedidos.filter(p => c.estados.includes(p.status)).length;
-      return `<button type="button" data-uni-categoria="${c.id}" class="${categoria === c.id ? "on" : ""}" aria-pressed="${categoria === c.id}" aria-controls="uniMeus">${c.rotulo} <i aria-label="${n} pedidos">${n}</i></button>`;
+      return `<button type="button" role="tab" id="uniAba-${c.id}" data-uni-categoria="${c.id}" class="${categoria === c.id ? "on" : ""}" aria-selected="${categoria === c.id}" tabindex="${categoria === c.id ? 0 : -1}" aria-controls="${c.id === "solicitar" ? "uniSolicitarCard" : "uniMeusCard"}">${c.rotulo}${c.id === "solicitar" ? "" : ` <i aria-label="${n} pedidos">${n}</i>`}</button>`;
     }).join("");
-    $("uniMeusDescricao").textContent = atual.descricao;
+    if(foco){
+      const b = $("uniMeusCategorias").querySelector(`[data-uni-categoria="${foco}"]`) || $("uniMeusCategorias").querySelector(`[data-uni-categoria="${categoria}"]`);
+      b.focus({ preventScroll: true });
+    }
+    $("uniSolicitarCard").hidden = categoria !== "solicitar";
+    $("uniMeusCard").hidden = categoria === "solicitar";
+    $("uniMeusCard").setAttribute("aria-labelledby", `uniAba-${categoria}`);
+    $("uniMeusTitulo").textContent = atual.rotulo;
+    $("uniMeusDescricao").textContent = atual.descricao || "";
     el.innerHTML = pedidos.length
       ? lista.length ? lista.map(p => pedidoHtml(p, "meu", urls)).join("")
         : `<p class="uni-vazio">Nenhum pedido nesta categoria.</p>`
-      : `<p class="uni-vazio">Você ainda não fez nenhum pedido. Escolha os tamanhos acima e envie a solicitação.</p>`;
+      : `<p class="uni-vazio">Você ainda não fez nenhum pedido. Use a aba “Solicitar uniforme” para enviar uma solicitação.</p>`;
     const prontos = pedidos.filter(p => (p.status === "pronto" || p.status === "parcial") && p.itens.some(i => !i.recebimento_id));
     const av = $("uniAviso");
     if(av) av.innerHTML = prontos.length
       ? `<div class="uni-destaque"><b>${prontos.length === 1 ? "Você tem um pedido pronto para retirada." : `Você tem ${prontos.length} pedidos prontos para retirada.`}</b>
-         <span>Depois de retirar, toque em “Recebi uniforme e EPI” no pedido para confirmar.</span></div>`
+         <span>Depois de retirar, toque em “Recebi uniforme e EPI” no pedido para confirmar.</span>
+         <button class="btn ghost" type="button" data-uni-categoria="andamento">Ver pedidos em andamento</button></div>`
       : "";
   }
   async function recarregar(){
@@ -743,28 +755,40 @@ const SOL = (function(){
     if(b.dataset.cancelar){ cancelar(b.dataset.cancelar); return; }
   });
 
+  on("keydown", e => {
+    const b = e.target.closest('#uniMeusCategorias [role="tab"]');
+    if(!b || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const abas = [...$("uniMeusCategorias").querySelectorAll('[role="tab"]')];
+    const i = abas.indexOf(b);
+    const proxima = e.key === "Home" ? 0 : e.key === "End" ? abas.length - 1
+      : (i + (e.key === "ArrowRight" ? 1 : -1) + abas.length) % abas.length;
+    abas[proxima].click();
+  });
+
   const TEMPLATE = `
   <div class="uni-wrap">
-    <h1 class="uni-h">Solicitar uniforme e EPI</h1>
-    <p class="uni-sub">Cada cargo tem um kit de uniformes e EPIs já definido. Escolha só o seu tamanho e envie: o responsável é avisado assim que você enviar.</p>
+    <h1 class="uni-h">Uniformes e EPI</h1>
+    <p class="uni-sub">Solicite seus itens, acompanhe o atendimento e consulte os comprovantes de recebimento.</p>
+    <div class="uni-abas uni-meus-abas" id="uniMeusCategorias" role="tablist" aria-label="Uniformes e EPI"></div>
     <div id="uniAviso"></div>
 
-    <section class="uni-card">
+    <section class="uni-card" id="uniSolicitarCard" role="tabpanel" aria-labelledby="uniAba-solicitar">
       <h2 class="uni-h2">Novo pedido</h2>
+      <p class="uni-meus-descricao">Cada cargo tem um kit de uniformes e EPIs já definido. Escolha seus tamanhos e quantidades e envie: o responsável será avisado.</p>
       <div id="uniKit"></div>
       <div id="uniForm" hidden>
         <label class="f" style="margin-top:18px"><span>Observação (opcional)</span>
           <textarea id="uniObs" maxlength="500" placeholder="Ex.: o tamanho da calça mudou, preciso de uma numeração diferente"></textarea></label>
         <p class="uni-resumo" id="uniResumo"></p>
-        <p class="uni-info" id="uniPend" hidden>Você já tem um pedido aguardando atendimento. Quando ele for atendido, você poderá fazer outro.</p>
+        <p class="uni-info" id="uniPend" hidden>Você já tem um pedido aguardando atendimento. Quando ele for atendido, você poderá fazer outro. <button type="button" class="uni-link" data-uni-categoria="pedidos">Ver pedido</button></p>
         <p class="uni-erro" id="uniErro" hidden></p>
         <button class="btn" type="button" id="uniEnviar">Enviar solicitação</button>
       </div>
     </section>
 
-    <section class="uni-card" id="uniMeusCard">
-      <h2 class="uni-h2">Meus pedidos</h2>
-      <div class="uni-abas uni-meus-abas" id="uniMeusCategorias" role="group" aria-label="Categorias dos meus pedidos"></div>
+    <section class="uni-card" id="uniMeusCard" role="tabpanel" hidden>
+      <h2 class="uni-h2" id="uniMeusTitulo">Meus pedidos</h2>
       <p class="uni-meus-descricao" id="uniMeusDescricao"></p>
       <div id="uniMeus" aria-live="polite" aria-describedby="uniMeusDescricao"></div>
     </section>
@@ -777,7 +801,7 @@ const SOL = (function(){
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;   // a pessoa já saiu da tela antes de terminar de carregar
     root.innerHTML = TEMPLATE;
-    categoria = (CATEGORIAS.find(c => pedidos.some(p => c.estados.includes(p.status))) || CATEGORIAS[0]).id;
+    categoria = "solicitar";
     tamanhos = {}; quantidades = {}; obsPedido = "";
     ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
     renderKit(); renderMeus();

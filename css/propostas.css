@@ -124,6 +124,18 @@ h3.dt{font-family:'Barlow';font-weight:700;font-size:19.5px;letter-spacing:.01em
 .ajfoto{margin-top:12px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px}
 .ajfoto .f b{float:right;color:var(--gold);font-weight:600}
 .ajfoto input[type=range]{width:100%;padding:0}
+.cli-ajfoto{margin:10px 0 12px}
+.cli-ajfoto>summary{cursor:pointer;color:var(--gold);font-size:13px;min-height:44px;display:flex;align-items:center;gap:8px}
+.cli-ajfoto>summary::before{content:"›";font-size:20px;transition:transform .18s}
+.cli-ajfoto[open]>summary::before{transform:rotate(90deg)}
+.cli-ajfoto .ajfoto{margin-top:0}
+.cli-aj-preview{width:100%;max-width:57mm;margin:0 auto 14px;overflow:hidden;border:1px solid var(--rule);border-radius:5px;background:#F7F4EC}
+.cli-aj-preview.logo{background:#fff}
+.proposta-padrao .body{padding-top:4px}
+.proposta-padrao .btn{min-height:44px;white-space:normal;text-align:center}
+.proposta-padrao-aviso{margin:12px 0 0;font-size:13px;line-height:1.5;color:var(--gold-hi)}
+.proposta-padrao-aviso.erro{color:#FFC2C2}
+.proposta-padrao-aviso[hidden]{display:none}
 .svcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px;width:100%}
 .svcgrid div{
   border:1px solid #E4DFD3;border-radius:8px;padding:18px 8px 14px;font-weight:700;font-size:14.5px;line-height:1.28;

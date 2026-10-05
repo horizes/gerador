@@ -1,10 +1,24 @@
 # Atualização da Plataforma Imperium
 
+## Padrão de propostas por conta
+
+O botão **Definir configurações atuais como padrão**, ao final da configuração do gerador, salva um modelo exclusivamente para a conta logada. O modelo é recuperado ao abrir o site em outro aparelho com essa mesma conta. Outras contas têm seus próprios padrões, inclusive contas administrativas.
+
+O padrão mantém preços e configurações dos cargos, cargos personalizados, benefícios, base da convenção, seções, diferenciais, assinatura e imagens/enquadramentos dos clientes e parceiros. **Nova proposta** e a abertura após recarregar o site começam com esse modelo, mas reiniciam cliente, responsável, tipo/tratamento/cidade do destinatário, nome do arquivo, foto da capa/enquadramento, escopo manual e observações. A data volta ao dia atual. Cargos e acúmulos começam desmarcados; postos e pessoas voltam a 1. A proposta em elaboração continua apenas na memória da aba e não é salva automaticamente.
+
+**Para ativar:** no Supabase, abra **SQL Editor → New query**, cole todo o conteúdo de `supabase-schema-propostas-padrao.sql` e clique em **Run**. Depois publique os arquivos do pacote (ou somente `index.html`, `js/modules/propostas.js`, `css/propostas.css` e `sw.js`). A tabela requer os scripts de perfis e permissões já instalados. Sem essa atualização, o gerador continua funcionando e informa que o padrão ainda precisa ser ativado.
+
+## Imagens dos clientes e parceiros na proposta
+
+Em **Gerador de propostas → Clientes e parceiros**, cada imagem tem **Ajustar imagem**, com prévia, zoom, posição horizontal/vertical, altura e restauração do enquadramento. Funciona tanto para fotos quanto para logos e mantém os ajustes de cada cliente separados. Trocar o arquivo restaura o enquadramento dessa imagem. Os ajustes são usados na prévia e no PDF. O título da seção no documento e no Word é **Clientes e parceiros que confiam na Imperium**.
+
+Publique `index.html`, `js/modules/propostas.js`, `css/propostas.css` e `sw.js`, ou substitua os arquivos pelo pacote completo. Não requer comandos nem alterações no Supabase.
+
 ## Visualizar senhas e acompanhar pedidos de uniforme
 
 Login, cadastro por convite e definição/redefinição de senha têm um botão de olho em cada campo para mostrar ou ocultar o texto. As senhas começam ocultas; a troca de tela volta a ocultá-las. O botão também funciona pelo teclado e mantém o valor e as validações do campo.
 
-Na solicitação de uniformes/EPI do colaborador, “Meus pedidos” passou a ter categorias com contadores: **Pedidos** (aguardando atendimento), **Em andamento** (prontos para retirada ou entrega parcial) e **Concluídos**. A categoria **Cancelados e recusados** aparece quando existe histórico dessas situações. As ações de cancelamento, confirmação de recebimento e os comprovantes continuam disponíveis nos pedidos correspondentes.
+A tela de uniformes/EPI do colaborador foi distribuída em abas: **Solicitar uniforme** contém o formulário de novo pedido; **Pedidos** contém solicitações aguardando atendimento; **Em andamento** reúne pedidos prontos para retirada ou com entrega parcial; **Concluídos** reúne os recebimentos concluídos e seus comprovantes. As abas do histórico têm contadores, e **Cancelados e recusados** aparece quando há pedidos nessas situações. Trocar de aba preserva o que foi preenchido no formulário. Ao enviar, o novo pedido aparece automaticamente na aba **Pedidos**. As ações de cancelamento e confirmação de recebimento continuam disponíveis nos pedidos correspondentes.
 
 Para aplicar esta atualização, publique `index.html`, `css/auth.css`, `js/auth.js`, `css/uniformes.css`, `js/modules/uniformes.js` e `sw.js`, ou substitua os arquivos do site pelo pacote completo. Esta mudança não exige novos scripts SQL, comandos ou configurações no Supabase.
 

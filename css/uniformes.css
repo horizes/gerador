@@ -260,8 +260,9 @@
 /* campos da mesma altura nas linhas de item e de tipo */
 .uni-tipo select,.uni-tipo input[type=text]{height:38px}
 
-/* Categorias do histórico do colaborador */
-.uni-meus-abas{border-bottom:1px solid var(--rule);margin-top:8px}
+/* Abas de solicitação e acompanhamento do colaborador */
+.uni-meus-abas{border-bottom:1px solid var(--rule);margin:8px 0 22px}
 .uni-meus-abas button{min-height:44px;display:flex;align-items:center;gap:8px;text-align:left}
 .uni-meus-abas button:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
 .uni-meus-descricao{margin:16px 0;color:var(--muted);font-size:14px;line-height:1.5}
+.uni-destaque .btn{align-self:flex-start;margin-top:8px}

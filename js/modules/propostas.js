@@ -116,13 +116,84 @@ function novoCargo(base, salMin){
     vr:PAD.vr, vt:PAD.vt, va:PAD.va};
 }
 
-let S = ESTADO_INICIAL();
-CATALOGO.forEach(c => S.cargos[c.id] = novoCargo(c));
-
-/* ---------- sem persistência: a proposta vive só na memória da aba aberta.
-   Ao fechar/recarregar o site, o script roda de novo do zero e ESTADO_INICIAL() já
-   traz a data atual — então a próxima abertura sempre começa zerada e com o dia de hoje. */
-function salvar(){ /* intencionalmente não salva mais em localStorage */ }
+const CAMPOS_PADRAO = ["cidade","base","assinante","cargoAssinante","dias","salMin","fator","secoes","difs","clientes","logoConnect","logoFlash","logoV"];
+const objeto = v => v && typeof v === "object" && !Array.isArray(v);
+const copiar = v => JSON.parse(JSON.stringify(v));
+function estadoBase(){
+  const s = ESTADO_INICIAL();
+  CATALOGO.forEach(c => s.cargos[c.id] = novoCargo(c,s.salMin));
+  return s;
+}
+function cargoPadrao(c, base, salMin){
+  const novo = novoCargo(base,salMin);
+  Object.keys(novo).forEach(k => {
+    if(["on","postos","func","acum"].includes(k)) return;
+    if(c && typeof c[k] === typeof novo[k] && (typeof c[k] !== "number" || Number.isFinite(c[k]))) novo[k] = c[k];
+  });
+  return novo;
+}
+/* Lista explícita: dados do destinatário, foto da capa e observações nunca entram no padrão. */
+function extrairPadrao(fonte){
+  const inicial = ESTADO_INICIAL(), p = {};
+  CAMPOS_PADRAO.forEach(k => {
+    const v = fonte[k];
+    if(typeof inicial[k] === "string" && typeof v === "string") p[k] = v;
+    else if(typeof inicial[k] === "number" && typeof v === "number" && Number.isFinite(v)) p[k] = v;
+  });
+  p.secoes = Object.assign({},inicial.secoes);
+  if(objeto(fonte.secoes)) Object.keys(p.secoes).forEach(k => {
+    if(typeof fonte.secoes[k] === "boolean") p.secoes[k] = fonte.secoes[k];
+  });
+  SECOES.filter(s=>s.fixo).forEach(s=>p.secoes[s.id]=true);
+  p.difs = Array.isArray(fonte.difs) ? fonte.difs.filter(objeto).map(d=>({t:String(d.t||""),d:String(d.d||"")})) : inicial.difs;
+  p.clientes = Array.isArray(fonte.clientes) ? fonte.clientes.filter(objeto).map(c=>({
+    t:String(c.t||""),n:String(c.n||""),c:String(c.c||""),foto:String(c.foto||""),modo:c.modo==="logo"?"logo":"foto",fotoAj:clienteFotoAjuste(c)
+  })) : inicial.clientes;
+  p.cargos = {};
+  CATALOGO.forEach(c=>p.cargos[c.id]=cargoPadrao(objeto(fonte.cargos)?fonte.cargos[c.id]:null,c,p.salMin));
+  p.extras = Array.isArray(fonte.extras) ? fonte.extras.filter(objeto).map(c=>cargoPadrao(c,CATALOGO[0],p.salMin)) : [];
+  return p;
+}
+function estadoComPadrao(p){
+  return Object.assign(estadoBase(),p ? copiar(p) : {});
+}
+let S = estadoBase();
+let padrao = null, contaEstado = null, montagem = 0, salvandoPadrao = false;
+let avisoPadrao = "", falhaPadrao = false;
+const contaAtual = () => window.Imperium.perfil && window.Imperium.perfil.id;
+function erroPadrao(e){
+  if(/schema cache|does not exist|Could not find|PGRST205|42P01/i.test((e&&e.message)||""))
+    return "Para ativar o padrão da conta, execute supabase-schema-propostas-padrao.sql no SQL Editor do Supabase e reabra esta tela.";
+  return "Não foi possível acessar o padrão da sua conta. Confira a conexão e tente novamente.";
+}
+function atualizarAvisoPadrao(){
+  if(!root) return;
+  const el = root.querySelector('#propostaPadraoAviso');
+  if(el){ el.textContent = avisoPadrao; el.hidden = !avisoPadrao; el.classList.toggle('erro',falhaPadrao); }
+  const btn = root.querySelector('#salvarPropostaPadrao');
+  if(btn){ btn.disabled = salvandoPadrao || !contaAtual(); btn.textContent = salvandoPadrao ? "Salvando…" : "Definir configurações atuais como padrão"; }
+}
+async function gravarPadrao(){
+  const conta = contaAtual();
+  if(!conta || salvandoPadrao) return;
+  if(conta !== contaEstado){ avisoPadrao = "Reabra o gerador para carregar as configurações da conta atual."; falhaPadrao = true; atualizarAvisoPadrao(); return; }
+  const versaoMontagem = montagem, dados = extrairPadrao(S);
+  salvandoPadrao = true; avisoPadrao = ""; falhaPadrao = false; atualizarAvisoPadrao();
+  try{
+    const {data,error} = await window.Imperium.supabase.from('proposta_padroes')
+      .upsert({usuario_id:conta,configuracao:{versao:1,dados}},{onConflict:'usuario_id'}).select('usuario_id').single();
+    if(error) throw error;
+    if(!data || data.usuario_id !== conta) throw new Error('Gravação não confirmada');
+    if(contaAtual() !== conta || contaEstado !== conta) return;
+    padrao = copiar(dados);
+    if(versaoMontagem === montagem) avisoPadrao = "Padrão salvo na sua conta. Será usado nas novas propostas, inclusive em outros aparelhos.";
+  }catch(e){
+    if(contaAtual() === conta && versaoMontagem === montagem){ avisoPadrao = erroPadrao(e); falhaPadrao = true; }
+  }finally{
+    salvandoPadrao = false;
+    atualizarAvisoPadrao();
+  }
+}
 
 /* ---------- helpers ---------- */
 const n2 = v => (Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -191,6 +262,28 @@ function fotoAjuste(){
 function fotoEstilo(){
   const a = fotoAjuste();
   return `width:100%;height:100%;object-fit:cover;display:block;object-position:${a.x}% ${a.y}%;transform:scale(${a.zoom/100});transform-origin:${a.x}% ${a.y}%`;
+}
+
+/* Cada cliente/parceiro mantém seu próprio enquadramento. */
+function clienteFotoAjuste(c){
+  const a = Object.assign({zoom:100,x:50,y:50,alt:37}, c.fotoAj||{});
+  const n = (v,d,mi,ma)=>{ v=parseFloat(v); return isNaN(v)?d:Math.min(ma,Math.max(mi,v)); };
+  return {zoom:n(a.zoom,100,100,300),x:n(a.x,50,0,100),y:n(a.y,50,0,100),alt:n(a.alt,37,20,50)};
+}
+function clienteFotoEstilo(c, miniatura=false){
+  const a = clienteFotoAjuste(c);
+  return `width:100%;height:100%;object-fit:${c.modo==="logo"?"contain":"cover"};display:block;object-position:${a.x}% ${a.y}%;transform:scale(${a.zoom/100});transform-origin:${a.x}% ${a.y}%;${c.modo==="logo"?`background:#fff;padding:${miniatura?3:14}px`:"padding:0"}`;
+}
+function atualizarClienteFoto(i){
+  const c = S.clientes[i]; if(!c) return;
+  const thumb = root.querySelector(`[data-thumb="${i}"] img`);
+  if(thumb) thumb.setAttribute("style", clienteFotoEstilo(c,true));
+  const preview = root.querySelector(`[data-cli-preview="${i}"]`);
+  if(preview){
+    preview.style.height = `${clienteFotoAjuste(c).alt}mm`;
+    preview.classList.toggle("logo", c.modo === "logo");
+    preview.querySelector("img").setAttribute("style",clienteFotoEstilo(c));
+  }
 }
 
 /* ---------- PAINEL ---------- */
@@ -391,7 +484,7 @@ function painel(){
           <div class="row" style="align-items:flex-start">
             <div style="flex:0 0 52px">
               <div class="cli-thumb" data-thumb="${i}" style="width:52px;height:52px;border-radius:6px;overflow:hidden;border:1px solid var(--rule);background:#0E0C08;display:flex;align-items:center;justify-content:center">
-                ${c.foto?`<img src="${c.foto}" style="width:100%;height:100%;object-fit:${c.modo==="logo"?"contain":"cover"};${c.modo==="logo"?"background:#fff;padding:3px":""}">`:'<span style="color:var(--muted);font-size:9px;text-align:center">sem foto</span>'}
+                ${c.foto?`<img src="${c.foto}" alt="${esc(c.n)}" style="${clienteFotoEstilo(c,true)}">`:'<span style="color:var(--muted);font-size:9px;text-align:center">sem foto</span>'}
               </div>
             </div>
             <div style="flex:1;min-width:0">
@@ -406,10 +499,22 @@ function painel(){
             </label>
           </div>
           <label class="f"><span>Cidade</span><input type="text" data-cli="${i}.c" value="${esc(c.c)}"></label>
+          ${c.foto?(()=>{const a=clienteFotoAjuste(c);return `
+          <details class="cli-ajfoto">
+            <summary>Ajustar imagem</summary>
+            <div class="ajfoto">
+              <div class="cli-aj-preview${c.modo==="logo"?" logo":""}" data-cli-preview="${i}" style="height:${a.alt}mm"><img src="${c.foto}" alt="Prévia de ${esc(c.n)}" style="${clienteFotoEstilo(c)}"></div>
+              <label class="f"><span>Zoom <b>${a.zoom}%</b></span><input type="range" min="100" max="300" step="5" data-cliaj="${i}.zoom" value="${a.zoom}" aria-label="Zoom de ${esc(c.n)}"></label>
+              <label class="f"><span>Posição horizontal <b>${a.x}%</b></span><input type="range" min="0" max="100" step="1" data-cliaj="${i}.x" value="${a.x}" aria-label="Posição horizontal de ${esc(c.n)}"></label>
+              <label class="f"><span>Posição vertical <b>${a.y}%</b></span><input type="range" min="0" max="100" step="1" data-cliaj="${i}.y" value="${a.y}" aria-label="Posição vertical de ${esc(c.n)}"></label>
+              <label class="f"><span>Altura da imagem <b>${a.alt} mm</b></span><input type="range" min="20" max="50" step="1" data-cliaj="${i}.alt" value="${a.alt}" aria-label="Altura da imagem de ${esc(c.n)}"></label>
+              <button class="rm" type="button" data-resetcliaj="${i}">restaurar enquadramento</button>
+            </div>
+          </details>`;})():""}
           <button class="rm" data-delcli="${i}">remover</button>
         </div></div>`).join("")}
       <button class="btn ghost wide" id="addcli">+ Cliente ou parceiro</button>
-      <p class="hint">Envie uma foto do local ou a logo do parceiro (arquivo local, fica salvo só neste documento).</p>
+      <p class="hint">Envie uma foto do local ou a logo e use “Ajustar imagem” para definir o zoom, as posições e a altura de cada cliente ou parceiro. Os ajustes aparecem na proposta e no PDF (ficam só neste documento).</p>
     </div>
   </details>
 
@@ -428,14 +533,24 @@ function painel(){
     </div>
   </details>
 
+  <section class="sec proposta-padrao">
+    <div class="body">
+      <div class="mini">Padrão da sua conta</div>
+      <button class="btn ghost wide" type="button" id="salvarPropostaPadrao">Definir configurações atuais como padrão</button>
+      <p class="hint">Mantém valores e configurações dos cargos, cargos personalizados, benefícios, seções, diferenciais, assinatura e imagens dos clientes e parceiros. Em novas propostas, limpa os dados do cliente, foto da capa, escopo e observações; atualiza a data e desmarca os cargos, acúmulos e quantidades da contratação.</p>
+      <p class="proposta-padrao-aviso" id="propostaPadraoAviso" role="status" hidden></p>
+    </div>
+  </section>
+
   <div class="actions">
     <button class="btn wide" id="pdf2">Baixar / compartilhar PDF</button>
     <button class="btn ghost wide" id="print2">Imprimir (caixa do navegador)</button>
     <button class="btn ghost wide" id="word">Exportar para Word (.docx)</button>
-    <button class="btn ghost wide" id="zerar">Nova proposta em branco</button>
+    <button class="btn ghost wide" id="zerar">Nova proposta</button>
   </div>`;
 
   const t = document.querySelector('[data-p="obs"]'); if(t) t.value = S.obs || "";
+  atualizarAvisoPadrao();
 }
 
 /* ---------- PÁGINAS ---------- */
@@ -563,8 +678,8 @@ function pgPonto(){
 
 function pgClientes(){
   return page(`${HEAD}
-    <h2 class="dt center" style="text-align:center">Alguns de nossos clientes e parceiros</h2>
-    <div class="clientes">${S.clientes.map(c=>`<div>${c.foto?`<div class="foto${c.modo==="logo"?" logo":""}"><img src="${c.foto}"></div>`:""}<div class="info"><em>${esc(c.t)}</em><b>${esc(c.n)}</b><span class="cid">${esc(c.c)}</span></div></div>`).join("")}</div>
+    <h2 class="dt center" style="text-align:center">Clientes e parceiros que confiam na Imperium</h2>
+    <div class="clientes">${S.clientes.map(c=>`<div>${c.foto?`<div class="foto${c.modo==="logo"?" logo":""}" style="height:${clienteFotoAjuste(c).alt}mm"><img src="${c.foto}" alt="${esc(c.n)}" style="${clienteFotoEstilo(c)}"></div>`:""}<div class="info"><em>${esc(c.t)}</em><b>${esc(c.n)}</b><span class="cid">${esc(c.c)}</span></div></div>`).join("")}</div>
     <div style="margin-top:38px;padding-top:26px;border-top:1px solid #E4DFD3">
       <p style="font-family:'Oswald';letter-spacing:.22em;text-transform:uppercase;font-size:14px;color:var(--accent);margin:0 0 8px">Quem somos</p>
       <h2 class="dt noline" style="font-size:32px;max-width:120mm">Focamos no que é essencial para que você foque no seu negócio.</h2>
@@ -715,12 +830,46 @@ function ajustarPagina(paper, maxPx){
   if(paper.scrollHeight <= maxPx) return;
   paper.classList.add("compacto2");
   if(paper.scrollHeight <= maxPx) return;
+  if(paper.querySelector(".clientes")) transbordarClientes(paper, maxPx);
   // ainda transborda mesmo no modo mais compacto: se a folha tem uma lista (diferenciais,
   // serviços solicitados/CBO etc.), move os últimos itens para uma folha de continuação
   if(paper.querySelector("ul.dt, ol.dt")) transbordarLista(paper, maxPx);
   // sobrou transbordo (ou a folha nem tinha lista — caso da carta, que é só parágrafo):
   // move os últimos blocos de conteúdo inteiros (parágrafos, títulos etc.) para uma continuação
   if(paper.scrollHeight > maxPx) transbordarBlocos(paper, maxPx);
+}
+
+/* O mosaico precisa ser dividido por linhas; mover o bloco inteiro para outra
+   folha repetiria o mesmo transbordo, especialmente com imagens mais altas. */
+function transbordarClientes(paper, maxPx){
+  if(tempoEsgotado()) return;
+  const grid = paper.querySelector(".clientes");
+  if(!grid || grid.parentElement !== paper || paper.scrollHeight <= maxPx) return;
+  const seguintes = [];
+  for(let el = grid.nextElementSibling; el && !el.classList.contains("pfoot"); el = el.nextElementSibling) seguintes.push(el);
+  seguintes.forEach(el => el.remove());
+  const excedentes = [];
+  while(paper.scrollHeight > maxPx && grid.children.length > 3 && !tempoEsgotado()){
+    const linha = [...grid.children].slice(-(grid.children.length % 3 || 3));
+    linha.forEach(el => el.remove());
+    excedentes.unshift(...linha);
+  }
+  if(!seguintes.length && !excedentes.length) return;
+  _paginasCriadas++;
+  const continuacao = document.createElement("section");
+  continuacao.className = "paper compacto2";
+  continuacao.innerHTML = HEAD;
+  if(excedentes.length){
+    continuacao.insertAdjacentHTML("beforeend", '<h3 class="dt" style="color:#111">Clientes e parceiros que confiam na Imperium (continuação)</h3>');
+    const novoGrid = document.createElement("div");
+    novoGrid.className = "clientes";
+    excedentes.forEach(el => novoGrid.appendChild(el));
+    continuacao.appendChild(novoGrid);
+  }
+  seguintes.forEach(el => continuacao.appendChild(el));
+  continuacao.insertAdjacentHTML("beforeend", FOOT);
+  paper.after(continuacao);
+  ajustarPagina(continuacao, maxPx);
 }
 
 function transbordarBlocos(paper, maxPx){
@@ -815,7 +964,6 @@ function renderPapers(){
   atualizarFinais();
   document.getElementById("papers").innerHTML = htmlPapers();
   agendarTransbordo();
-  salvar();
 }
 
 /* ---------- eventos ---------- */
@@ -859,6 +1007,15 @@ function recalcInsalTodos(){
 on("input", e=>{
   const t = e.target;
   if(t.type==="checkbox") return;
+  if(t.dataset.cliaj){
+    const [i,campo] = t.dataset.cliaj.split(".");
+    const c = S.clientes[+i]; if(!c) return;
+    c.fotoAj = Object.assign(clienteFotoAjuste(c),{[campo]:parseFloat(t.value)});
+    const a = clienteFotoAjuste(c);
+    const b = t.parentElement.querySelector("b"); if(b) b.textContent = a[campo] + (campo==="alt"?" mm":"%");
+    atualizarClienteFoto(+i);
+    renderPapers(); return;
+  }
   if(t.dataset.p){
     let v=t.value; if(t.type==="number") v=parseFloat(v)||0;
     set(t.dataset.p,v);
@@ -905,7 +1062,9 @@ on("input", e=>{
   }
   if(t.dataset.cli){
     const [i,campo] = t.dataset.cli.split(".");
-    S.clientes[+i][campo] = t.value; renderPapers(); return;
+    S.clientes[+i][campo] = t.value;
+    if(campo==="modo") atualizarClienteFoto(+i);
+    renderPapers(); return;
   }
 });
 
@@ -957,6 +1116,7 @@ on("change", e=>{
     const reader = new FileReader();
     reader.onload = () => {
       S.clientes[i].foto = reader.result;
+      S.clientes[i].fotoAj = {zoom:100,x:50,y:50,alt:37};
       painel(); renderPapers();
     };
     reader.onerror = () => alert("Não foi possível ler essa imagem.");
@@ -1012,13 +1172,24 @@ on("click", e=>{
   if(b.id==="delLogoConnect"){ S.logoConnect=""; painel(); renderPapers(); return; }
   if(b.id==="delLogoFlash"){ S.logoFlash=""; painel(); renderPapers(); return; }
   if(b.id==="addcli"){ S.clientes.push({t:"Empresa",n:"Nome do parceiro",c:"Campinas SP"}); painel(); renderPapers(); return; }
+  if(b.dataset.resetcliaj!==undefined){
+    const i = +b.dataset.resetcliaj, c = S.clientes[i]; if(!c) return;
+    c.fotoAj = {zoom:100,x:50,y:50,alt:37};
+    root.querySelectorAll(`[data-cliaj^="${i}."]`).forEach(t=>{
+      const campo = t.dataset.cliaj.split(".")[1];
+      t.value = c.fotoAj[campo];
+      t.parentElement.querySelector("b").textContent = c.fotoAj[campo] + (campo==="alt"?" mm":"%");
+    });
+    atualizarClienteFoto(i); renderPapers(); return;
+  }
   if(b.dataset.delcli){ S.clientes.splice(+b.dataset.delcli,1); painel(); renderPapers(); return; }
   if(b.id==="pdf"||b.id==="pdf2"){ exportarPdf(); return; }
   if(b.id==="print"||b.id==="print2"){ imprimir(); return; }
   if(b.id==="word"){ exportarWord(); return; }
+  if(b.id==="salvarPropostaPadrao"){ gravarPadrao(); return; }
   if(b.id==="zerar"){
-    if(!confirm("Limpar todos os campos e começar uma proposta nova?")) return;
-    S = ESTADO_INICIAL(); CATALOGO.forEach(c=>S.cargos[c.id]=novoCargo(c));
+    if(!confirm("Iniciar uma nova proposta? Os dados deste cliente serão limpos e as configurações do seu padrão serão mantidas.")) return;
+    S = estadoComPadrao(padrao);
     painel(); renderPapers(); return;
   }
   if(b.id==="zin"||b.id==="zout"){
@@ -1215,7 +1386,7 @@ function docBody(){
 
   /* clientes */
   if(S.secoes.clientes){
-    P_.push(BRK, MARCA(), H("Alguns de nossos clientes e parceiros",{align:"center"}));
+    P_.push(BRK, MARCA(), H("Clientes e parceiros que confiam na Imperium",{align:"center"}));
     const ln=[]; for(let i=0;i<S.clientes.length;i+=2) ln.push(S.clientes.slice(i,i+2));
     P_.push(TBL(ln.map(l=>TR(l.map(c=>TD(c.t+" — "+c.n+" ("+c.c+")",{align:"left"}))
       .concat(Array(2-l.length).fill(TD(""))))))); 
@@ -1522,9 +1693,32 @@ const TEMPLATE = `
   </main>
 </div>`;
 
-function mount(el){
+async function mount(el){
   root = el;
   root.className = "mod-propostas m-edit";
+  const atual = ++montagem, conta = contaAtual() || null;
+  if(contaEstado !== conta){
+    S = estadoBase(); padrao = null; avisoPadrao = ""; falhaPadrao = false;
+    if(conta){
+      root.innerHTML = '<p class="hint" style="padding:40px 26px">Carregando o padrão da sua conta…</p>';
+      try{
+        const {data,error} = await window.Imperium.supabase.from('proposta_padroes').select('configuracao').eq('usuario_id',conta).maybeSingle();
+        if(error) throw error;
+        if(atual !== montagem || root !== el || contaAtual() !== conta) return;
+        if(data){
+          if(!objeto(data.configuracao) || data.configuracao.versao !== 1 || !objeto(data.configuracao.dados)) throw new Error('Padrão inválido');
+          padrao = extrairPadrao(data.configuracao.dados);
+          S = estadoComPadrao(padrao);
+          avisoPadrao = "Novas propostas usam o padrão salvo na sua conta.";
+        }
+      }catch(e){
+        if(atual !== montagem || root !== el || contaAtual() !== conta) return;
+        avisoPadrao = erroPadrao(e); falhaPadrao = true;
+      }
+    }
+    contaEstado = conta;
+  }
+  if(atual !== montagem || root !== el) return;
   root.innerHTML = TEMPLATE;
   zoom = 1;
   ouvintes.forEach(([t,fn]) => root.addEventListener(t, fn));
@@ -1536,6 +1730,7 @@ function mount(el){
 }
 
 function unmount(){
+  montagem++;
   if(!root) return;
   ouvintes.forEach(([t,fn]) => root.removeEventListener(t, fn));
   if(ro){ ro.disconnect(); ro = null; }

@@ -10,6 +10,8 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 
 ## Configuração do Supabase (fazer uma vez)
 
+Para usar **Definir configurações atuais como padrão** no Gerador de propostas, execute também `supabase-schema-propostas-padrao.sql` após os scripts de perfis/permissões. Cada conta salva e consulta apenas o próprio modelo, em qualquer aparelho. Os dados específicos de cada proposta continuam sendo reiniciados; veja `ATUALIZACAO.md` para os campos preservados e limpos.
+
 1. **Rode o SQL:** no painel do Supabase, abra **SQL Editor > New query**, cole o conteúdo de
    `supabase-schema.sql` e clique em **Run**. Isso cria as tabelas do Fluxo de Caixa, protege o acesso
    (só quem estiver logado consegue ler/gravar) e já cadastra as categorias padrão.
