@@ -13,6 +13,39 @@
 const sb = window.Imperium.supabase;
 const $ = id => document.getElementById(id);
 
+const controlesSenha = [];
+function ligarVisibilidadeSenhas(){
+  const olho = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const olhoFechado = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.1 4.1M6.1 6.1A17 17 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.9-1.9M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  document.querySelectorAll('.login-box input[type="password"]').forEach(input => {
+    if(input.closest('.password-field')) return;
+    const campo = document.createElement('div');
+    campo.className = 'password-field';
+    input.before(campo);
+    campo.append(input);
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'password-toggle';
+    botao.setAttribute('aria-controls', input.id);
+    const definir = visivel => {
+      input.type = visivel ? 'text' : 'password';
+      botao.setAttribute('aria-pressed', String(visivel));
+      botao.setAttribute('aria-label', visivel ? 'Ocultar senha' : 'Mostrar senha');
+      botao.title = visivel ? 'Ocultar senha' : 'Mostrar senha';
+      botao.innerHTML = visivel ? olhoFechado : olho;
+    };
+    definir(false);
+    botao.addEventListener('click', e => {
+      const inicio = input.selectionStart, fim = input.selectionEnd;
+      definir(input.type === 'password');
+      if(e.detail > 0) input.focus({ preventScroll: true });
+      if(inicio !== null) input.setSelectionRange(inicio, fim);
+    });
+    campo.append(botao);
+    controlesSenha.push(definir);
+  });
+}
+
 /* Redefinição de senha ("Esqueci minha senha"): o Supabase autentica a sessão sozinho e manda de
    volta para o site com #access_token=...&type=recovery na URL. Detectamos isso já na carga da
    página para mostrar a tela "Defina sua senha" em vez de abrir a plataforma direto — só depois
@@ -29,6 +62,7 @@ let tokenConvite = paramsConvite ? paramsConvite.get("token") : null;
 const nomeConvite = paramsConvite ? (paramsConvite.get("nome") || "") : "";
 
 function mostrar(tela){
+  controlesSenha.forEach(definir => definir(false));
   $("login").style.display = tela === "login" ? "flex" : "none";
   $("senha").style.display = tela === "senha" ? "flex" : "none";
   $("cadastro").style.display = tela === "cadastro" ? "flex" : "none";
@@ -227,6 +261,7 @@ function iniciarSessaoNormal(){
 }
 
 async function iniciar(){
+  ligarVisibilidadeSenhas();
   ligarFormulario();
   ligarFormularioSenha();
   ligarFormularioCadastro();

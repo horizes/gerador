@@ -1,5 +1,13 @@
 # Atualização da Plataforma Imperium
 
+## Visualizar senhas e acompanhar pedidos de uniforme
+
+Login, cadastro por convite e definição/redefinição de senha têm um botão de olho em cada campo para mostrar ou ocultar o texto. As senhas começam ocultas; a troca de tela volta a ocultá-las. O botão também funciona pelo teclado e mantém o valor e as validações do campo.
+
+Na solicitação de uniformes/EPI do colaborador, “Meus pedidos” passou a ter categorias com contadores: **Pedidos** (aguardando atendimento), **Em andamento** (prontos para retirada ou entrega parcial) e **Concluídos**. A categoria **Cancelados e recusados** aparece quando existe histórico dessas situações. As ações de cancelamento, confirmação de recebimento e os comprovantes continuam disponíveis nos pedidos correspondentes.
+
+Para aplicar esta atualização, publique `index.html`, `css/auth.css`, `js/auth.js`, `css/uniformes.css`, `js/modules/uniformes.js` e `sw.js`, ou substitua os arquivos do site pelo pacote completo. Esta mudança não exige novos scripts SQL, comandos ou configurações no Supabase.
+
 ## WhatsApp dos responsáveis e avisos no aparelho
 
 Clientes e postos ganhou “Chamar no WhatsApp” no contato do responsável/síndico. Use telefone com DDD; números brasileiros recebem o prefixo 55 automaticamente. Para números internacionais, informe `+` e código do país. O atalho abre a conversa, sem enviar mensagens automaticamente.

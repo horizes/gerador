@@ -330,6 +330,13 @@ function carimbar(g, w, h, linhas){
    Ferramenta 1 — Solicitar uniforme e EPI
    ===================================================================================================== */
 const SOL = (function(){
+  const CATEGORIAS = [
+    { id: "pedidos", rotulo: "Pedidos", estados: ["pendente"], descricao: "Solicitações enviadas que aguardam atendimento." },
+    { id: "andamento", rotulo: "Em andamento", estados: ["pronto", "parcial"], descricao: "Pedidos prontos para retirada ou com entrega parcial. Confirme os itens quando recebê-los." },
+    { id: "concluidos", rotulo: "Concluídos", estados: ["concluido"], descricao: "Pedidos com recebimento concluído e seus comprovantes." },
+    { id: "encerrados", rotulo: "Cancelados e recusados", estados: ["cancelado", "recusado"], descricao: "Histórico de solicitações canceladas ou recusadas." }
+  ];
+  let categoria = "pedidos";
   let root = null;
   let cargo = null, kit = [], pedidos = [], urls = {};
   // tamanhos: { idDoItem: "M" } · quantidades: { idDoItem: 2 } — os dois começam vazios: a pessoa só pede o que preencher
@@ -429,6 +436,7 @@ const SOL = (function(){
     tamanhos = {}; quantidades = {}; obsPedido = "";
     if($("uniObs")) $("uniObs").value = "";
     window.Platform.toast("Solicitação enviada. O responsável já foi avisado.");
+    categoria = "pedidos";
     await recarregar();
     renderKit();
     const meus = $("uniMeusCard"); if(meus) meus.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -437,8 +445,18 @@ const SOL = (function(){
   /* ----- meus pedidos ----- */
   function renderMeus(){
     const el = $("uniMeus"); if(!el) return;
+    const categorias = CATEGORIAS.filter(c => c.id !== "encerrados" || pedidos.some(p => c.estados.includes(p.status)));
+    if(!categorias.some(c => c.id === categoria)) categoria = "pedidos";
+    const atual = categorias.find(c => c.id === categoria);
+    const lista = pedidos.filter(p => atual.estados.includes(p.status));
+    $("uniMeusCategorias").innerHTML = categorias.map(c => {
+      const n = pedidos.filter(p => c.estados.includes(p.status)).length;
+      return `<button type="button" data-uni-categoria="${c.id}" class="${categoria === c.id ? "on" : ""}" aria-pressed="${categoria === c.id}" aria-controls="uniMeus">${c.rotulo} <i aria-label="${n} pedidos">${n}</i></button>`;
+    }).join("");
+    $("uniMeusDescricao").textContent = atual.descricao;
     el.innerHTML = pedidos.length
-      ? pedidos.map(p => pedidoHtml(p, "meu", urls)).join("")
+      ? lista.length ? lista.map(p => pedidoHtml(p, "meu", urls)).join("")
+        : `<p class="uni-vazio">Nenhum pedido nesta categoria.</p>`
       : `<p class="uni-vazio">Você ainda não fez nenhum pedido. Escolha os tamanhos acima e envie a solicitação.</p>`;
     const prontos = pedidos.filter(p => (p.status === "pronto" || p.status === "parcial") && p.itens.some(i => !i.recebimento_id));
     const av = $("uniAviso");
@@ -713,6 +731,13 @@ const SOL = (function(){
   });
   on("click", e => {
     const b = e.target.closest("button"); if(!b) return;
+    if(b.dataset.uniCategoria){
+      if(!CATEGORIAS.some(c => c.id === b.dataset.uniCategoria)) return;
+      categoria = b.dataset.uniCategoria;
+      renderMeus();
+      $("uniMeusCategorias").querySelector(`[data-uni-categoria="${categoria}"]`).focus({ preventScroll: true });
+      return;
+    }
     if(b.id === "uniEnviar"){ enviar(); return; }
     if(b.dataset.receber){ const p = pedidos.find(x => x.id === b.dataset.receber); if(p) abrirRecebimento(p); return; }
     if(b.dataset.cancelar){ cancelar(b.dataset.cancelar); return; }
@@ -739,7 +764,9 @@ const SOL = (function(){
 
     <section class="uni-card" id="uniMeusCard">
       <h2 class="uni-h2">Meus pedidos</h2>
-      <div id="uniMeus"></div>
+      <div class="uni-abas uni-meus-abas" id="uniMeusCategorias" role="group" aria-label="Categorias dos meus pedidos"></div>
+      <p class="uni-meus-descricao" id="uniMeusDescricao"></p>
+      <div id="uniMeus" aria-live="polite" aria-describedby="uniMeusDescricao"></div>
     </section>
   </div>`;
 
@@ -750,6 +777,7 @@ const SOL = (function(){
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;   // a pessoa já saiu da tela antes de terminar de carregar
     root.innerHTML = TEMPLATE;
+    categoria = (CATEGORIAS.find(c => pedidos.some(p => c.estados.includes(p.status))) || CATEGORIAS[0]).id;
     tamanhos = {}; quantidades = {}; obsPedido = "";
     ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
     renderKit(); renderMeus();

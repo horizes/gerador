@@ -23,7 +23,8 @@
 
 /* campos */
 .login-box input[type=email],
-.login-box input[type=password]{
+.login-box input[type=password],
+.login-box .password-field input{
   display:block;width:100%;padding:12px 13px;
   font-size:16px; /* 16px evita o zoom automático no iPhone */
   color:var(--cream);background:var(--ink);
@@ -31,11 +32,25 @@
   caret-color:var(--gold-hi);
 }
 .login-box input[type=email]:hover,
-.login-box input[type=password]:hover{border-color:#A39678}
+.login-box input[type=password]:hover,
+.login-box .password-field input:hover{border-color:#A39678}
 .login-box input[type=email]:focus,
-.login-box input[type=password]:focus{
+.login-box input[type=password]:focus,
+.login-box .password-field input:focus{
   outline:none;border-color:var(--gold-hi);box-shadow:0 0 0 3px rgba(215,178,71,.28);
 }
+.password-field{position:relative;width:100%}
+.login-box .password-field input{padding-right:52px}
+.password-toggle{
+  position:absolute;right:2px;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  padding:0;border:0;border-radius:3px;background:transparent;color:var(--gold);
+  cursor:pointer;touch-action:manipulation;
+}
+.password-toggle svg{display:block;width:22px;height:22px;pointer-events:none}
+.password-toggle:hover{color:var(--gold-hi);background:rgba(215,178,71,.08)}
+.password-toggle:focus-visible{outline:2px solid var(--gold-hi);outline-offset:-3px}
+.login-box .password-field input::-ms-reveal{display:none}
 /* preenchimento automático do navegador: mantém fundo escuro e texto claro */
 .login-box input:-webkit-autofill,
 .login-box input:-webkit-autofill:hover,
