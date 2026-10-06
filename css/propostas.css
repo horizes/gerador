@@ -44,6 +44,12 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 .tg:last-child{border-bottom:none}
 .tg input{accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto}
 .tg span{font-size:14px}
+.fidelidade-toggle{cursor:pointer;border-bottom:none}
+.fidelidade-toggle input{appearance:none;position:relative;width:38px;height:22px;margin:0;border:1px solid var(--rule);border-radius:12px;background:var(--field);cursor:pointer}
+.fidelidade-toggle input::before{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:transform .18s}
+.fidelidade-toggle input:checked{background:var(--gold);border-color:var(--gold)}
+.fidelidade-toggle input:checked::before{transform:translateX(16px);background:var(--ink)}
+.hint.fidelidade-hint{margin:0 0 12px}
 
 /* cargo cards */
 .cargo{border:1px solid var(--rule);border-radius:5px;margin-bottom:10px;background:#131109;overflow:hidden}
