@@ -89,8 +89,8 @@ function skel(){
       <p class="usr-hint">Informe o nome da pessoa e já escolha o papel e o cargo dela (os mesmos que dá pra mudar
         depois em "Pessoas"). O cargo libera as ferramentas e define o kit de uniforme e EPI. Vamos gerar um link
         único — copie e envie por WhatsApp, e-mail, o que for mais fácil. Ao abrir o link, a própria pessoa
-        escolhe o e-mail e a senha dela e já entra direto com o acesso escolhido — sem precisar voltar aqui
-        depois para liberar nada. Se preferir decidir mais tarde, deixe o cargo em "— sem cargo —".</p>
+        informa o e-mail, confirma o endereço pelo link recebido e cria a senha. O acesso escolhido é
+        liberado após essa confirmação. Se preferir decidir mais tarde, deixe o cargo em "— sem cargo —".</p>
       <form id="usrNovoConvite" class="usr-novo-nivel">
         <input type="text" id="usrConviteNome" placeholder="Nome da pessoa" maxlength="80" required autocomplete="off">
         <select id="usrConvitePapel" aria-label="Papel da pessoa convidada">
@@ -168,8 +168,8 @@ function renderResumo(){
 
 /* ---------- criar acesso (convite só com o nome — a pessoa escolhe o próprio e-mail depois) ---------- */
 // O link não guarda e-mail nenhum, só um token aleatório (gerado pelo banco). Quando a pessoa abre
-// o link, ela mesma escolhe e-mail e senha, e é a Edge Function completar-convite (com a service
-// role key, que não pode ficar no código do site) quem de fato cria a conta nesse momento — ver
+// o link, ela informa o e-mail. A Edge Function completar-convite (com a service role key, que
+// não pode ficar no código do site) envia a confirmação; a senha vem após abrir o e-mail — ver
 // supabase/functions/completar-convite e supabase-schema-convites.sql.
 function linkConvite(token, nome){
   return `${location.origin}${location.pathname}#/completar-convite?token=${encodeURIComponent(token)}&nome=${encodeURIComponent(nome || "")}`;
@@ -216,9 +216,9 @@ async function criarConvite(nome, papel, cargoIdBruto){
   const acesso = nomeAcessoConvite(papel, cargoId);
   resEl.innerHTML = `
     <div class="usr-convite-ok">
-      <p>Copie o link abaixo e envie para ${esc(nome)} — ela abre, escolhe o próprio e-mail e senha, e já
-        entra ${acesso ? `como <b>${esc(acesso)}</b>` : "sem cargo definido (ajuste depois na lista abaixo)"},
-        aparecendo pra você na lista "Pessoas" assim que terminar. O link vale por 7 dias.</p>
+      <p>Envie o link para ${esc(nome)}. A pessoa informa o e-mail, confirma pelo link recebido e cria a senha
+        para entrar ${acesso ? `como <b>${esc(acesso)}</b>` : "sem cargo definido (ajuste depois na lista abaixo)"}.
+        A conta aparece em "Pessoas" com o estado de confirmação. O link inicial vale por 7 dias.</p>
       <div class="usr-link-row">
         <input type="text" readonly id="usrLinkGerado" value="${esc(linkConvite(data.token, nome))}" onfocus="this.select()">
         <button type="button" class="btn ghost" id="usrCopiarLink">Copiar link</button>

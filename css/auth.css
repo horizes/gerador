@@ -79,3 +79,5 @@
 .login-box .btn.ghost{margin-top:10px;color:#E2DACB;border-color:#6B604D}
 .login-box .btn.ghost:hover{color:var(--cream);background:var(--panel-2);border-color:#A39678}
 .login-box .btn:disabled{opacity:.7;cursor:default}
+
+#confirmacaoEmail{color:var(--gold-hi);overflow-wrap:anywhere}

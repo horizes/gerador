@@ -5,7 +5,7 @@ begin;
 
 do $$
 begin
-  if nto_regclass('public.convites_pendentes') is null then
+  if to_regclass('public.convites_pendentes') is null then
     raise exception 'Instale supabase-schema-convites.sql e supabase-schema-cargos-unificados.sql antes desta correção.';
   end if;
   if not exists (

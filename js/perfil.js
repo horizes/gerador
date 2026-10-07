@@ -9,10 +9,10 @@ const sb = () => window.Imperium.supabase;
 
 /* Retorna:
    - objeto do perfil (admin: bool, ativo: bool, nome, modulos: Set<string>) se deu tudo certo
-   - null se a conta não tem perfil, está desativada, ou deu erro — nesses casos não deixa entrar */
+   - null se o e-mail não está confirmado, a conta não tem perfil, está desativada, ou deu erro */
 async function carregarPerfil(){
   const { data: { user } } = await sb().auth.getUser();
-  if(!user) return null;
+  if(!user || !user.email_confirmed_at) return null;
 
   const { data: perfil, error: e1 } = await sb().from("perfis")
     .select("nome,papel,cargo_id,ativo").eq("id", user.id).maybeSingle();

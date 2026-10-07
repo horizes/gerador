@@ -10,6 +10,8 @@ por período e exportar para planilha — agora com os dados no banco. A tela in
 
 ## Configuração do Supabase (fazer uma vez)
 
+**Atualização do cadastro:** esta versão exige confirmação do e-mail antes de criar a senha e liberar a plataforma. Para atualizar um projeto existente, siga `CONFIRMACAO-EMAIL-INSTALACAO.md` (publicação da função, SMTP e Site URL).
+
 Para usar **Definir configurações atuais como padrão** no Gerador de propostas, execute também `supabase-schema-propostas-padrao.sql` após os scripts de perfis/permissões. Cada conta salva e consulta apenas o próprio modelo, em qualquer aparelho. Os dados específicos de cada proposta continuam sendo reiniciados; veja `ATUALIZACAO.md` para os campos preservados e limpos.
 
 1. **Rode o SQL:** no painel do Supabase, abra **SQL Editor > New query**, cole o conteúdo de
@@ -32,12 +34,10 @@ Para usar **Definir configurações atuais como padrão** no Gerador de proposta
    **Criar acesso** — veja a seção **Criar acesso (convite por link)**, abaixo.
 5. **Crie contas pela própria tela "Usuários"** (cartão **Criar acesso**): informe o nome da pessoa e já
    escolha o papel e o cargo dela, e o site gera um link único para você copiar e mandar por WhatsApp/e-mail.
-   A própria pessoa escolhe o e-mail e a senha dela ao abrir o link, e a conta já nasce com o papel/cargo
-   escolhido. Isso precisa de uma **Edge Function** publicada uma vez — veja a seção
-   **Criar acesso (convite por link)**, abaixo. Enquanto não publicar a função, ainda dá para criar contas à
-   moda antiga: **Authentication > Users > Add user**, informando e-mail e senha e marcando
-   **Auto Confirm User**. Nesse caminho antigo, a pessoa aparece sozinha na tela **Usuários** do site, mas
-   sem acesso a nada até você configurar o cargo dela por lá.
+   A pessoa informa seu e-mail, confirma o endereço pelo link recebido e cria a senha; o acesso já fica
+   com o papel/cargo escolhido. Isso precisa da **Edge Function** atualizada e do envio de e-mails
+   configurado — siga `CONFIRMACAO-EMAIL-INSTALACAO.md`. Para convidar pelo painel do Supabase,
+   use o convite por e-mail e configure o cargo na tela **Usuários**; não confirme endereços automaticamente.
 6. **Uniformes e EPI (só se for usar):** rode também o `supabase-schema-uniformes.sql` (SQL Editor > New query > Run,
    depois dos scripts acima) — veja a seção **Uniformes e EPI**, abaixo.
 6b. **Rode o SQL de cargos unificados (por último):** cole o conteúdo de `supabase-schema-cargos-unificados.sql`
@@ -97,11 +97,11 @@ da plataforma.
 No cartão **Criar acesso** da tela "Usuários", o admin informa **o nome** da pessoa e já escolhe o **papel**
 e o **cargo** dela (Admin, um dos cargos criados no cartão "Cargos", ou "— sem cargo —" para
 decidir depois) — sem e-mail — e o site gera um **link único** para copiar e enviar como preferir (WhatsApp,
-e-mail etc). A pessoa abre o link, escolhe o **próprio e-mail e a própria senha** numa telinha dedicada, e só
-nesse momento a conta é criada — já **com o papel/cargo escolhido**, sem precisar de nenhum passo a mais do
-admin — e aparece para ele, na tela "Usuários", assim que termina. Enquanto isso não acontece, o link fica
-listado em "Convites pendentes" (mesmo cartão, mostrando o que vai ser aplicado), onde dá para copiar de novo
-ou cancelar. Cada link vale por 7 dias e só pode ser usado uma vez.
+e-mail etc). A pessoa informa o **próprio e-mail** numa telinha dedicada e recebe uma mensagem de confirmação.
+A conta é preparada, ainda sem confirmação e sem senha, com o papel/cargo escolhido. Somente depois de
+abrir o link recebido por e-mail e criar a senha ela entra na plataforma. A tela "Usuários" mostra a conta
+e seu estado de confirmação. Até o envio, o link inicial fica listado em "Convites pendentes", onde dá para
+copiar de novo ou cancelar. Cada link inicial vale por 7 dias e só pode ser usado uma vez.
 
 Isso só funciona depois de publicar, **uma vez**, a Edge Function `completar-convite` (pasta
 `supabase/functions/completar-convite/`). Ela existe porque criar a conta só é possível com a
@@ -119,7 +119,9 @@ npx supabase functions deploy completar-convite
 ```
 (o `project-ref` acima é o mesmo que aparece na `SUPABASE_URL` de `js/supabase.js`, entre `https://` e
 `.supabase.co`). Não precisa configurar nenhuma chave/segredo à parte: o Supabase já injeta
-`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` automaticamente dentro de toda Edge Function.
+`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` automaticamente dentro de toda Edge Function. O SMTP de
+autenticação, o Site URL e o modelo de convite são configurados no painel, como explicado em
+`CONFIRMACAO-EMAIL-INSTALACAO.md`; publicar só a função não configura o provedor de e-mail.
 
 ## Excluir conta
 
@@ -145,12 +147,12 @@ sem ele, excluir alguém que já lançou algo no Fluxo de Caixa falha com um err
 guarda "quem lançou" não sabe o que fazer quando esse login some. Depois de rodar o script, esse mesmo
 lançamento fica no histórico com o campo "quem fez" em branco.
 
-Enquanto a função não for publicada, a pessoa vê uma mensagem de erro ao tentar concluir o próprio cadastro
-— nesse meio tempo, crie contas à moda antiga (Authentication > Users > Add user, veja o passo 5 acima).
+Enquanto a função atualizada e o envio de e-mail não estiverem configurados, o cadastro por convite não
+é concluído. Siga `CONFIRMACAO-EMAIL-INSTALACAO.md` antes de enviar novos convites.
 
-**Confira a URL de redirecionamento (para "Esqueci minha senha"):** no painel do Supabase, em
+**Confira a URL de redirecionamento (para confirmação e "Esqueci minha senha"):** no painel do Supabase, em
 **Authentication > URL Configuration**, configure o **Site URL** com o endereço onde o site fica publicado —
-é para lá que o link de redefinição de senha manda a pessoa de volta depois de ela clicar.
+é para lá que os links de confirmação e redefinição de senha mandam a pessoa de volta depois de clicar.
 
 ## Cargos (antigo nível + kit)
 
@@ -464,15 +466,15 @@ depois mexe só nela.
 
 A tela de login aparece antes de qualquer ferramenta. Não existe cadastro público aberto: o convite parte
 sempre do administrador, um por pessoa da equipe — pelo cartão **Criar acesso** da tela "Usuários" (gera um
-link com o nome da pessoa; ela mesma escolhe e-mail e senha ao abrir) ou, à moda antiga, no painel do
+link com o nome da pessoa; ela informa o e-mail, confirma pelo link recebido e cria a senha) ou no painel do
 Supabase (**Authentication > Users**). Veja **Criar acesso (convite por link)**, acima. Depois do login, a
 pessoa só vê as ferramentas que o cargo dela libera (veja **Hierarquia de acesso**, acima) — quem tem acesso
 ao Fluxo de Caixa vê os mesmos dados que os outros com acesso a ele, já que continua sendo uma ferramenta
 compartilhada pela equipe (não há separação "por usuário" dentro de cada ferramenta).
 
-**Link de convite:** ao clicar no link gerado em "Criar acesso", a pessoa cai numa tela onde escolhe o
-próprio e-mail e senha — só depois de salvar é que a conta é criada de fato e ela entra na plataforma (ver
-`js/auth.js` e a Edge Function `completar-convite`). **Link de "Esqueci minha senha":** já é diferente — a
+**Link de convite:** ao clicar no link gerado em "Criar acesso", a pessoa informa o e-mail e aguarda a
+confirmação. O link recebido por e-mail abre a tela **Defina sua senha**; o acesso só é liberado
+depois de salvar a senha (ver `js/auth.js` e a Edge Function `completar-convite`). **Link de "Esqueci minha senha":** a
 pessoa já tem conta, então esse link a leva direto para a tela **Defina sua senha**.
 
 **Manter conectado:** a caixa na tela de login (ligada por padrão) decide onde a sessão fica guardada. Ligada, a

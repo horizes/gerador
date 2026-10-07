@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css?v=2">
-<link rel="stylesheet" href="css/auth.css?v=4">
+<link rel="stylesheet" href="css/auth.css?v=5">
 <link rel="stylesheet" href="css/platform.css?v=16">
 <link rel="stylesheet" href="css/propostas.css?v=26">
 <link rel="stylesheet" href="css/fluxo.css?v=4">
@@ -62,13 +62,22 @@
   <form class="login-box" id="cadastroForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
     <h1 id="cadastroTitulo">Bem-vindo(a)</h1>
-    <p class="login-sub">Escolha seu e-mail e uma senha para criar seu acesso à plataforma.</p>
-    <label class="f"><span>Seu e-mail</span><input type="email" id="cadastroEmail" required autocomplete="username"></label>
-    <label class="f"><span>Crie uma senha</span><input type="password" id="cadastroSenha" required minlength="6" autocomplete="new-password"></label>
-    <label class="f"><span>Confirmar senha</span><input type="password" id="cadastroConfirma" required minlength="6" autocomplete="new-password"></label>
+    <p class="login-sub">Informe seu e-mail. Enviaremos um link para confirmar seu endereço e criar sua senha.</p>
+    <label class="f"><span>Seu e-mail</span><input type="email" id="cadastroEmail" required maxlength="254" autocomplete="email"></label>
     <p class="login-erro" id="cadastroErro" hidden></p>
-    <button class="btn wide" type="submit">Criar acesso e entrar</button>
+    <button class="btn wide" type="submit">Enviar confirmação</button>
   </form>
+</div>
+
+<div class="login-wrap" id="confirmacao" style="display:none">
+  <section class="login-box" aria-labelledby="confirmacaoTitulo">
+    <img src="assets/logo.jpg" alt="" class="login-logo">
+    <h1 id="confirmacaoTitulo">Confirme seu e-mail</h1>
+    <p class="login-sub">Enviamos um link para <strong id="confirmacaoEmail"></strong>.</p>
+    <p class="login-sub">Abra o e-mail e toque no link para confirmar seu endereço. Depois, escolha sua senha para entrar.</p>
+    <p class="login-sub">Não encontrou? Confira a pasta de spam. Se precisar de outro envio, fale com o administrador.</p>
+    <button class="btn ghost wide" type="button" id="confirmacaoLogin">Voltar ao login</button>
+  </section>
 </div>
 
 <div class="shell is-open" id="shell" style="display:none">
@@ -109,7 +118,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js?v=2"></script>
 <script src="js/dados.js?v=1"></script>
-<script src="js/perfil.js?v=2"></script>
+<script src="js/perfil.js?v=3"></script>
 <script src="js/dashboard.js?v=11"></script>
 <script src="js/platform.js?v=17"></script>
 <script src="js/modules/propostas.js?v=26"></script>
@@ -119,7 +128,7 @@
 <script src="js/modules/ponto.js?v=2"></script>
 <script src="js/modules/clientes-relatorios.js?v=7"></script>
 <script src="js/push.js?v=1"></script>
-<script src="js/auth.js?v=9"></script>
+<script src="js/auth.js?v=10"></script>
 <script src="js/pwa.js?v=1"></script>
 </body>
 </html>
