@@ -159,6 +159,7 @@ h3.dt{font-family:'Barlow';font-weight:700;font-size:19.5px;letter-spacing:.01em
 .cli-aj-preview.logo{background:#fff}
 .proposta-padrao .body{padding-top:4px}
 .proposta-padrao .btn{min-height:44px;white-space:normal;text-align:center}
+.proposta-padrao .restaurar-padrao{margin-top:16px}
 .proposta-padrao-aviso{margin:12px 0 0;font-size:13px;line-height:1.5;color:var(--gold-hi)}
 .proposta-padrao-aviso.erro{color:#FFC2C2}
 .proposta-padrao-aviso[hidden]{display:none}
@@ -178,6 +179,7 @@ h3.dt{font-family:'Barlow';font-weight:700;font-size:19.5px;letter-spacing:.01em
 table.dt{width:100%;border-collapse:collapse;margin:9px 0 18px;font-size:16px}
 table.dt th{background:#111;color:var(--gold);font-weight:600;padding:10px 8px;text-align:center;border:1px solid #111;letter-spacing:.03em}
 table.dt td{border:1px solid #BEB8AC;padding:9px 8px;text-align:center}
+table.dt td.moeda{white-space:nowrap}
 table.dt td.l{text-align:left}
 table.dt tbody tr:nth-child(even) td{background:#FAF8F4}
 table.dt .fn{font-weight:700;text-align:left}

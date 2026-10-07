@@ -183,7 +183,7 @@ function estadoComPadrao(p){
   return Object.assign(estadoBase(),p ? copiar(p) : {});
 }
 let S = estadoBase();
-let padrao = null, contaEstado = null, montagem = 0, salvandoPadrao = false;
+let padrao = null, contaEstado = null, montagem = 0, salvandoPadrao = false, restaurandoPadrao = false;
 let avisoPadrao = "", falhaPadrao = false;
 const contaAtual = () => window.Imperium.perfil && window.Imperium.perfil.id;
 function erroPadrao(e){
@@ -196,11 +196,13 @@ function atualizarAvisoPadrao(){
   const el = root.querySelector('#propostaPadraoAviso');
   if(el){ el.textContent = avisoPadrao; el.hidden = !avisoPadrao; el.classList.toggle('erro',falhaPadrao); }
   const btn = root.querySelector('#salvarPropostaPadrao');
-  if(btn){ btn.disabled = salvandoPadrao || !contaAtual(); btn.textContent = salvandoPadrao ? "Salvando…" : "Definir configurações atuais como padrão"; }
+  if(btn){ btn.disabled = salvandoPadrao || restaurandoPadrao || !contaAtual(); btn.textContent = salvandoPadrao ? "Salvando…" : "Salvar preferências"; }
+  const restaurar = root.querySelector('#restaurarPropostaPadrao');
+  if(restaurar){ restaurar.disabled = salvandoPadrao || restaurandoPadrao || !contaAtual(); restaurar.textContent = restaurandoPadrao ? "Restaurando…" : "Restaurar padrão"; }
 }
 async function gravarPadrao(){
   const conta = contaAtual();
-  if(!conta || salvandoPadrao) return;
+  if(!conta || salvandoPadrao || restaurandoPadrao) return;
   if(conta !== contaEstado){ avisoPadrao = "Reabra o gerador para carregar as configurações da conta atual."; falhaPadrao = true; atualizarAvisoPadrao(); return; }
   const versaoMontagem = montagem, dados = extrairPadrao(S);
   salvandoPadrao = true; avisoPadrao = ""; falhaPadrao = false; atualizarAvisoPadrao();
@@ -211,7 +213,7 @@ async function gravarPadrao(){
     if(!data || data.usuario_id !== conta) throw new Error('Gravação não confirmada');
     if(contaAtual() !== conta || contaEstado !== conta) return;
     padrao = copiar(dados);
-    if(versaoMontagem === montagem) avisoPadrao = "Padrão salvo na sua conta. Será usado nas novas propostas, inclusive em outros aparelhos.";
+    if(versaoMontagem === montagem) avisoPadrao = "Preferências salvas para as próximas propostas.";
   }catch(e){
     if(contaAtual() === conta && versaoMontagem === montagem){ avisoPadrao = erroPadrao(e); falhaPadrao = true; }
   }finally{
@@ -220,9 +222,35 @@ async function gravarPadrao(){
   }
 }
 
+async function restaurarPadrao(){
+  const conta = contaAtual();
+  if(!conta || salvandoPadrao || restaurandoPadrao) return;
+  if(conta !== contaEstado){ avisoPadrao = "Reabra o gerador para carregar as configurações da conta atual."; falhaPadrao = true; atualizarAvisoPadrao(); return; }
+  if(!confirm("Restaurar o padrão original? Isso remove as preferências salvas e os cargos personalizados, e desmarca os cargos selecionados. Os dados do cliente serão mantidos.")) return;
+  const versaoMontagem = montagem;
+  restaurandoPadrao = true; avisoPadrao = ""; falhaPadrao = false; atualizarAvisoPadrao();
+  try{
+    const {error} = await window.Imperium.supabase.from('proposta_padroes').delete().eq('usuario_id',conta);
+    if(error) throw error;
+    if(contaAtual() !== conta || contaEstado !== conta) return;
+    padrao = null;
+    if(versaoMontagem === montagem){
+      const original = estadoBase();
+      CAMPOS_PADRAO.concat(["cargos","extras"]).forEach(k=>S[k]=original[k]);
+      avisoPadrao = "Padrão original restaurado. Dados do cliente mantidos.";
+      painel(); renderPapers();
+    }
+  }catch(e){
+    if(contaAtual() === conta && versaoMontagem === montagem){ avisoPadrao = erroPadrao(e); falhaPadrao = true; }
+  }finally{
+    restaurandoPadrao = false;
+    atualizarAvisoPadrao();
+  }
+}
+
 /* ---------- helpers ---------- */
 const n2 = v => (Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
-const brl = v => "R$ " + n2(v);
+const brl = v => "R$\u00A0" + n2(v);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const MES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 function dataExt(iso){
@@ -581,9 +609,11 @@ function painel(){
 
   <section class="sec proposta-padrao">
     <div class="body">
-      <div class="mini">Padrão da sua conta</div>
-      <button class="btn ghost wide" type="button" id="salvarPropostaPadrao">Definir configurações atuais como padrão</button>
-      <p class="hint">Mantém valores e configurações dos cargos, cargos personalizados, benefícios, seções, diferenciais, fidelidade e seus textos, assinatura e imagens dos clientes e parceiros. Em novas propostas, limpa os dados do cliente, foto da capa, escopo e observações; atualiza a data e desmarca os cargos, acúmulos e quantidades da contratação.</p>
+      <div class="mini">Preferências</div>
+      <button class="btn ghost wide" type="button" id="salvarPropostaPadrao">Salvar preferências</button>
+      <p class="hint">Usa estas configurações nas próximas propostas.</p>
+      <button class="btn ghost wide restaurar-padrao" type="button" id="restaurarPropostaPadrao">Restaurar padrão</button>
+      <p class="hint">Volta às configurações originais.</p>
       <p class="proposta-padrao-aviso" id="propostaPadraoAviso" role="status" hidden></p>
     </div>
   </section>
@@ -786,21 +816,21 @@ function pgTabelas(){
     <p style="font-weight:700;margin-bottom:4px">Remuneração ${co.de}</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>Salário</th><th>Prêmio Assiduidade</th><th>Insalubridade</th>${acumCol?"<th>Acúmulo de função</th>":""}<th>PLR anual</th><th>Total mensal</th></tr></thead>
-      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.salario)}</td><td>${brl(c.premio)}</td><td>${brl(c.insal)}</td>${acumCol?`<td>${c.acum?brl(c.acumVal):"—"}</td>`:""}<td>${brl(c.plr)}</td><td>${brl(remun(c))}</td></tr>`).join("")}</tbody>
+      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td class="moeda">${brl(c.salario)}</td><td class="moeda">${brl(c.premio)}</td><td class="moeda">${brl(c.insal)}</td>${acumCol?`<td class="moeda">${c.acum?brl(c.acumVal):"—"}</td>`:""}<td class="moeda">${brl(c.plr)}</td><td class="moeda">${brl(remun(c))}</td></tr>`).join("")}</tbody>
     </table>
 
     <p style="font-weight:700;margin-bottom:4px">Benefícios mensais ${co.de}</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>VR/ Dia</th><th>VT/ Dia</th><th>VA Cesta</th><th>${iguais?"Média":"Total"}</th></tr></thead>
-      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${brl(c.vr)}</td><td>${brl(c.vt)}</td><td>${brl(c.va)}</td><td>${brl(iguais?mediaBen:benef(c))}</td></tr>`).join("")}</tbody>
+      <tbody>${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td class="moeda">${brl(c.vr)}</td><td class="moeda">${brl(c.vt)}</td><td class="moeda">${brl(c.va)}</td><td class="moeda">${brl(iguais?mediaBen:benef(c))}</td></tr>`).join("")}</tbody>
     </table>
 
     <p style="font-weight:700;margin-bottom:4px">Escopo e valores da proposta</p>
     <table class="dt">
       <thead><tr><th>Função</th><th>Escala</th><th>Turno</th><th>Postos</th><th>Pessoas</th><th>Valor por posto</th><th>Valor total</th></tr></thead>
       <tbody>
-        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td>${brl(valorPosto(c))}</td><td>${brl(valorPosto(c)*(+c.postos||0))}</td></tr>`).join("")}
-        <tr class="totrow"><td colspan="6" style="text-align:right">Mensal</td><td class="v">${brl(totalMensal())}</td></tr>
+        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td class="moeda">${brl(valorPosto(c))}</td><td class="moeda">${brl(valorPosto(c)*(+c.postos||0))}</td></tr>`).join("")}
+        <tr class="totrow"><td colspan="6" style="text-align:right">Mensal</td><td class="v moeda">${brl(totalMensal())}</td></tr>
       </tbody>
     </table>`, "pg-tabelas");
 }
@@ -1269,6 +1299,7 @@ on("click", e=>{
   if(b.id==="print"||b.id==="print2"){ imprimir(); return; }
   if(b.id==="word"){ exportarWord(); return; }
   if(b.id==="salvarPropostaPadrao"){ gravarPadrao(); return; }
+  if(b.id==="restaurarPropostaPadrao"){ restaurarPadrao(); return; }
   if(b.id==="zerar"){
     if(!confirm("Iniciar uma nova proposta? Os dados deste cliente serão limpos e as configurações do seu padrão serão mantidas.")) return;
     S = estadoComPadrao(padrao);
@@ -1376,10 +1407,11 @@ function P(rs,o){o=o||{};const runs=Array.isArray(rs)?rs.join(""):rs;
 const BRK = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>`;
 function H(t,o){o=o||{};return P([R(t,{b:true,sz:o.sz||38,color:o.color||"111111"})],{before:200,after:120,align:o.align});}
 function TD(t,o){o=o||{};
+  const moeda=String(t).startsWith("R$\u00A0");
   const p=P([R(t,{b:o.b,sz:o.sz||24,color:o.color})],{align:o.align||"center",after:40});
-  /* mesma regra: em <w:tcPr> a ordem correta é tcW, gridSpan, vMerge, shd, vAlign
+  /* mesma regra: em <w:tcPr> a ordem correta é tcW, gridSpan, vMerge, shd, noWrap, vAlign
      (estava tcW, shd, gridSpan, vMerge — também inválido). */
-  return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${o.span?`<w:gridSpan w:val="${o.span}"/>`:""}${o.vm?`<w:vMerge w:val="${o.vm}"/>`:""}${o.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shade}"/>`:""}<w:vAlign w:val="center"/></w:tcPr>${p}</w:tc>`;}
+  return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${o.span?`<w:gridSpan w:val="${o.span}"/>`:""}${o.vm?`<w:vMerge w:val="${o.vm}"/>`:""}${o.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shade}"/>`:""}${moeda?"<w:noWrap/>":""}<w:vAlign w:val="center"/></w:tcPr>${p}</w:tc>`;}
 const TR = cs => `<w:tr>${cs.join("")}</w:tr>`;
 function TBL(rows){
   const b=["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="B9B3A7"/>`).join("");
@@ -1814,7 +1846,7 @@ async function mount(el){
           if(!objeto(data.configuracao) || data.configuracao.versao !== 1 || !objeto(data.configuracao.dados)) throw new Error('Padrão inválido');
           padrao = extrairPadrao(data.configuracao.dados);
           S = estadoComPadrao(padrao);
-          avisoPadrao = "Novas propostas usam o padrão salvo na sua conta.";
+          avisoPadrao = "Preferências da sua conta carregadas.";
         }
       }catch(e){
         if(atual !== montagem || root !== el || contaAtual() !== conta) return;
