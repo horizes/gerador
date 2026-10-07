@@ -318,23 +318,34 @@ ol.dt li{margin-bottom:6px}
 .cover-logo-imperium{display:block;width:121.5mm;max-width:100%;height:auto;aspect-ratio:580/260;object-fit:contain;margin:0 auto}
 .paper.operacao-proposta{padding-top:13mm;padding-bottom:17mm}
 .operacao-proposta .phead{margin-bottom:6mm}
-.paper.operacao-proposta .operacao-intro{font-size:15px;line-height:1.45;margin-bottom:18px;color:#6B6455}
-.operacao-recursos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.operacao-recurso{padding:18px;background:#FFFDF9;border:1px solid #E4DFD3;border-top:3px solid var(--gold);border-radius:5px;break-inside:avoid;page-break-inside:avoid}
+.paper.operacao-proposta .operacao-intro{font-size:15px;line-height:1.4;margin-bottom:18px;color:#6B6455}
+.operacao-recursos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.operacao-recurso{overflow:hidden;background:#FFFDF9;border:1px solid #E4DFD3;border-radius:10px;break-inside:avoid;page-break-inside:avoid}
+.operacao-visual{height:236px;position:relative;overflow:hidden;background:#F4F0E7;display:flex;align-items:center;justify-content:center}
+.operacao-imagem{display:block;object-fit:contain}
+.operacao-visual-ponto{background:#215DFA}
+.operacao-visual-ponto .operacao-imagem{position:absolute;width:207px;height:auto;max-width:none;top:-87px}
+.operacao-visual-flash{background:#FFF0F5}
+.operacao-visual-flash .operacao-imagem{width:96%;height:222px}
+.operacao-conteudo{padding:20px 22px}
 .operacao-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .operacao-sistema{display:block;font-size:10px;line-height:1.4;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#74684D;margin-bottom:5px}
 .operacao-icone{display:flex;align-items:center;justify-content:center;flex:0 0 42px}
 .operacao-icone img{max-width:42px;max-height:42px;object-fit:contain}
 .operacao-icone svg{width:34px;height:34px}
-.operacao-recurso h3.dt{font-size:21px;line-height:1.2;margin:0;color:#28251E}
-.paper .operacao-recurso p{font-size:13px;line-height:1.45;margin:0;text-align:left}
-.operacao-etapas{list-style:none;display:grid;gap:14px;padding:0;margin:18px 0}
-.operacao-etapas li{display:flex;align-items:flex-start;gap:10px;margin:0}
-.operacao-numero{flex:0 0 25px;height:25px;display:flex;align-items:center;justify-content:center;border:1px solid #DCCCA5;border-radius:50%;background:#F6EFDf;color:#856619;font-size:10px;font-weight:700}
-.operacao-etapas strong{display:block;font-size:13px;line-height:1.3;margin:0 0 4px;color:#342F25}
-.paper .operacao-etapas p{font-size:12px;line-height:1.4;color:#645C4E}
-.operacao-resultado{padding-top:12px;border-top:1px solid #E4DFD3;font-size:12px;line-height:1.4;font-weight:600;color:#856619}
-.operacao-propria{grid-column:1 / -1;background:#F8F4EA}
-.operacao-propria .operacao-etapas{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:22px;row-gap:17px}
-.operacao-propria .operacao-sistema{color:#856619}
-.paper.operacao-proposta.compacto2 .operacao-recurso{padding:12px 15px}
+.operacao-recurso h3.dt{font-size:22px;line-height:1.2;margin:0;color:#28251E}
+.paper .operacao-recurso p{font-size:14px;line-height:1.45;margin:0;text-align:left;color:#645C4E}
+.operacao-destaques{list-style:none;padding:0;margin:15px 0 0;display:grid;gap:7px}
+.operacao-destaques li{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;line-height:1.3;font-weight:600;color:#342F25}
+.operacao-destaques li>span{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#EEE4C9;color:#856619;font-size:10px}
+.operacao-propria{grid-column:1 / -1;display:grid;grid-template-columns:42% 1fr;background:#FFFDF9}
+.operacao-propria .operacao-visual{height:258px;background:#EAE3D1}
+.operacao-visual-uniformes .operacao-imagem{height:219px;width:109px;object-fit:cover;object-position:top;border:5px solid #1B1913;border-radius:15px;box-shadow:10px 12px 18px #41381F25;transform:rotate(-5deg)}
+.operacao-selo{position:absolute;right:12px;top:17px;padding:5px 8px;background:#1B1913;color:#EFD27A;font-size:9px;line-height:1.2;letter-spacing:.03em;border-radius:4px}
+.operacao-tela-legenda{position:absolute;left:0;right:0;bottom:9px;text-align:center;font-size:8px;color:#736648}
+.operacao-propria .operacao-conteudo{padding:22px 24px}
+.operacao-propria .operacao-icone{flex-basis:60px}
+.operacao-propria .operacao-icone img{max-width:60px;max-height:35px}
+.operacao-fluxo{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #E4DFD3;color:#856619;font-size:11px;font-weight:600}
+.operacao-fluxo b{font-weight:400;color:#B7A271}
+.paper.operacao-proposta.compacto2 .operacao-conteudo{padding:16px 18px}
