@@ -633,6 +633,37 @@ const FOOT = `<div class="pfoot"><a href="https://www.imperiumservicos.com">www.
 const HEAD = `<div class="phead">${WM("sm")}</div>`;
 const page = (inner,cls="") => `<section class="paper ${cls}">${inner}${FOOT}</section>`;
 
+const FRASE_CAPA_ABERTURA = "a pessoa certa, no lugar certo, faz a diferença.";
+function pgCapaAbertura(){
+  return `<section class="paper capa-abertura">
+    <svg class="capa-abertura-grafismo" viewBox="0 0 794 1123" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="capaOuro" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D7B247"/><stop offset="1" stop-color="#8A6A1E"/></linearGradient></defs>
+      <path d="M545 0H794V314L487 621L353 487L674 166Z" fill="#11110F"/>
+      <path d="M680 0H794V71L580 285L547 252Z" fill="#1B1913"/>
+      <path d="M794 445L600 639L661 700L794 567" fill="none" stroke="#D7B247" stroke-width="1.5" opacity=".5"/>
+      <path d="M794 480L628 646L660 678L794 544" fill="none" stroke="#D7B247" stroke-width="1" opacity=".2"/>
+      <path d="M794 824V1123H495Z" fill="#11110F"/>
+      <path d="M794 1042V1123H713Z" fill="url(#capaOuro)"/>
+      <path d="M0 818H34V943H0Z" fill="url(#capaOuro)"/>
+      <path d="M733 839L794 778" stroke="#D7B247" stroke-width="2" opacity=".7"/>
+    </svg>
+    <div class="capa-abertura-marca">
+      <div class="capa-abertura-nome">IMPERIUM</div>
+      <div class="capa-abertura-servicos">Terceirização e Serviços</div>
+    </div>
+    <div class="capa-abertura-mensagem">
+      <p class="capa-abertura-rotulo">Proposta de parceria</p>
+      <h1 aria-label="${esc(FRASE_CAPA_ABERTURA)}"><span class="capa-abertura-frase">a pessoa certa,</span><span class="capa-abertura-frase capa-abertura-frase-deslocada">no lugar certo,</span><span class="capa-abertura-frase capa-abertura-frase-ouro">faz a diferença.</span></h1>
+      <div class="capa-abertura-linha" aria-hidden="true"></div>
+    </div>
+    <div class="capa-abertura-dados">
+      ${S.cliente.trim()?`<p class="capa-abertura-cliente">${esc(nomeCliente())}</p>`:""}
+      <p class="capa-abertura-data">${esc([S.localCliente,dataExt(S.data)].filter(Boolean).join(" · "))}</p>
+    </div>
+    <div class="capa-abertura-rodape"><p class="capa-abertura-site">www.imperiumservicos.com</p><svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M5 19L19 5M5 5h14v14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+  </section>`;
+}
+
 function pgCapa(){
   // "Nossos Serviços" mostra sempre todas as funções do catálogo da Imperium (vitrine da empresa),
   // e não só as que este cliente contratou — diferente das demais páginas, que usam listaCargos().
@@ -1002,7 +1033,7 @@ function atualizarFinais(){
 
 function htmlPapers(){
   const map = {capa:pgCapa,carta:pgCarta,suporte:pgSuporte,cbo:pgCBO,ponto:pgPonto,clientes:pgClientes,valores:pgValores,aceite:pgAceite};
-  return SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
+  return (S.secoes.capa ? pgCapaAbertura() : "") + SECOES.filter(s=>S.secoes[s.id]).map(s=>map[s.id]()).join("");
 }
 
 function renderPapers(){
@@ -1362,10 +1393,33 @@ function logoDocx(cx,align="right"){
 const MARCA = () => logoDocx(1440000);
 const BULLET = (t,d) => P([R("•  ",{b:true,color:"C9A227"}),R(t,{b:true}),R(d?": "+d:"")],{ind:200});
 
+function capaAberturaWord(){
+  // Fundo ancorado apenas na primeira página; as páginas existentes mantêm
+  // seus próprios conteúdos, margens e cores.
+  const posicao = "position:absolute;left:0;top:0;width:595.3pt;height:841.9pt;mso-position-horizontal-relative:page;mso-position-vertical-relative:page";
+  const fundo = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:pict xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><v:rect id="CapaAberturaFundo" style="${posicao};z-index:-251654144" fillcolor="#000000" stroked="f" o:allowincell="f" o:allowoverlap="t"/><v:shape id="CapaAberturaPlano" style="${posicao};z-index:-251654143" coordsize="794,1123" path="m545,0 l794,0,794,314,487,621,353,487,674,166 x e" fillcolor="#11110F" stroked="f" o:allowincell="f"/><v:shape id="CapaAberturaDetalhe" style="${posicao};z-index:-251654142" coordsize="794,1123" path="m794,445 l600,639,661,700,794,567 e" filled="f" strokecolor="#7F6A2D" strokeweight="1pt" o:allowincell="f"/><v:shape id="CapaAberturaCanto" style="${posicao};z-index:-251654143" coordsize="794,1123" path="m794,824 l794,1123,495,1123 x e" fillcolor="#11110F" stroked="f" o:allowincell="f"/><v:shape id="CapaAberturaOuro" style="${posicao};z-index:-251654142" coordsize="794,1123" path="m794,1042 l794,1123,713,1123 x e" fillcolor="#D7B247" stroked="f" o:allowincell="f"/></w:pict></w:r></w:p>`;
+  const texto = (t,o={}) => R(t,Object.assign({color:"FFFFFF"},o)).replace("<w:rPr>",'<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>');
+  const paragrafos = [
+    fundo,
+    P([texto("IMPERIUM",{b:true,sz:72,color:"D7B247"})],{after:40}),
+    P([texto("TERCEIRIZAÇÃO E SERVIÇOS",{sz:19})],{after:0}),
+    P([texto("PROPOSTA DE PARCERIA",{sz:21,color:"D7B247"})],{before:2000,after:350}),
+    P([texto("a pessoa certa,",{b:true,sz:88})],{after:20}),
+    P([texto("no lugar certo,",{b:true,sz:88})],{ind:360,after:20}),
+    P([texto("faz a diferença.",{b:true,sz:88,color:"D7B247"})],{after:0})
+  ];
+  if(S.cliente.trim()) paragrafos.push(P([texto(nomeCliente(),{sz:29})],{before:2300,after:100}));
+  paragrafos.push(P([texto([S.localCliente,dataExt(S.data)].filter(Boolean).join(" · "),{sz:21,color:"B7B7B7"})],{before:S.cliente.trim()?0:2300,after:0}));
+  paragrafos.push(P([texto("www.imperiumservicos.com",{sz:23})],{before:1600,after:0}));
+  return paragrafos.join("");
+}
+
 function docBody(){
   logoDocxId=0;
   const cs = listaCargos(), esc0 = S.escopoTexto || escopoAuto();
   const P_=[];
+
+  P_.push(capaAberturaWord(),BRK);
 
   /* capa */
   P_.push(logoDocx(4082400,"center"));
