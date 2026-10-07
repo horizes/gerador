@@ -24,6 +24,7 @@
 /* campos */
 .login-box input[type=email],
 .login-box input[type=password],
+.login-box input[autocomplete="one-time-code"],
 .login-box .password-field input{
   display:block;width:100%;padding:12px 13px;
   font-size:16px; /* 16px evita o zoom automático no iPhone */
@@ -33,9 +34,11 @@
 }
 .login-box input[type=email]:hover,
 .login-box input[type=password]:hover,
+.login-box input[autocomplete="one-time-code"]:hover,
 .login-box .password-field input:hover{border-color:#A39678}
 .login-box input[type=email]:focus,
 .login-box input[type=password]:focus,
+.login-box input[autocomplete="one-time-code"]:focus,
 .login-box .password-field input:focus{
   outline:none;border-color:var(--gold-hi);box-shadow:0 0 0 3px rgba(215,178,71,.28);
 }
@@ -81,3 +84,6 @@
 .login-box .btn:disabled{opacity:.7;cursor:default}
 
 #confirmacaoEmail{color:var(--gold-hi);overflow-wrap:anywhere}
+
+#verificacaoToken{letter-spacing:.3em;font-variant-numeric:tabular-nums}
+.login-box [hidden]{display:none!important}

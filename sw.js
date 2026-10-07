@@ -3,7 +3,7 @@
    Estratégia "rede primeiro": sempre tenta buscar a versão nova no servidor (assim toda atualização
    que você publicar chega sozinha) e só usa a cópia guardada se estiver sem internet.
    NÃO mexe em nada de outro domínio — login, banco de dados (Supabase) e Open Finance passam direto. */
-const VERSAO = "imperium-v38";
+const VERSAO = "imperium-v40";
 
 const BASICO = [
   "./",
@@ -34,6 +34,12 @@ self.addEventListener("fetch", e => {
   if(req.method !== "GET") return;
   const url = new URL(req.url);
   if(url.origin !== self.location.origin) return;      // Supabase, fontes, CDN: direto na rede
+
+  // Links de confirmação contêm um segredo de uso único. Não guardar essa URL no cache.
+  if(url.searchParams.has("token_hash")){
+    e.respondWith(fetch(req, {cache:"no-store"}));
+    return;
+  }
 
   e.respondWith(
     fetch(req)

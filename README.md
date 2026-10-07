@@ -1,3 +1,5 @@
+> Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
+
 # Plataforma Imperium
 
 Site estático (HTML + CSS + JS puro) — não precisa de build nem de Node. Agora tem **login** (e-mail/senha)

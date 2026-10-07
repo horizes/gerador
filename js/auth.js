@@ -44,8 +44,14 @@ function ligarVisibilidadeSenhas(){
 /* A confirmação nativa de convite e a recuperação autenticam a sessão no Supabase.
    O link de convite ainda exige a escolha da senha antes de abrir as ferramentas. */
 const parametrosAuth = new URLSearchParams(location.hash.slice(1));
-const tipoLinkAuth = parametrosAuth.get("type");
+const retornoAuth = new URLSearchParams(location.search);
+let tipoLinkAuth = retornoAuth.get("type") || parametrosAuth.get("type");
+const linkConfirmacaoPresente = retornoAuth.has("token_hash");
+let tokenConfirmacao = retornoAuth.get("token_hash");
 let senhaJaDefinida = !["invite","recovery"].includes(tipoLinkAuth);
+let verificacaoAtiva = false;
+let verificacaoEmAndamento = false;
+let modoVerificacao = "codigo";
 
 /* Link de convite (só nome, gerado pela tela "Usuários"): #/completar-convite?token=...&nome=...
    Aqui ainda NÃO existe sessão da nova conta — a pessoa informa o e-mail para receber a confirmação. */
@@ -61,6 +67,7 @@ function mostrar(tela){
   $("senha").style.display = tela === "senha" ? "flex" : "none";
   $("cadastro").style.display = tela === "cadastro" ? "flex" : "none";
   $("confirmacao").style.display = tela === "confirmacao" ? "flex" : "none";
+  $("verificacao").style.display = tela === "verificacao" ? "flex" : "none";
   // Sem valor ("") o CSS decide: lado a lado no computador e em bloco no celular/tablet
   // (antes, o "flex" fixo aqui anulava o layout de celular e deixava a tela quebrada).
   $("shell").style.display = tela === "shell" ? "" : "none";
@@ -83,6 +90,150 @@ function erroCadastro(msg){
   const el = $("cadastroErro");
   el.textContent = msg || "";
   el.hidden = !msg;
+}
+
+function limparRetornoAuth(){
+  const params = new URLSearchParams(location.search);
+  ["token_hash", "type", "code", "error", "error_code", "error_description"].forEach(k => params.delete(k));
+  const busca = params.toString();
+  history.replaceState(null, "", location.pathname + (busca ? "?" + busca : ""));
+}
+
+function erroVerificacao(msg, info){
+  const el = $("verificacaoErro");
+  el.textContent = msg || "";
+  el.classList.toggle("info", !!info);
+  el.hidden = !msg;
+}
+
+function abrirVerificacao(modo, email){
+  if(verificacaoEmAndamento) return;
+  verificacaoAtiva = true;
+  ++validacaoSessao;
+  modoVerificacao = modo;
+  const codigo = modo === "codigo";
+  $("verificacaoCampos").hidden = !codigo;
+  $("verificacaoEmail").disabled = $("verificacaoToken").disabled = !codigo;
+  $("verificacaoEmail").required = $("verificacaoToken").required = codigo;
+  $("verificacaoCodigo").hidden = codigo;
+  $("verificacaoReenviar").hidden = !codigo;
+  $("verificacaoTitulo").textContent = codigo ? "Código do e-mail" : "Confirme seu e-mail";
+  $("verificacaoSub").textContent = codigo
+    ? "Digite o código recebido para confirmar seu e-mail e escolher sua senha."
+    : "Toque abaixo para confirmar seu e-mail e escolher sua senha.";
+  $("verificacaoConfirmar").textContent = codigo ? "Confirmar código" : "Confirmar e criar senha";
+  if(email) $("verificacaoEmail").value = email;
+  erroVerificacao("");
+  mostrar("verificacao");
+}
+
+function bloquearVerificacao(bloqueado){
+  ["verificacaoConfirmar", "verificacaoCodigo", "verificacaoReenviar", "verificacaoVoltar"].forEach(id => {
+    $(id).disabled = bloqueado;
+  });
+}
+
+function mensagemVerificacao(error){
+  if(error?.status === 429 || error?.code === "over_email_send_rate_limit" || error?.code === "over_request_rate_limit"){
+    return "Muitas tentativas. Aguarde um pouco e tente novamente.";
+  }
+  if(error?.code === "otp_expired" || error?.code === "validation_failed"){
+    return "Este link ou código expirou ou já foi usado. Use o último e-mail recebido ou solicite um novo código.";
+  }
+  return "Não foi possível confirmar o acesso. Confira a conexão e tente novamente. Se o link já foi usado, solicite um novo código.";
+}
+
+function ligarFormularioVerificacao(){
+  const form = $("verificacaoForm");
+  if(form.dataset.ligado) return;
+  form.dataset.ligado = "1";
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if(verificacaoEmAndamento) return;
+    erroVerificacao("");
+    let dados;
+    if(modoVerificacao === "link"){
+      if(!["invite", "recovery"].includes(tipoLinkAuth) || !tokenConfirmacao ||
+        tokenConfirmacao.length > 512 || !/^[a-z0-9_-]+$/i.test(tokenConfirmacao)){
+        erroVerificacao("Link incompleto. Use o código do e-mail ou solicite um novo código."); return;
+      }
+      dados = { token_hash: tokenConfirmacao, type: tipoLinkAuth };
+    }else{
+      const email = $("verificacaoEmail").value.trim().toLowerCase();
+      const token = $("verificacaoToken").value.trim();
+      if(email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        erroVerificacao("Digite o e-mail que recebeu o código."); return;
+      }
+      if(!/^\d{6}$/.test(token)){
+        erroVerificacao("Digite os 6 números do código recebido."); return;
+      }
+      // "email" aceita o código nativo de convite ou recuperação; não cria contas.
+      dados = { email, token, type: "email" };
+    }
+    verificacaoEmAndamento = true;
+    bloquearVerificacao(true);
+    const btn = $("verificacaoConfirmar"), txt = btn.textContent;
+    btn.textContent = "Confirmando…";
+    try{
+      const { data, error } = await sb.auth.verifyOtp(dados);
+      if(error){ erroVerificacao(mensagemVerificacao(error)); return; }
+      // Exige uma sessão produzida por este código; nunca reaproveita uma sessão antiga.
+      if(!data?.session?.user?.id){
+        erroVerificacao("Não foi possível concluir a confirmação. Solicite um novo código."); return;
+      }
+      const { data: confirmado, error: erroUsuario } = await sb.auth.getUser();
+      if(erroUsuario || !confirmado?.user?.email_confirmed_at || confirmado.user.id !== data.session.user.id){
+        erroVerificacao("Não foi possível validar a confirmação. Confira a conexão e tente novamente."); return;
+      }
+      tokenConfirmacao = null;
+      limparRetornoAuth();
+      $("verificacaoToken").value = "";
+      senhaJaDefinida = false;
+      perfilValidado = false;
+      verificacaoAtiva = false;
+      iniciarSessaoNormal();
+      await aplicarSessao(data.session);
+    }catch(_){ erroVerificacao("Não foi possível confirmar o acesso. Confira a conexão e tente novamente."); }
+    finally{
+      verificacaoEmAndamento = false;
+      bloquearVerificacao(false);
+      btn.textContent = txt;
+    }
+  });
+  $("verificacaoCodigo").addEventListener("click", () => abrirVerificacao("codigo", $("loginEmail").value));
+  $("verificacaoReenviar").addEventListener("click", async () => {
+    if(verificacaoEmAndamento) return;
+    const email = $("verificacaoEmail").value.trim().toLowerCase();
+    if(email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      erroVerificacao("Digite seu e-mail para receber um novo código."); return;
+    }
+    verificacaoEmAndamento = true;
+    bloquearVerificacao(true);
+    const btn = $("verificacaoReenviar"), txt = btn.textContent;
+    btn.textContent = "Enviando…";
+    erroVerificacao("");
+    try{
+      const { error } = await sb.auth.resetPasswordForEmail(email);
+      if(error){ erroVerificacao(mensagemVerificacao(error)); return; }
+      $("verificacaoToken").value = "";
+      erroVerificacao("Se esse e-mail tiver uma conta, enviamos um novo código. Use o último e-mail recebido.", true);
+    }catch(_){ erroVerificacao("Não foi possível solicitar o código. Confira sua conexão e tente novamente."); }
+    finally{
+      verificacaoEmAndamento = false;
+      bloquearVerificacao(false);
+      btn.textContent = txt;
+    }
+  });
+  $("verificacaoVoltar").addEventListener("click", () => {
+    if(verificacaoEmAndamento) return;
+    tokenConfirmacao = null;
+    limparRetornoAuth();
+    verificacaoAtiva = false;
+    mostrar("login");
+    iniciarSessaoNormal();
+  });
+  $("loginCodigo").addEventListener("click", () => abrirVerificacao("codigo", $("loginEmail").value));
+  $("confirmacaoCodigo").addEventListener("click", () => abrirVerificacao("codigo", $("confirmacaoEmail").textContent));
 }
 
 function ligarFormulario(){
@@ -117,7 +268,10 @@ function ligarFormulario(){
     erro("");
     const { error } = await sb.auth.resetPasswordForEmail(email);
     if(error) erro(error.message);
-    else erro("Se esse e-mail tiver uma conta, enviamos um link para redefinir a senha.", true);
+    else{
+      abrirVerificacao("codigo", email);
+      erroVerificacao("Se esse e-mail tiver uma conta, enviamos um link e um código para redefinir a senha.", true);
+    }
   });
 }
 
@@ -142,7 +296,7 @@ function ligarFormularioSenha(){
       }
       const { error } = await sb.auth.updateUser({ password: nova, data: { convite_senha_pendente: false } });
       if(error){ erroSenha(error.message); return; }
-      history.replaceState(null, "", location.pathname + location.search);
+      limparRetornoAuth();
       senhaJaDefinida = true;
       $("senhaNova").value = ""; $("senhaConfirma").value = "";
       const { data: { session } } = await sb.auth.getSession();
@@ -212,6 +366,8 @@ let perfilValidado = false;
 let validacaoSessao = 0;
 let sessaoNormalIniciada = false;
 async function aplicarSessao(sessao){
+  // Enquanto a pessoa confirma um link/código, eventos de uma conta salva não abrem o site.
+  if(verificacaoAtiva) return;
   const atual = ++validacaoSessao;
   if(sessao){
     if(perfilValidado && sessaoAtual && sessaoAtual.user.id === sessao.user.id && senhaJaDefinida){
@@ -228,11 +384,25 @@ async function aplicarSessao(sessao){
         erro(error ? "Não foi possível validar seu acesso. Confira a conexão e entre novamente." : "Confirme seu e-mail pelo link recebido antes de entrar.");
         return;
       }
-      if(!senhaJaDefinida || data.user.user_metadata?.convite_senha_pendente === true){
+      // A presença real de senha vem do banco, mesmo que o celular perca o tipo do link
+      // ou o marcador de primeiro acesso. A função só devolve um booleano para esta conta.
+      const { data: senhaDefinida, error: erroEstadoSenha } = await sb.rpc("minha_senha_definida");
+      if(atual !== validacaoSessao) return;
+      if(erroEstadoSenha || typeof senhaDefinida !== "boolean"){
+        sessaoAtual = null; perfilValidado = false; window.Imperium.perfil = null;
+        mostrar("login");
+        erro("Não foi possível conferir a etapa da senha. Tente novamente. Se continuar, peça ao administrador para instalar a atualização de confirmação de e-mail.");
+        return;
+      }
+      if(!senhaDefinida || !senhaJaDefinida || data.user.user_metadata?.convite_senha_pendente === true){
         sessaoAtual = sessao; perfilValidado = false;
-        if(tipoLinkAuth === "invite" || data.user.user_metadata?.convite_senha_pendente === true){
-          $("senhaSub").textContent = "E-mail confirmado. Crie sua senha para concluir seu acesso.";
-        }
+        const primeiroAcesso = !senhaDefinida || tipoLinkAuth === "invite" || data.user.user_metadata?.convite_senha_pendente === true;
+        $("senhaTitulo").textContent = primeiroAcesso ? "Crie sua senha" : "Redefina sua senha";
+        $("senhaNovaRotulo").textContent = primeiroAcesso ? "Crie sua senha" : "Nova senha";
+        $("senhaConfirmaRotulo").textContent = primeiroAcesso ? "Confirme sua senha" : "Confirmar nova senha";
+        $("senhaSub").textContent = primeiroAcesso
+          ? "E-mail confirmado. Crie sua senha para concluir seu acesso."
+          : "Escolha uma nova senha para acessar a plataforma.";
         mostrar("senha"); return;
       }
       const perfil = await window.Imperium.carregarPerfil();
@@ -274,6 +444,13 @@ async function iniciar(){
   ligarFormulario();
   ligarFormularioSenha();
   ligarFormularioCadastro();
+  ligarFormularioVerificacao();
+  if(linkConfirmacaoPresente){
+    // Guardar apenas na memória da aba e retirar o segredo da barra de endereço.
+    limparRetornoAuth();
+    abrirVerificacao("link");
+    return;
+  }
   // veio de um link de convite (só nome): mostra a tela de auto-cadastro e espera a pessoa
   // informar o e-mail. A sessão da nova conta só é criada pelo link de confirmação.
   if(tokenConvite){ mostrar("cadastro"); return; }

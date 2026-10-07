@@ -1,3 +1,5 @@
+> Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
+
 # Ativar a confirmação de e-mail
 
 O pacote corrige o cadastro por convite. O novo usuário informa o e-mail, recebe um link para confirmar o endereço e só então escolhe a senha e entra. A conta fica pendente enquanto o e-mail não for confirmado.

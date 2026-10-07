@@ -1,7 +1,7 @@
 /* Usuários — módulo de administração (só aparece para quem é "admin").
    Duas partes:
    - Pessoas: lista todas as contas que existem no Supabase (Authentication > Users), mostra se cada
-     uma PODE LOGAR de fato (conta ativa no site, e-mail confirmado, não suspensa) e permite, ali mesmo,
+     uma PODE LOGAR de fato (conta ativa, e-mail confirmado, senha criada, não suspensa) e permite, ali mesmo,
      trocar o papel (admin/usuário), o CARGO, ligar/desligar cada ferramenta só para aquela pessoa e
      ativar/bloquear. Toda alteração é salva na hora (sem botão "Salvar").
    - Cargos: cada cargo reúne no mesmo lugar as FERRAMENTAS que libera (o que antes era o "nível") e o
@@ -49,12 +49,14 @@ function quandoAcessou(iso){
 }
 
 /* ---------- regras de exibição ---------- */
-// A pessoa consegue mesmo entrar no site? Três coisas precisam estar certas:
-// e-mail confirmado e conta não suspensa (isso é do Supabase Auth) e "ativo" ligado aqui no site.
+// O e-mail pode estar confirmado antes da senha. Só mostrar "Pode logar" se
+// a senha existir de fato no Auth, a conta estiver ativa e não estiver suspensa.
 function statusLogin(p){
   if(p.suspenso_ate && new Date(p.suspenso_ate) > new Date()) return { k:"bad",  t:"Suspensa no Supabase", pode:false };
   if(!p.email_confirmado_em)                                   return { k:"warn", t:"E-mail não confirmado", pode:false };
   if(!p.ativo)                                                 return { k:"bad",  t:"Bloqueada no site", pode:false };
+  if(p.senha_definida === false)                               return { k:"warn", t:"Senha pendente", pode:false };
+  if(p.senha_definida !== true)                                return { k:"warn", t:"Verificação indisponível", pode:false };
   return { k:"ok", t:"Pode logar", pode:true };
 }
 
@@ -385,7 +387,11 @@ function renderCartao(id){
 }
 
 async function carregarPessoas(){
-  const { data, error } = await sb().rpc("admin_listar_perfis");
+  const [perfis, senhas] = await Promise.all([
+    sb().rpc("admin_listar_perfis"),
+    sb().rpc("admin_listar_estado_senha")
+  ]);
+  const { data, error } = perfis;
   if(!root) return;
   const av = q("#usrAviso");
   if(error){
@@ -400,7 +406,11 @@ async function carregarPessoas(){
   }else{
     av.innerHTML = "";
   }
-  pessoas = (data || []).map(r => ({ ...r, diretos: new Set(r.modulos || []) }));
+  if(senhas.error){
+    av.innerHTML += `<div class="usr-alerta">Não foi possível verificar quem já criou a senha. Instale <code>supabase-schema-estado-senha.sql</code> no SQL Editor do Supabase e atualize a lista.</div>`;
+  }
+  const estadoSenhas = new Map((senhas.data || []).map(r => [r.id, r.senha_definida]));
+  pessoas = (data || []).map(r => ({ ...r, senha_definida: estadoSenhas.get(r.id), diretos: new Set(r.modulos || []) }));
   renderPessoas();
   renderCargos();   // atualiza a contagem "N pessoas" de cada cargo
 }
