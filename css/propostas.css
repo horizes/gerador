@@ -72,6 +72,16 @@ input:hover,select:hover,textarea:hover{border-color:#453E33}
 .rm:hover{border-color:#7A3B3B;color:#E59A9A}
 .dup{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;padding:5px 9px;cursor:pointer;font-size:12px;flex:0 0 auto}
 .dup:hover{border-color:var(--gold);color:var(--gold)}
+.equipamentos-editor{margin-top:15px;padding-top:1px;border-top:1px solid var(--rule)}
+.equipamentos-editor>.hint{margin:0 0 10px}
+.equipamento-item{padding:10px;margin:0 0 10px;border:1px solid var(--rule);border-radius:4px;background:var(--field)}
+.equipamento-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.equipamento-head .tg{padding:0;border:0}
+.equipamento-head .tg span{font-size:12px}
+.equipamento-head .rm{margin-left:auto}
+.equipamento-status{font-size:11px;line-height:1.4;color:var(--gold-hi)}
+.equipamento-item .f{margin-bottom:10px}
+.equipamento-item .grid2 .f{margin:0}
 
 
 .actions{padding:16px 20px;display:flex;flex-direction:column;gap:9px;position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--rule)}
@@ -180,6 +190,7 @@ table.dt{width:100%;border-collapse:collapse;margin:9px 0 18px;font-size:16px}
 table.dt th{background:#111;color:var(--gold);font-weight:600;padding:10px 8px;text-align:center;border:1px solid #111;letter-spacing:.03em}
 table.dt td{border:1px solid #BEB8AC;padding:9px 8px;text-align:center}
 table.dt td.moeda{white-space:nowrap}
+.equipamento-cortesia{color:#80610D;font-weight:700;white-space:nowrap}
 table.dt td.l{text-align:left}
 table.dt tbody tr:nth-child(even) td{background:#FAF8F4}
 table.dt .fn{font-weight:700;text-align:left}

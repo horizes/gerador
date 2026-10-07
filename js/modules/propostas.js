@@ -118,7 +118,15 @@ function novoCargo(base, salMin){
   return {on:false, acum:false, genero:base.gen || "F", nome:base.nome, curto:base.curto, cbo:base.cbo, conf:base.conf, frente:base.frente,
     postos:1, func:1, escala:base.escala, turno:base.turno, posto:base.posto,
     salario:base.salario, premio:PAD.premio, insalPct:PAD.insalPct, insal:calcInsal(sm, PAD.insalPct), acumPct:PAD.acumPct, acumVal:r2((+base.salario||0)*PAD.acumPct/100), plr:PAD.plr,
-    vr:PAD.vr, vt:PAD.vt, va:PAD.va};
+    vr:PAD.vr, vt:PAD.vt, va:PAD.va, equipamentos:[]};
+}
+
+function equipamentoNormalizado(e){
+  e = objeto(e) ? e : {};
+  const quantidade = Number(e.quantidade), valor = Number(e.valor);
+  return {nome:typeof e.nome==="string" ? e.nome : "", on:e.on!==false,
+    quantidade:Number.isFinite(quantidade) ? Math.max(1,Math.floor(quantidade)) : 1,
+    valor:Number.isFinite(valor) ? r2(Math.max(0,valor)) : 0};
 }
 
 const CAMPOS_PADRAO = ["cidade","base","assinante","cargoAssinante","dias","salMin","fator","secoes","difs","fidelidade","condicoesContratuais","clientes","logoConnect","logoFlash","logoV"];
@@ -132,9 +140,11 @@ function estadoBase(){
 function cargoPadrao(c, base, salMin){
   const novo = novoCargo(base,salMin);
   Object.keys(novo).forEach(k => {
-    if(["on","postos","func","acum"].includes(k)) return;
+    if(["on","postos","func","acum","equipamentos"].includes(k)) return;
     if(c && typeof c[k] === typeof novo[k] && (typeof c[k] !== "number" || Number.isFinite(c[k]))) novo[k] = c[k];
   });
+  novo.equipamentos = Array.isArray(c&&c.equipamentos) ? c.equipamentos.filter(objeto).map(e=>
+    Object.assign(equipamentoNormalizado(e),{quantidade:1})) : [];
   return novo;
 }
 /* Lista explícita: dados do destinatário, foto da capa e observações nunca entram no padrão. */
@@ -289,7 +299,14 @@ function valorPosto(c){
   return r2((+c.posto||0) + adic*fator);
 }
 function benef(c){ return ((+c.vr||0)+(+c.vt||0))*(+S.dias||0) + (+c.va||0); }
-function totalMensal(){ return listaCargos().reduce((s,c)=>s+valorPosto(c)*(+c.postos||0),0); }
+function totalServicos(){ return listaCargos().reduce((s,c)=>s+valorPosto(c)*(+c.postos||0),0); }
+function listaEquipamentos(){
+  return listaCargos().flatMap(c=>(Array.isArray(c.equipamentos)?c.equipamentos:[]).filter(objeto)
+    .map(equipamentoNormalizado).filter(e=>e.on&&e.nome.trim()).map(e=>
+      Object.assign(e,{nome:e.nome.trim(),servico:c.curto||c.nome,total:r2(e.quantidade*e.valor)})));
+}
+function totalEquipamentos(){ return r2(listaEquipamentos().reduce((s,e)=>s+e.total,0)); }
+function totalMensal(){ return r2(totalServicos()+totalEquipamentos()); }
 function escopoAuto(){
   const f=[...new Set(listaCargos().map(c=>c.frente).filter(Boolean))];
   if(!f.length) return "limpeza e conservação";
@@ -350,6 +367,39 @@ function set(path,val){
   o[ks[ks.length-1]]=val;
 }
 
+function equipamentosEditor(key,c){
+  const equipamentos = Array.isArray(c.equipamentos) ? c.equipamentos : [];
+  return `<div class="equipamentos-editor">
+    <div class="mini">Equipamentos</div>
+    <p class="hint">Quantidade total do serviço. R$ 0 = cortesia.</p>
+    ${equipamentos.map((e,i)=>`<div class="equipamento-item">
+      <div class="equipamento-head">
+        <label class="tg"><input type="checkbox" data-eq="${key}.${i}.on" ${e.on!==false?"checked":""}><span>Incluir</span></label>
+        <span class="equipamento-status" data-eqstatus="${key}.${i}" role="status">${e.on===false?"Não incluído":(+e.valor||0)===0?"Cortesia":brl(r2((+e.quantidade||1)*(+e.valor||0)))+" / mês"}</span>
+        <button class="rm" type="button" data-deleq="${key}.${i}" aria-label="Remover equipamento">remover</button>
+      </div>
+      <label class="f"><span>Equipamento</span><input type="text" data-eq="${key}.${i}.nome" placeholder="Ex.: roçadeira" value="${esc(e.nome)}"></label>
+      <div class="grid2">
+        <label class="f"><span>Quantidade</span><input type="number" min="1" step="1" data-eq="${key}.${i}.quantidade" value="${e.quantidade}"></label>
+        <label class="f"><span>Valor mensal/unidade (R$)</span><input type="number" min="0" step="0.01" data-eq="${key}.${i}.valor" value="${e.valor}"></label>
+      </div>
+    </div>`).join("")}
+    <button class="btn ghost wide" type="button" data-addeq="${key}">+ Equipamento</button>
+  </div>`;
+}
+
+function atualizarEquipamento(t,finalizar=false){
+  const [key,i,campo] = t.dataset.eq.split(".");
+  const e = refCargo(key)?.equipamentos?.[+i];
+  if(!e || !["nome","on","quantidade","valor"].includes(campo)) return;
+  e[campo] = campo==="on" ? t.checked : campo==="nome" ? t.value : Number(t.value);
+  Object.assign(e,equipamentoNormalizado(e));
+  if(finalizar && t.type==="number") t.value = String(e[campo]);
+  const status = root.querySelector(`[data-eqstatus="${key}.${i}"]`);
+  if(status) status.textContent = !e.on ? "Não incluído" : e.valor===0 ? "Cortesia" : brl(r2(e.quantidade*e.valor))+" / mês";
+  renderPapers();
+}
+
 function cargoCard(key,c){
   return `<div class="cargo ${c.on?"on":""}" data-card="${key}">
     <div class="head">
@@ -404,6 +454,7 @@ function cargoCard(key,c){
         <label class="f"><span>Valor base do posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
       </div>
       <p class="hint" data-final="${key}"></p>
+      ${equipamentosEditor(key,c)}
       <div class="mini">Benefícios</div>
       <div class="grid3">
         <label class="f"><span>VR/dia</span><input type="number" step="0.01" data-c="${key}.vr" value="${c.vr}"></label>
@@ -422,7 +473,13 @@ function condicaoContratualAtual(){
   return S.condicoesContratuais[S.fidelidade ? "fidelidade" : "flexibilidade"];
 }
 function diferenciaisProposta(){
-  return S.difs.concat(condicaoContratualAtual());
+  const equipamentos = listaEquipamentos(), cortesias = equipamentos.filter(e=>e.valor===0);
+  const pagos = equipamentos.some(e=>e.valor>0);
+  const difs = S.difs.map(d=>pagos && d.t===DIF_PADRAO[0].t && d.d===DIF_PADRAO[0].d
+    ? {t:d.t,d:"Os equipamentos são fornecidos conforme a relação desta proposta. Os valores mensais e os itens em cortesia estão indicados na tabela de equipamentos."} : d);
+  if(cortesias.length) difs.push({t:"Equipamentos em cortesia",d:
+    cortesias.map(e=>`${e.nome} (${e.quantidade} un. — ${e.servico})`).join("; ")+". Oferecidos em cortesia, sem custo mensal adicional."});
+  return difs.concat(condicaoContratualAtual());
 }
 function editorCondicaoContratual(){
   const modo = S.fidelidade ? "fidelidade" : "flexibilidade", d = condicaoContratualAtual();
@@ -804,8 +861,22 @@ function pgValores(){
   return pgTabelas() + pgDiferenciais();
 }
 
+function tabelaEquipamentos(){
+  const equipamentos = listaEquipamentos();
+  if(!equipamentos.length) return "";
+  const preco = valor => valor===0 ? '<span class="equipamento-cortesia">Cortesia</span>' : brl(valor);
+  return `<p style="font-weight:700;margin-bottom:4px">Equipamentos</p>
+    <table class="dt equipamentos-tabela">
+      <thead><tr><th>Serviço</th><th>Equipamento</th><th>Qtd.</th><th>Mensal / unidade</th><th>Total mensal</th></tr></thead>
+      <tbody>${equipamentos.map(e=>`<tr><td class="fn">${esc(e.servico)}</td><td class="l">${esc(e.nome)}</td><td>${e.quantidade}</td><td class="moeda">${preco(e.valor)}</td><td class="moeda">${preco(e.total)}</td></tr>`).join("")}
+        <tr><td colspan="4" style="text-align:right;font-weight:700">Equipamentos / mês</td><td class="moeda">${preco(totalEquipamentos())}</td></tr>
+        <tr class="totrow"><td colspan="4" style="text-align:right">Total mensal da proposta</td><td class="v moeda">${brl(totalMensal())}</td></tr>
+      </tbody>
+    </table>`;
+}
+
 function pgTabelas(){
-  const cs = listaCargos(), co = colab();
+  const cs = listaCargos(), co = colab(), equipamentos = listaEquipamentos();
   const mediaBen = cs.length ? cs.reduce((s,c)=>s+benef(c),0)/cs.length : 0;
   const acumCol = cs.some(c=>c.acum);
   const iguais = cs.every(c=>Math.abs(benef(c)-benef(cs[0]||c))<0.01);
@@ -830,9 +901,9 @@ function pgTabelas(){
       <thead><tr><th>Função</th><th>Escala</th><th>Turno</th><th>Postos</th><th>Pessoas</th><th>Valor por posto</th><th>Valor total</th></tr></thead>
       <tbody>
         ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td class="moeda">${brl(valorPosto(c))}</td><td class="moeda">${brl(valorPosto(c)*(+c.postos||0))}</td></tr>`).join("")}
-        <tr class="totrow"><td colspan="6" style="text-align:right">Mensal</td><td class="v moeda">${brl(totalMensal())}</td></tr>
+        <tr class="totrow"><td colspan="6" style="text-align:right">${equipamentos.length?"Serviços / mês":"Mensal"}</td><td class="v moeda">${brl(totalServicos())}</td></tr>
       </tbody>
-    </table>`, "pg-tabelas");
+    </table>${tabelaEquipamentos()}`, "pg-tabelas");
 }
 
 function pgDiferenciais(){
@@ -1114,6 +1185,7 @@ function recalcInsalTodos(){
 on("input", e=>{
   const t = e.target;
   if(t.type==="checkbox") return;
+  if(t.dataset.eq){ atualizarEquipamento(t); return; }
   if(t.dataset.cliaj){
     const [i,campo] = t.dataset.cliaj.split(".");
     const c = S.clientes[+i]; if(!c) return;
@@ -1177,6 +1249,7 @@ on("input", e=>{
 
 on("change", e=>{
   const t = e.target;
+  if(t.dataset.eq){ atualizarEquipamento(t,true); return; }
   if(t.id==="fidelidadeContratual"){
     S.fidelidade = t.checked;
     root.querySelector("#condicaoContratual").innerHTML = editorCondicaoContratual();
@@ -1257,6 +1330,17 @@ on("change", e=>{
 
 on("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.addeq){
+    const c = refCargo(b.dataset.addeq); if(!c) return;
+    if(!Array.isArray(c.equipamentos)) c.equipamentos=[];
+    c.equipamentos.push(equipamentoNormalizado({nome:"",quantidade:1,valor:0,on:true}));
+    painel(); renderPapers(); return;
+  }
+  if(b.dataset.deleq){
+    const [key,i] = b.dataset.deleq.split(".");
+    const c = refCargo(key); if(!c || !Array.isArray(c.equipamentos)) return;
+    c.equipamentos.splice(+i,1); painel(); renderPapers(); return;
+  }
   if(b.id==="addcargo"){
     S.extras.push(Object.assign(novoCargo(CATALOGO[0], S.salMin),{on:true,nome:"Novo cargo",curto:"Novo cargo",cbo:"0000-00",conf:false,frente:"serviços gerais"}));
     painel(); renderPapers(); return;
@@ -1446,6 +1530,18 @@ function capaAberturaWord(){
   return paragrafos.join("");
 }
 
+function equipamentosWord(){
+  const equipamentos = listaEquipamentos();
+  if(!equipamentos.length) return "";
+  const preco = valor => TD(valor===0?"Cortesia":brl(valor),valor===0?{b:true,color:"80610D"}:{});
+  return P([R("Equipamentos",{b:true})],{after:60}) + TBL([
+    TR(["Serviço","Equipamento","Qtd.","Mensal / unidade","Total mensal"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"}))),
+    ...equipamentos.map(e=>TR([TD(e.servico,{b:true,align:"left"}),TD(e.nome,{align:"left"}),TD(String(e.quantidade)),preco(e.valor),preco(e.total)])),
+    TR([TD("Equipamentos / mês",{b:true,span:4,align:"right"}),preco(totalEquipamentos())]),
+    TR([TD("Total mensal da proposta",{b:true,span:4,align:"right",shade:"111111",color:"FFFFFF"}),TD(brl(totalMensal()),{b:true,shade:"111111",color:"D7B247"})])
+  ]);
+}
+
 function docBody(){
   logoDocxId=0;
   const cs = listaCargos(), esc0 = S.escopoTexto || escopoAuto();
@@ -1550,7 +1646,8 @@ function docBody(){
   P_.push(P([R("Escopo e valores da proposta",{b:true})],{after:60}));
   P_.push(TBL([TR(["Função","Escala","Turno","Postos","Pessoas","Valor por posto","Valor total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
     .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(c.escala),TD(c.turno),TD(String(c.postos)),TD(String(c.func)),TD(brl(valorPosto(c))),TD(brl(valorPosto(c)*(+c.postos||0)))])))
-    .concat([TR([TD("Mensal",{b:true,span:6,align:"right",shade:"111111",color:"FFFFFF"}),TD(brl(totalMensal()),{b:true,shade:"111111",color:"D7B247"})])])));
+    .concat([TR([TD(listaEquipamentos().length?"Serviços / mês":"Mensal",{b:true,span:6,align:"right",shade:"111111",color:"FFFFFF"}),TD(brl(totalServicos()),{b:true,shade:"111111",color:"D7B247"})])])));
+  P_.push(equipamentosWord());
 
   P_.push(H("Diferenciais e Condições da Proposta",{sz:30}));
   diferenciaisProposta().forEach(d=>P_.push(BULLET(d.t,d.d)));
