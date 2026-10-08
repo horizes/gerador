@@ -64,38 +64,25 @@
   <form class="login-box" id="cadastroForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
     <h1 id="cadastroTitulo">Bem-vindo(a)</h1>
-    <p class="login-sub">Informe seu e-mail. Enviaremos um link para confirmar seu endereço e criar sua senha.</p>
+    <p class="login-sub">Informe seu e-mail. Enviaremos um código para confirmar seu endereço e criar sua senha.</p>
     <label class="f"><span>Seu e-mail</span><input type="email" id="cadastroEmail" required maxlength="254" autocomplete="email"></label>
     <p class="login-erro" id="cadastroErro" hidden></p>
     <button class="btn wide" type="submit">Enviar confirmação</button>
   </form>
 </div>
 
-<div class="login-wrap" id="confirmacao" style="display:none">
-  <section class="login-box" aria-labelledby="confirmacaoTitulo">
-    <img src="assets/logo.jpg" alt="" class="login-logo">
-    <h1 id="confirmacaoTitulo">Confirme seu e-mail</h1>
-    <p class="login-sub">Enviamos um link e um código para <strong id="confirmacaoEmail"></strong>.</p>
-    <p class="login-sub">Abra o link recebido e confirme seu e-mail para criar a senha. Se preferir, digite o código aqui ou no aplicativo.</p>
-    <p class="login-sub">O código também funciona quando o e-mail abre em outro navegador.</p>
-    <button class="btn wide" type="button" id="confirmacaoCodigo">Digitar código</button>
-    <button class="btn ghost wide" type="button" id="confirmacaoLogin">Voltar ao login</button>
-  </section>
-</div>
-
 <div class="login-wrap" id="verificacao" style="display:none">
   <form class="login-box" id="verificacaoForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
-    <h1 id="verificacaoTitulo">Confirme seu e-mail</h1>
-    <p class="login-sub" id="verificacaoSub">Confirme seu endereço para criar a senha.</p>
-    <div id="verificacaoCampos" hidden>
-      <label class="f"><span>E-mail</span><input type="email" id="verificacaoEmail" maxlength="254" autocomplete="email"></label>
-      <label class="f"><span>Código do e-mail</span><input type="text" id="verificacaoToken" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-describedby="verificacaoSub"></label>
+    <h1 id="verificacaoTitulo">Código do e-mail</h1>
+    <p class="login-sub" id="verificacaoSub">Digite os 6 números recebidos no seu e-mail para escolher sua senha.</p>
+    <div id="verificacaoCampos">
+      <label class="f"><span>E-mail</span><input type="email" id="verificacaoEmail" required maxlength="254" autocomplete="email"></label>
+      <label class="f"><span>Código do e-mail</span><input type="text" id="verificacaoToken" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-describedby="verificacaoSub"></label>
     </div>
     <p class="login-erro" id="verificacaoErro" role="status" aria-live="polite" hidden></p>
-    <button class="btn wide" type="submit" id="verificacaoConfirmar">Confirmar e criar senha</button>
-    <button class="btn ghost wide" type="button" id="verificacaoCodigo">Usar código do e-mail</button>
-    <button class="btn ghost wide" type="button" id="verificacaoReenviar" hidden>Receber novo código</button>
+    <button class="btn wide" type="submit" id="verificacaoConfirmar">Confirmar código</button>
+    <button class="btn ghost wide" type="button" id="verificacaoReenviar">Receber novo código</button>
     <button class="btn ghost wide" type="button" id="verificacaoVoltar">Voltar ao login</button>
   </form>
 </div>
@@ -136,7 +123,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/supabase.js?v=2"></script>
+<script src="js/supabase.js?v=3"></script>
 <script src="js/dados.js?v=1"></script>
 <script src="js/perfil.js?v=4"></script>
 <script src="js/dashboard.js?v=11"></script>
@@ -144,11 +131,11 @@
 <script src="js/modules/propostas.js?v=26"></script>
 <script src="js/modules/fluxo.js?v=10"></script>
 <script src="js/modules/uniformes.js?v=16"></script>
-<script src="js/modules/usuarios.js?v=7"></script>
+<script src="js/modules/usuarios.js?v=8"></script>
 <script src="js/modules/ponto.js?v=2"></script>
 <script src="js/modules/clientes-relatorios.js?v=7"></script>
 <script src="js/push.js?v=1"></script>
-<script src="js/auth.js?v=12"></script>
+<script src="js/auth.js?v=13"></script>
 <script src="js/pwa.js?v=1"></script>
 </body>
 </html>

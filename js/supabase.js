@@ -38,7 +38,8 @@ const armazenamentoSessao = {
 
 window.Imperium = window.Imperium || {};
 window.Imperium.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { storage: armazenamentoSessao }
+  // A sessão de confirmação é criada somente por verifyOtp ao digitar o código.
+  auth: { storage: armazenamentoSessao, detectSessionInUrl: false }
 });
 window.Imperium.manterConectado = { ler: lerManter, definir: definirManter };
 

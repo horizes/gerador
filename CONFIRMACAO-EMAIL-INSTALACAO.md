@@ -1,3 +1,5 @@
+> Versão atual: siga **AUTENTICACAO-TOKEN.md** para confirmação e recuperação somente por código. Este documento abaixo descreve uma versão anterior.
+
 > Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
 
 # Ativar a confirmação de e-mail

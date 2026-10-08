@@ -1,3 +1,5 @@
+> Versão atual: siga **AUTENTICACAO-TOKEN.md** para confirmação e recuperação somente por código. Este documento abaixo descreve uma versão anterior.
+
 # Confirmação de e-mail no celular e no aplicativo — Imperium
 
 Esta correção mantém o cadastro atual, os papéis/cargos e o gerador de propostas. Atualiza a autenticação, os modelos de convite/recuperação e a lista de usuários. A lista passa a mostrar **Senha pendente** quando o e-mail já foi confirmado, mas a senha ainda não existe. **Pode logar** exige e-mail confirmado, senha existente, conta ativa e não suspensa.
