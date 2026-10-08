@@ -681,13 +681,15 @@ async function mount(el){
   filtro = "todos"; busca = "";
   root.classList.add("mod-usuarios");
   root.innerHTML = skel();
-  categorias = window.ImperiumCategorias.montar(root, { id: "usuarios", rotulo: "Categorias de usuários", inicial: "pessoas", itens: [
+  const rota = window.Platform.parametrosRota?.() || new URLSearchParams();
+  categorias = window.ImperiumCategorias.montar(root, { id: "usuarios", rotulo: "Categorias de usuários", inicial: rota.get('categoria') || "pessoas", itens: [
     { id: "pessoas", nome: "Pessoas" }, { id: "convites", nome: "Convites" }, { id: "cargos", nome: "Cargos" }
   ] });
   ligar();
   // cargos primeiro: o cartão de cada pessoa precisa saber o que o cargo dela libera
   await carregarCargos();
   await Promise.all([carregarPessoas(), carregarConvitesPendentes()]);
+  if(root === el) window.Platform.destacarRegistro?.(el, 'data-id', rota.get('pessoa'));
 }
 function unmount(){ clearTimeout(toastTimer); categorias?.destruir(); categorias = null; root = null; }
 

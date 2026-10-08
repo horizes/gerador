@@ -67,8 +67,18 @@ async function lerPedidos(apenasMeus){
     .select("*, itens:uniforme_itens(*), recebimentos:uniforme_recebimentos(*)")
     .order("criado_em", { ascending:false }).limit(300);
   if(apenasMeus) q = q.eq("solicitante_id", perfil().id);
-  const { data, error } = await q;
+  const { data: linhas, error } = await q;
   if(error) throw error;
+  const data = linhas || [];
+  // Um atalho da central também abre um pedido anterior aos 300 mais recentes.
+  const alvo = window.Platform.parametrosRota?.().get('pedido');
+  if(alvo && !data.some(p => p.id === alvo) && /^[0-9a-f-]{36}$/i.test(alvo)){
+    let pedido = sb().from('uniforme_pedidos').select('*, itens:uniforme_itens(*), recebimentos:uniforme_recebimentos(*)').eq('id', alvo);
+    if(apenasMeus) pedido = pedido.eq('solicitante_id', perfil().id);
+    const r = await pedido;
+    if(r.error) throw r.error;
+    data.push(...(r.data || []));
+  }
   (data||[]).forEach(p => { p.itens = (p.itens||[]).sort(ordemItens); p.recebimentos = p.recebimentos||[]; });
   return data || [];
 }
@@ -796,15 +806,17 @@ const SOL = (function(){
 
   async function mount(el){
     root = el; root.className = "mod-uni";
+    const rota = window.Platform.parametrosRota?.() || new URLSearchParams();
     root.innerHTML = `<div class="uni-wrap"><p class="hint" style="padding:40px 0">Carregando…</p></div>`;
     try{ await carregar(); }
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
     if(root !== el) return;   // a pessoa já saiu da tela antes de terminar de carregar
     root.innerHTML = TEMPLATE;
-    categoria = "solicitar";
+    categoria = CATEGORIAS.some(c => c.id === rota.get('categoria')) ? rota.get('categoria') : "solicitar";
     tamanhos = {}; quantidades = {}; obsPedido = "";
     ouvintes.forEach(([t, fn]) => root.addEventListener(t, fn));
     renderKit(); renderMeus();
+    window.Platform.destacarRegistro?.(el, 'data-ped', rota.get('pedido'));
     escutas.add(recarregar);
   }
   function unmount(){
@@ -1226,6 +1238,7 @@ const GES = (function(){
 
   async function mount(el){
     root = el; root.className = "mod-uni";
+    const rota = window.Platform.parametrosRota?.() || new URLSearchParams();
     root.innerHTML = `<div class="uni-wrap"><p class="hint" style="padding:40px 0">Carregando…</p></div>`;
     try{ await carregar(); }
     catch(e){ if(root === el) root.innerHTML = avisoConfig(e); return; }
@@ -1233,7 +1246,9 @@ const GES = (function(){
     root.innerHTML = TEMPLATE;
     ouvintes.forEach(([t, fn, cap]) => root.addEventListener(t, fn, cap));
     aba = "pedidos";
+    if(rota.get('pedido')){ filtro = rota.get('filtro') === 'entrega' ? 'entrega' : 'pendente'; busca = ''; }
     renderAba();
+    window.Platform.destacarRegistro?.(el, 'data-ped', rota.get('pedido'));
     escutas.add(recarregar);
     atualizarBadges();
   }

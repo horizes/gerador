@@ -25,7 +25,7 @@ const CATEGORIAS = [
 const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };
 // A sequência acompanha o trabalho: uso pessoal, organização do posto,
 // acompanhamento da equipe e documentação. Não depende da ordem dos scripts.
-const ORDEM_MODULOS = ["ponto_meu", "uniforme_solicitar", "clientes", "ponto_gestao", "uniforme_gestao", "uniforme_relatorios", "propostas", "fluxo", "usuarios"];
+const ORDEM_MODULOS = ["pendencias", "ponto_meu", "uniforme_solicitar", "clientes", "ponto_gestao", "uniforme_gestao", "uniforme_relatorios", "propostas", "fluxo", "usuarios"];
 const ordemDe = m => { const i = ORDEM_MODULOS.indexOf(m.id); return i < 0 ? ORDEM_MODULOS.length : i; };
 
 const categoriaDe = m => CATEGORIAS.find(c => c.id === m.categoria) || CATEGORIA_OUTROS;
@@ -43,12 +43,24 @@ function podeVer(m){
   const perfil = window.Imperium && window.Imperium.perfil;
   if(!perfil) return false;
   if(m.soAdmin) return perfil.admin;
+  if(m.sempreVisivel) return true;
   return perfil.podeVer(m.id);
 }
 function modulosVisiveis(){ return modulos.filter(podeVer); }
 
 function rotaAtual(){
-  return location.hash.replace(/^#\/?/, "").split("/")[0];
+  return location.hash.replace(/^#\/?/, "").split(/[/?]/)[0];
+}
+
+function parametrosRota(){ return new URLSearchParams(location.hash.split('?')[1] || ''); }
+function destacarRegistro(raiz, atributo, id){
+  if(!id) return;
+  const el = raiz.querySelector(`[${atributo}="${CSS.escape(id)}"]`);
+  if(!el){ toast('O item pode já ter sido resolvido. Confira a lista atual.'); return; }
+  el.classList.add('pendencia-destino');
+  el.tabIndex = -1;
+  el.scrollIntoView({block:'center', behavior:'instant'});
+  el.focus({preventScroll:true});
 }
 
 const icone = (paths) =>
@@ -129,6 +141,7 @@ function gaveta(abrir){
 /* ---------- tela inicial ---------- */
 const escHome = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const HOME_ACOES = {
+  pendencias: {titulo:"Central de pendências",texto:"Confira o que precisa de ação e acompanhe seus pedidos.",acao:"Ver pendências"},
   clientes: {titulo:"Clientes e postos",texto:"Organize clientes e alocações da equipe.",acao:"Abrir cadastros"},
   uniforme_relatorios: {titulo:"Fechamento mensal",texto:"Prepare os comprovantes por posto para a contabilidade.",acao:"Gerar relatórios"},
   ponto_meu: {titulo:"Meu ponto",texto:"Registre sua jornada no ambiente de teste.",acao:"Abrir meu ponto"},
@@ -153,6 +166,7 @@ function homeFerramentas(){
     }).join("")}</ul>`;
 }
 function homePendencias(){
+  if(window.ImperiumPendencias) return window.ImperiumPendencias.htmlHome();
   const itens = modulosVisiveis().filter(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao');
   if(!itens.length) return '';
   const pendentes = itens.filter(m => badges[m.id] > 0);
@@ -184,7 +198,7 @@ function telaInicial(){
       <div class="home-date"><span>Hoje</span><time datetime="${window.Imperium.hojeLocal()}">${escHome(data)}</time></div>
     </header>
     ${destaques.length ? `<div class="home-shortcuts" aria-label="Atalhos principais">${destaques.map((m,i) => `<a class="btn ${i ? 'ghost' : ''}" href="#/${m.id}">${escHome(HOME_ACOES[m.id].acao)}</a>`).join('')}</div>` : ''}
-    ${acessos.some(m => m.id === 'uniforme_solicitar' || m.id === 'uniforme_gestao') ? `<section id="homePendencias" class="home-attention" ${homePendencias() ? '' : 'hidden'} aria-live="polite" aria-atomic="true">${homePendencias()}</section>` : ''}
+    <section id="homePendencias" class="home-attention" ${homePendencias() ? '' : 'hidden'} aria-live="polite" aria-atomic="true">${homePendencias()}</section>
     <section class="home-tools-section" aria-label="Ferramentas disponíveis">${homeFerramentas()}</section>
     ${window.ImperiumDashboard ? window.ImperiumDashboard.html() : ''}
     <footer class="home-footer">Imperium Terceirização e Serviços <span>A pessoa certa no lugar certo faz a diferença.</span></footer>
@@ -213,6 +227,7 @@ function ir(){
     view.innerHTML = telaInicial();
     if(window.ImperiumDashboard) window.ImperiumDashboard.montar();
   }
+  if(!m && window.ImperiumPendencias) window.ImperiumPendencias.atualizar();
   $("shell").classList.toggle("in-module", !!m);
   // Início: menu aberto. Ferramentas: ícones, expandindo ao passar o mouse ou focar.
   // No celular/tablet permanece a gaveta pelo botão superior.
@@ -245,9 +260,9 @@ function iniciar(){
 // para a tela "Usuários" montar as checkboxes de cada cargo (só as ferramentas de verdade,
 // não a própria tela de admin)
 function modulosConfiguraveis(){
-  return agrupar(modulos.filter(m => !m.soAdmin))
+  return agrupar(modulos.filter(m => !m.soAdmin && m.configuravel !== false))
     .flatMap(g => g.itens.map(m => ({ id: m.id, nome: m.nome, categoria: g.cat.nome })));
 }
 
-window.Platform = { register, iniciar, modulosConfiguraveis, setBadge, toast };
+window.Platform = { register, iniciar, modulosConfiguraveis, setBadge, toast, parametrosRota, destacarRegistro };
 })();

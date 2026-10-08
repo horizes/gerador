@@ -919,6 +919,10 @@ async function mount(el){
   }
   if(root !== el) return; // usuário já saiu do módulo antes de terminar de carregar
 
+  const destino = window.Platform.parametrosRota?.().get('lancamento');
+  const selecionado = destino && achar(destino);
+  if(selecionado) S.filtro = {mes:mesDe(selecionado.data),tipo:selecionado.tipo,categoria:''};
+
   root.innerHTML = TEMPLATE;
   ouvintes.forEach(([t,fn]) => root.addEventListener(t, fn));
   root.querySelectorAll(".tabs button").forEach(b=>{
@@ -929,6 +933,10 @@ async function mount(el){
   });
   painel();
   renderTudo();
+  if(destino){
+    root.querySelector('[data-tab="prev"]').click();
+    window.Platform.destacarRegistro?.(root, 'data-row', destino);
+  }
   const velho = S.bancos.conexoes.some(c => !c.ultima_sincronizacao || Date.now() - new Date(c.ultima_sincronizacao) > 3*3600e3);
   if(velho) sincronizarBancos();
 }
