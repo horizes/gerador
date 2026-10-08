@@ -1,5 +1,7 @@
 # Instalação do aplicativo após o cadastro
 
+> O pacote atual é `imperium-plataforma-categorias.zip`. Ao publicar o HTML deste pacote, publique também os arquivos de categorias e módulos listados em `PAGINAS-POR-CATEGORIAS.md`.
+
 Após confirmar o e-mail e salvar a primeira senha, a pessoa recebe a tela **Cadastro concluído → Instale o aplicativo**. Ela pode instalar ou escolher **Continuar no navegador** para acessar suas ferramentas.
 
 O botão abre a confirmação de instalação quando o navegador fornece essa opção. Caso contrário, oferece instruções próprias para Android, iPhone/iPad, computador e Safari no Mac. Ao abrir as instruções, o botão dá lugar ao passo a passo. A instalação continua disponível no menu da plataforma.
@@ -20,7 +22,7 @@ Esta adição não exige alteração no Supabase. Se ainda não aplicou a corre�
 
 Mantenha `manifest.json`, os ícones em `assets/icons` e os demais arquivos existentes. A plataforma já usa o formato de aplicativo web instalável; não é necessário distribuir APK ou instalador para Windows.
 
-Aguarde a publicação e abra o site com internet. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v43`.
+Aguarde a publicação e abra o site com internet. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v44`.
 
 ## Conferir a instalação publicada
 

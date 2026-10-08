@@ -3,7 +3,7 @@
    Estratégia "rede primeiro": sempre tenta buscar a versão nova no servidor (assim toda atualização
    que você publicar chega sozinha) e só usa a cópia guardada se estiver sem internet.
    NÃO mexe em nada de outro domínio — login, banco de dados (Supabase) e Open Finance passam direto. */
-const VERSAO = "imperium-v43";
+const VERSAO = "imperium-v44";
 
 const BASICO = [
   "./",

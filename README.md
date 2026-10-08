@@ -1,4 +1,4 @@
-> Atualização atual: siga **CORRECAO-CODIGO-EMAIL.md** para a correção do cadastro e **INSTALACAO-APOS-CADASTRO.md** para a tela de instalação após criar a senha. As seções de autenticação deste documento descrevem versões anteriores.
+> Atualização atual: siga **PAGINAS-POR-CATEGORIAS.md** para a organização de Usuários, Ponto e Resumo mensal; **CORRECAO-CODIGO-EMAIL.md** para o cadastro; e **INSTALACAO-APOS-CADASTRO.md** para a instalação após criar a senha. As seções de autenticação deste documento descrevem versões anteriores.
 
 > Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
 
