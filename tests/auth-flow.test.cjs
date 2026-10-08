@@ -81,6 +81,7 @@ async function app(options = {}) {
   async function flush() { for(let i = 0; i < 6; i++) { while(scheduled.length) scheduled.shift()(); await tick(); } }
   await flush();
   return { elements, calls, responses, storage: sessionStore,
+    auth: context.window.ImperiumAuth,
     visible: id => elements[id].style.display !== 'none', flush,
     session: () => session, advance(ms) { now += ms; },
     async event(id, event = 'click') { await elements[id].fire(event); await flush(); },
@@ -108,6 +109,9 @@ test('primeiro código de convite usa invite, preserva zeros e pede a senha ante
   a.elements.senhaNova.value = a.elements.senhaConfirma.value = 'SenhaNova123';
   await a.event('senhaForm', 'submit');
   assert.equal(a.calls.password.length, 1);
+  assert.equal(a.visible('instalacao'), true);
+  assert.equal(a.calls.platform, 0);
+  await a.event('instalacaoContinuar');
   assert.equal(a.visible('shell'), true);
   assert.equal(a.calls.platform, 1);
   assert.equal(a.storage.getItem(passwordKey), null);
@@ -173,6 +177,8 @@ test('falha de rede depois de consumir o código permite salvar a senha sem vali
   a.responses.userError = null;
   a.elements.senhaNova.value = a.elements.senhaConfirma.value = 'SenhaNova123';
   await a.event('senhaForm', 'submit');
+  assert.equal(a.visible('instalacao'), true);
+  await a.event('instalacaoContinuar');
   assert.equal(a.visible('shell'), true);
   assert.equal(a.calls.verify.length, 1);
 });
@@ -251,4 +257,35 @@ test('login normal exige estado de senha no servidor antes de abrir ferramentas'
   assert.equal(a.visible('shell'), true); assert.equal(a.calls.rpc.length > 0, true);
   const b = await app({ user, session: { user }, passwordSet: false });
   assert.equal(b.visible('verificacao'), true); assert.equal(b.calls.platform, 0);
+});
+test('recarregar depois de salvar a primeira senha retoma a tela de instalação', async () => {
+  const a = await invited(); await a.verify();
+  a.elements.senhaNova.value = a.elements.senhaConfirma.value = 'SenhaNova123';
+  await a.event('senhaForm', 'submit');
+  const b = await app({ storage: a.storage, session: a.session(), user: a.session().user, passwordSet: true });
+  assert.equal(b.visible('instalacao'), true); assert.equal(b.calls.platform, 0);
+  await b.event('instalacaoContinuar');
+  assert.equal(b.visible('shell'), true);
+  const c = await app({ storage: b.storage, session: b.session(), user: b.session().user, passwordSet: true });
+  assert.equal(c.visible('shell'), true); assert.equal(c.visible('instalacao'), false);
+});
+test('redefinir uma senha existente não oferece instalação como novo cadastro', async () => {
+  const a = await app({ user: { user_metadata: {} }, passwordSet: true });
+  a.elements.loginEmail.value = 'pessoa@exemplo.com'; await a.event('loginEsqueci'); await a.verify();
+  a.elements.senhaNova.value = a.elements.senhaConfirma.value = 'SenhaNova123';
+  await a.event('senhaForm', 'submit');
+  assert.equal(a.visible('shell'), true); assert.equal(a.visible('instalacao'), false);
+});
+test('usuário autenticado pode reabrir instalação pelo menu sem repetir cadastro', async () => {
+  const user = { id: 'conta-nova', email: 'pessoa@exemplo.com', email_confirmed_at: '2026-10-07', user_metadata: {} };
+  const a = await app({ user, session: { user }, passwordSet: true });
+  a.auth.abrirInstalacao();
+  assert.equal(a.visible('instalacao'), true);
+  assert.equal(a.elements.instalacaoEtapa.textContent, 'Aplicativo Imperium');
+  await a.event('instalacaoContinuar');
+  assert.equal(a.visible('shell'), true); assert.equal(a.calls.platform, 1);
+});
+test('login sem sessão não permite abrir a tela de instalação', async () => {
+  const a = await app(); a.auth.abrirInstalacao();
+  assert.equal(a.visible('login'), true); assert.equal(a.visible('instalacao'), false);
 });

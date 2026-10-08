@@ -90,3 +90,18 @@
 .auth-etapa{margin:0 0 12px;text-align:center;font-size:12px;color:var(--gold-hi)}
 .login-box input[readonly]{color:#CFC6B5;cursor:default}
 .login-box [hidden]{display:none!important}
+
+/* Instalação após o cadastro, no celular e no computador. */
+.install-box{max-width:440px}
+.install-app{display:flex;align-items:center;gap:14px;margin:22px 0 16px;padding:16px;background:var(--ink);border:1px solid var(--rule);border-radius:8px}
+.install-app img{width:64px;height:64px;border-radius:14px;flex:0 0 auto}
+.install-app strong{display:block;font-size:20px;color:var(--cream)}
+.install-app span{display:block;margin-top:2px;font-size:13px;color:#CFC6B5}
+.install-app svg{width:26px;height:26px;margin-left:auto;color:var(--gold-hi);flex:0 0 auto}
+.install-beneficio{margin:0 0 20px;font-size:14px;text-align:center;color:#CFC6B5}
+.install-instrucoes{padding:16px;margin-bottom:20px;background:var(--ink);border:1px solid #4A4235;border-radius:6px}
+.install-instrucoes h2{margin:0 0 10px;font-size:14px;font-weight:600;color:var(--gold-hi)}
+.install-instrucoes ol{margin:0;padding-left:20px;color:#E2DACB;font-size:14px;line-height:1.55}
+.install-instrucoes li+li{margin-top:8px}
+.install-nota{margin:16px 0 0;font-size:12px;line-height:1.5;text-align:center;color:#CFC6B5}
+@media(max-width:420px){.install-box{padding:28px 20px 24px}.install-app{gap:10px;padding:12px}.install-app span{font-size:12px}}

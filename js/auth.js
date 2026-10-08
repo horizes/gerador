@@ -52,12 +52,27 @@ let senhaJaDefinida = true;
 let verificacaoAtiva = false;
 let verificacaoEmAndamento = false;
 let codigoValidadoPara = null;
+let criandoSenha = false;
 const CHAVE_ETAPA_SENHA = "imperium_senha_token_pendente";
+const CHAVE_INSTALACAO = "imperium_instalacao_pendente";
+let instalacaoPendente = lerInstalacao();
 const CHAVE_VERIFICACAO = "imperium_verificacao_pendente";
 const INTERVALO_REENVIO = 60 * 1000;
 const emailValido = email => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 let verificacaoPendente = lerVerificacao();
 let temporizadorReenvio = null;
+
+function lerInstalacao(){
+  try{ return sessionStorage.getItem(CHAVE_INSTALACAO); }catch(_){ return null; }
+}
+function marcarInstalacao(id){
+  instalacaoPendente = id;
+  try{ sessionStorage.setItem(CHAVE_INSTALACAO, id); }catch(_){}
+}
+function limparInstalacao(){
+  instalacaoPendente = null;
+  try{ sessionStorage.removeItem(CHAVE_INSTALACAO); }catch(_){}
+}
 
 function lerVerificacao(){
   try{
@@ -122,6 +137,7 @@ function mostrar(tela){
   $("senha").style.display = tela === "senha" ? "flex" : "none";
   $("cadastro").style.display = tela === "cadastro" ? "flex" : "none";
   $("verificacao").style.display = tela === "verificacao" ? "flex" : "none";
+  $("instalacao").style.display = tela === "instalacao" ? "flex" : "none";
   // Sem valor ("") o CSS decide: lado a lado no computador e em bloco no celular/tablet
   // (antes, o "flex" fixo aqui anulava o layout de celular e deixava a tela quebrada).
   $("shell").style.display = tela === "shell" ? "" : "none";
@@ -371,8 +387,11 @@ function ligarFormularioSenha(){
       if(!data.user || !data.user.email_confirmed_at || !codigoConfirmadoPara(data.user.id)){
         erroSenha("Confirme o código recebido no seu e-mail para criar a senha."); return;
       }
+      const primeiroAcesso = criandoSenha || data.user.user_metadata?.convite_senha_pendente === true;
       const { error } = await sb.auth.updateUser({ password: nova, data: { convite_senha_pendente: false } });
       if(error){ erroSenha(error.message); return; }
+      if(primeiroAcesso) marcarInstalacao(data.user.id);
+      criandoSenha = false;
       limparRetornoAuth();
       senhaJaDefinida = true;
       limparEtapaSenha();
@@ -436,7 +455,25 @@ function ligarFormularioCadastro(){
 }
 
 let plataformaIniciada = false;
+function abrirInstalacao(){
+  if(!sessaoAtual || !perfilValidado) return;
+  mostrar("instalacao");
+  $("instalacaoEtapa").textContent = instalacaoPendente === sessaoAtual.user.id ? "Cadastro concluído" : "Aplicativo Imperium";
+  window.ImperiumPWA?.atualizar();
+  ($("instalacaoInstalar").hidden ? $("instalacaoContinuar") : $("instalacaoInstalar")).focus();
+}
+function ligarInstalacao(){
+  $("instalacaoContinuar").addEventListener("click", () => {
+    if(!sessaoAtual || !perfilValidado) return;
+    limparInstalacao();
+    entrar();
+  });
+}
 function entrar(){
+  if(sessaoAtual && instalacaoPendente === sessaoAtual.user.id){
+    abrirInstalacao();
+    return;
+  }
   mostrar("shell");
   if(!plataformaIniciada){
     plataformaIniciada = true;
@@ -452,6 +489,8 @@ let perfilValidado = false;
 let validacaoSessao = 0;
 let sessaoNormalIniciada = false;
 function abrirSenha(primeiroAcesso){
+  criandoSenha = primeiroAcesso;
+  $("senhaForm").querySelector('button[type="submit"]').textContent = primeiroAcesso ? "Salvar e continuar" : "Salvar e entrar";
   $("senhaEtapa").textContent = primeiroAcesso ? "Etapa 3 de 3 · Crie sua senha" : "Escolha sua nova senha";
   $("senhaTitulo").textContent = primeiroAcesso ? "Crie sua senha" : "Redefina sua senha";
   $("senhaNovaRotulo").textContent = primeiroAcesso ? "Crie sua senha" : "Nova senha";
@@ -537,7 +576,7 @@ function iniciarSessaoNormal(){
   if(sessaoNormalIniciada) return;
   sessaoNormalIniciada = true;
   sb.auth.onAuthStateChange((evento, sessao)=>{
-    if(evento === "SIGNED_OUT") limparEtapaSenha();
+    if(evento === "SIGNED_OUT"){ limparEtapaSenha(); limparInstalacao(); }
     // Não executar outras chamadas Auth dentro do callback: o SDK mantém um lock.
     setTimeout(()=> aplicarSessao(sessao),0);
   });
@@ -552,6 +591,7 @@ async function iniciar(){
   ligarFormularioSenha();
   ligarFormularioCadastro();
   ligarFormularioVerificacao();
+  ligarInstalacao();
   if(retornoPorLink){
     limparRetornoAuth();
     const email = verificacaoPendente?.email || "";
@@ -573,9 +613,10 @@ async function iniciar(){
 
 document.addEventListener("DOMContentLoaded", iniciar);
 
-window.ImperiumAuth = { sair: async () => {
+window.ImperiumAuth = { abrirInstalacao, sair: async () => {
   limparEtapaSenha();
   limparVerificacao();
+  limparInstalacao();
   try{ if(window.ImperiumPush) await window.ImperiumPush.desligarAparelho(true); }catch(_){}
   return sb.auth.signOut();
 } };

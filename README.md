@@ -1,4 +1,4 @@
-> Atualização atual do cadastro: siga **CORRECAO-CODIGO-EMAIL.md**. Ela corrige a validação, o código completo, o reenvio e a retomada. As seções de autenticação deste documento descrevem versões anteriores.
+> Atualização atual: siga **CORRECAO-CODIGO-EMAIL.md** para a correção do cadastro e **INSTALACAO-APOS-CADASTRO.md** para a tela de instalação após criar a senha. As seções de autenticação deste documento descrevem versões anteriores.
 
 > Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
 

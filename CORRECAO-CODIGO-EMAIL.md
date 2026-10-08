@@ -4,7 +4,7 @@ Versão de 7 de outubro de 2026. Este é o guia atual desta entrega; os outros d
 
 ## O que mudou
 
-O cadastro segue três etapas: informar o e-mail → confirmar o código → criar a senha e entrar.
+O cadastro segue três etapas: informar o e-mail → confirmar o código → criar a senha. Depois, a pessoa recebe a tela para instalar o aplicativo ou continuar no navegador. Veja também `INSTALACAO-APOS-CADASTRO.md`.
 
 - A primeira confirmação usa explicitamente `type: "invite"`, correspondente ao envio da função `completar-convite`. O reenvio e a recuperação usam `type: "recovery"`. O tipo é mantido ao recarregar a página. Para códigos digitados em outro navegador, mantém-se a compatibilidade nativa com `type: "email"`.
 - O campo aceita o código completo, com 6 a 10 números. A versão anterior limitava o campo a 6 e cortava códigos maiores. Espaços e hífens ao colar são removidos, sem perder zeros iniciais.
@@ -22,6 +22,7 @@ Estas são correções no código fornecido. Sem acesso administrativo ao projet
 
    - `index.html`
    - `js/auth.js`
+   - `js/pwa.js`
    - `css/auth.css`
    - `sw.js`
 
@@ -48,7 +49,7 @@ Estas são correções no código fornecido. Sem acesso administrativo ao projet
 
 5. Se sua instalação já faz login normal e consulta o estado da senha, nenhum SQL novo é necessário. Se aparecer um erro sobre a etapa da senha, instale apenas o arquivo existente `supabase-schema-estado-senha.sql` no SQL Editor. Ele cria consultas de leitura, sem alterar contas ou papéis. Se o cadastro acusa falta de `reservar_convite`, siga `supabase-schema-correcao-convites.sql`, observando os pré-requisitos que o próprio script verifica. Não reaplique todos os scripts do pacote numa instalação que já funciona.
 
-6. Aguarde a publicação. Feche o aplicativo instalado, abra o site com internet e reabra o aplicativo. As versões novas são `auth.js?v=14`, `auth.css?v=7` e cache `imperium-v42`.
+6. Aguarde a publicação. Feche o aplicativo instalado, abra o site com internet e reabra o aplicativo. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v43`.
 
 O ZIP contém toda a plataforma. Os arquivos SQL, `supabase`, `tests` e documentos servem à administração; não precisam ser publicados na hospedagem estática.
 
@@ -57,7 +58,7 @@ O ZIP contém toda a plataforma. Os arquivos SQL, `supabase`, `tests` e document
 1. Gere um convite para um endereço de teste sob seu controle e que ainda não tenha conta.
 2. Abra o link em uma janela privada. Informe o endereço e toque em **Receber código**.
 3. Digite o código completo da primeira mensagem, sem pedir outro antes desse teste. A próxima tela deve ser **Crie sua senha**.
-4. Salve a senha e confirme que o usuário entra com o cargo e papel escolhidos no convite.
+4. Salve a senha. Confira a tela de instalação e escolha instalar ou continuar no navegador. Confirme que o usuário entra com o cargo e papel escolhidos no convite.
 5. Confira também o reenvio, após a espera, e **Esqueci minha senha**. Após pedir um novo código, use a mensagem nova.
 
 Para uma conta criada anteriormente e que ficou pendente, use **Usar código do e-mail** no login. Informe o e-mail e solicite um novo código, se o antigo já expirou. Isso permite concluir a senha sem gerar outra conta. O convite inicial consumido continua consumido; não é reaberto.

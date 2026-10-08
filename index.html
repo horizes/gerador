@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css?v=2">
-<link rel="stylesheet" href="css/auth.css?v=7">
+<link rel="stylesheet" href="css/auth.css?v=8">
 <link rel="stylesheet" href="css/platform.css?v=16">
 <link rel="stylesheet" href="css/propostas.css?v=26">
 <link rel="stylesheet" href="css/fluxo.css?v=4">
@@ -57,7 +57,7 @@
     <label class="f"><span id="senhaNovaRotulo">Crie sua senha</span><input type="password" id="senhaNova" required minlength="6" autocomplete="new-password"></label>
     <label class="f"><span id="senhaConfirmaRotulo">Confirme sua senha</span><input type="password" id="senhaConfirma" required minlength="6" autocomplete="new-password"></label>
     <p class="login-erro" id="senhaErro" role="status" aria-live="polite" hidden></p>
-    <button class="btn wide" type="submit">Salvar e entrar</button>
+    <button class="btn wide" type="submit">Salvar e continuar</button>
   </form>
 </div>
 
@@ -89,6 +89,28 @@
     <button class="btn ghost wide" type="button" id="verificacaoReenviar">Receber novo código</button>
     <button class="btn ghost wide" type="button" id="verificacaoVoltar">Voltar ao login</button>
   </form>
+</div>
+
+<div class="login-wrap" id="instalacao" style="display:none">
+  <section class="login-box install-box" aria-labelledby="instalacaoTitulo">
+    <p class="auth-etapa" id="instalacaoEtapa">Cadastro concluído</p>
+    <h1 id="instalacaoTitulo">Instale o aplicativo</h1>
+    <p class="login-sub" id="instalacaoDescricao">Acesse a Imperium direto pelo ícone no seu dispositivo.</p>
+    <div class="install-app">
+      <img src="assets/icons/icon-192.png" width="64" height="64" alt="">
+      <div><strong>Imperium</strong><span>Sua plataforma de trabalho</span></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg>
+    </div>
+    <p class="install-beneficio">As mesmas ferramentas, com acesso direto e uma janela própria.</p>
+    <div class="install-instrucoes" id="instalacaoOrientacoes" tabindex="-1" hidden>
+      <h2 id="instalacaoInstrucoesTitulo">Como instalar</h2>
+      <ol id="instalacaoPassos"></ol>
+    </div>
+    <p class="login-erro info" id="instalacaoStatus" role="status" aria-live="polite" hidden></p>
+    <button class="btn wide" type="button" id="instalacaoInstalar">Instalar aplicativo</button>
+    <button class="btn ghost wide" type="button" id="instalacaoContinuar">Continuar no navegador</button>
+    <p class="install-nota">Você também pode instalar depois pelo menu da plataforma.</p>
+  </section>
 </div>
 
 <div class="shell is-open" id="shell" style="display:none">
@@ -139,7 +161,7 @@
 <script src="js/modules/ponto.js?v=2"></script>
 <script src="js/modules/clientes-relatorios.js?v=7"></script>
 <script src="js/push.js?v=1"></script>
-<script src="js/auth.js?v=14"></script>
-<script src="js/pwa.js?v=1"></script>
+<script src="js/auth.js?v=15"></script>
+<script src="js/pwa.js?v=2"></script>
 </body>
 </html>
