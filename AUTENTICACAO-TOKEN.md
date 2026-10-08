@@ -1,3 +1,5 @@
+> Guia atual: siga **CORRECAO-CODIGO-EMAIL.md**. Este documento registra a versão anterior, com limite de seis números e sem persistência da etapa do código.
+
 # Autenticação por token — Imperium
 
 O primeiro acesso e a recuperação de senha usam somente o código de seis números recebido por e-mail. Os dois modelos não contêm links, botões de confirmação ou `{{ .ConfirmationURL }}`/`{{ .TokenHash }}`. O login habitual continua com e-mail e senha.

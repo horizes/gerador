@@ -123,7 +123,9 @@ Deno.serve(async (req) => {
         : "Não foi possível enviar a confirmação. Avise o administrador para conferir o envio de e-mails e gerar outro convite.",
         codigo: limitado ? "ENVIO_LIMITADO" : "CONFIRMACAO_NAO_ENVIADA" }, limitado ? 429 : 503);
     }
-    return json({ ok: true, confirmacao_pendente: true });
+    // O cliente preserva esse tipo até a confirmação. Um reenvio por recuperação
+    // passa a usar "recovery", sem tentar cadastrar a mesma conta outra vez.
+    return json({ ok: true, confirmacao_pendente: true, tipo_verificacao: "invite" });
   } catch (_) {
     // Em uma exceção, remover apenas a conta que esta execução acabou de criar.
     if (limparCadastro) {

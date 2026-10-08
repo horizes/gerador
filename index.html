@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css?v=2">
-<link rel="stylesheet" href="css/auth.css?v=6">
+<link rel="stylesheet" href="css/auth.css?v=7">
 <link rel="stylesheet" href="css/platform.css?v=16">
 <link rel="stylesheet" href="css/propostas.css?v=26">
 <link rel="stylesheet" href="css/fluxo.css?v=4">
@@ -51,11 +51,12 @@
 <div class="login-wrap" id="senha" style="display:none">
   <form class="login-box" id="senhaForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
+    <p class="auth-etapa" id="senhaEtapa">Etapa 3 de 3 · Crie sua senha</p>
     <h1 id="senhaTitulo">Crie sua senha</h1>
     <p class="login-sub" id="senhaSub">Crie uma senha para acessar a plataforma.</p>
     <label class="f"><span id="senhaNovaRotulo">Crie sua senha</span><input type="password" id="senhaNova" required minlength="6" autocomplete="new-password"></label>
     <label class="f"><span id="senhaConfirmaRotulo">Confirme sua senha</span><input type="password" id="senhaConfirma" required minlength="6" autocomplete="new-password"></label>
-    <p class="login-erro" id="senhaErro" hidden></p>
+    <p class="login-erro" id="senhaErro" role="status" aria-live="polite" hidden></p>
     <button class="btn wide" type="submit">Salvar e entrar</button>
   </form>
 </div>
@@ -63,22 +64,25 @@
 <div class="login-wrap" id="cadastro" style="display:none">
   <form class="login-box" id="cadastroForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
+    <p class="auth-etapa">Etapa 1 de 3 · Informe seu e-mail</p>
     <h1 id="cadastroTitulo">Bem-vindo(a)</h1>
     <p class="login-sub">Informe seu e-mail. Enviaremos um código para confirmar seu endereço e criar sua senha.</p>
     <label class="f"><span>Seu e-mail</span><input type="email" id="cadastroEmail" required maxlength="254" autocomplete="email"></label>
-    <p class="login-erro" id="cadastroErro" hidden></p>
-    <button class="btn wide" type="submit">Enviar confirmação</button>
+    <p class="login-erro" id="cadastroErro" role="status" aria-live="polite" hidden></p>
+    <button class="btn wide" type="submit">Receber código</button>
+    <button class="btn ghost wide" type="button" id="cadastroTenhoCodigo">Já recebi um código</button>
   </form>
 </div>
 
 <div class="login-wrap" id="verificacao" style="display:none">
   <form class="login-box" id="verificacaoForm" autocomplete="off">
     <img src="assets/logo.jpg" alt="" class="login-logo">
+    <p class="auth-etapa" id="verificacaoEtapa">Confirme seu e-mail</p>
     <h1 id="verificacaoTitulo">Código do e-mail</h1>
-    <p class="login-sub" id="verificacaoSub">Digite os 6 números recebidos no seu e-mail para escolher sua senha.</p>
+    <p class="login-sub" id="verificacaoSub">Digite o código completo recebido. Confira também a pasta de spam.</p>
     <div id="verificacaoCampos">
       <label class="f"><span>E-mail</span><input type="email" id="verificacaoEmail" required maxlength="254" autocomplete="email"></label>
-      <label class="f"><span>Código do e-mail</span><input type="text" id="verificacaoToken" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-describedby="verificacaoSub"></label>
+      <label class="f"><span>Código do e-mail</span><input type="text" id="verificacaoToken" required inputmode="numeric" pattern="[0-9]{6,10}" minlength="6" maxlength="20" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="Código recebido" aria-describedby="verificacaoSub"></label>
     </div>
     <p class="login-erro" id="verificacaoErro" role="status" aria-live="polite" hidden></p>
     <button class="btn wide" type="submit" id="verificacaoConfirmar">Confirmar código</button>
@@ -135,7 +139,7 @@
 <script src="js/modules/ponto.js?v=2"></script>
 <script src="js/modules/clientes-relatorios.js?v=7"></script>
 <script src="js/push.js?v=1"></script>
-<script src="js/auth.js?v=13"></script>
+<script src="js/auth.js?v=14"></script>
 <script src="js/pwa.js?v=1"></script>
 </body>
 </html>

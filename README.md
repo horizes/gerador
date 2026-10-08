@@ -1,4 +1,4 @@
-> Versão atual: siga **AUTENTICACAO-TOKEN.md** para confirmação e recuperação somente por código. Este documento abaixo descreve uma versão anterior.
+> Atualização atual do cadastro: siga **CORRECAO-CODIGO-EMAIL.md**. Ela corrige a validação, o código completo, o reenvio e a retomada. As seções de autenticação deste documento descrevem versões anteriores.
 
 > Atualização para celular e aplicativo: siga primeiro **CORRECAO-EMAIL-CELULAR.md**, que atualiza os modelos de convite e recuperação com link direto e código.
 
