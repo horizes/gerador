@@ -1,6 +1,6 @@
 # Instalação do aplicativo após o cadastro
 
-> O pacote atual é `imperium-plataforma-categorias.zip`. Ao publicar o HTML deste pacote, publique também os arquivos de categorias e módulos listados em `PAGINAS-POR-CATEGORIAS.md`.
+> O pacote atual é `imperium-plataforma-central-pendencias.zip`. Ao publicar o HTML deste pacote, publique também os arquivos listados em `PAGINAS-POR-CATEGORIAS.md` e `CENTRAL-PENDENCIAS.md`.
 
 Após confirmar o e-mail e salvar a primeira senha, a pessoa recebe a tela **Cadastro concluído → Instale o aplicativo**. Ela pode instalar ou escolher **Continuar no navegador** para acessar suas ferramentas.
 
@@ -10,7 +10,7 @@ O cadastro já está concluído nessa tela. Recarregar a aba retoma a opção de
 
 ## Atualizar a versão já corrigida
 
-Extraia `imperium-plataforma-com-instalacao.zip` e substitua estes cinco arquivos na pasta publicada do site, mantendo os caminhos:
+Extraia `imperium-plataforma-central-pendencias.zip` e substitua estes cinco arquivos na pasta publicada do site, mantendo os caminhos:
 
 - `index.html`
 - `js/auth.js`
@@ -22,7 +22,7 @@ Esta adição não exige alteração no Supabase. Se ainda não aplicou a corre�
 
 Mantenha `manifest.json`, os ícones em `assets/icons` e os demais arquivos existentes. A plataforma já usa o formato de aplicativo web instalável; não é necessário distribuir APK ou instalador para Windows.
 
-Aguarde a publicação e abra o site com internet. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v44`.
+Aguarde a publicação e abra o site com internet. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v45`.
 
 ## Conferir a instalação publicada
 

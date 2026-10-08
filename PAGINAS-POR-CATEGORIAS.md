@@ -1,6 +1,8 @@
 # Organização das páginas por categorias
 
-Versão de 8 de outubro de 2026. O pacote `imperium-plataforma-categorias.zip` contém a plataforma completa, incluindo a correção do cadastro por código e a tela de instalação após criar a senha.
+Versão de 8 de outubro de 2026. O pacote `imperium-plataforma-central-pendencias.zip` contém a plataforma completa, incluindo a correção do cadastro por código e a tela de instalação após criar a senha.
+
+> O pacote atual também contém a central de pendências. Publique os arquivos adicionais conforme `CENTRAL-PENDENCIAS.md`.
 
 ## Páginas organizadas
 
@@ -34,7 +36,7 @@ Extraia o ZIP. Se já publicou a versão com cadastro corrigido e instalação, 
 - `js/modules/clientes-relatorios.js`
 - `sw.js`
 
-Publique os dois arquivos novos junto com os módulos e o HTML. O cache é `imperium-v44`; as versões são `usuarios.js?v=9`, `usuarios.css?v=6`, `ponto.js?v=3`, `clientes-relatorios.js?v=8` e `categorias.js`/`categorias.css?v=1`.
+Publique os dois arquivos novos junto com os módulos e o HTML. O cache é `imperium-v45`; as versões são `usuarios.js?v=10`, `usuarios.css?v=6`, `ponto.js?v=4`, `clientes-relatorios.js?v=8` e `categorias.js`/`categorias.css?v=1`.
 
 Esta organização não exige alterações no Supabase. Para atualizar diretamente a versão original, publique também `js/auth.js`, `js/pwa.js` e `css/auth.css`, e siga `CORRECAO-CODIGO-EMAIL.md` para a função e os modelos de e-mail. Os arquivos SQL e documentos do pacote servem à administração e não precisam ir à hospedagem estática.
 

@@ -1,6 +1,6 @@
 # Correção do cadastro por código — Imperium
 
-> O pacote atual é `imperium-plataforma-categorias.zip`. Ao publicar o HTML deste pacote, publique também os arquivos de categorias e módulos listados em `PAGINAS-POR-CATEGORIAS.md`.
+> O pacote atual é `imperium-plataforma-central-pendencias.zip`. Ao publicar o HTML deste pacote, publique também os arquivos listados em `PAGINAS-POR-CATEGORIAS.md` e `CENTRAL-PENDENCIAS.md`.
 
 Versão de 7 de outubro de 2026. Este é o guia atual desta entrega; os outros documentos de autenticação descrevem versões anteriores.
 
@@ -51,7 +51,7 @@ Estas são correções no código fornecido. Sem acesso administrativo ao projet
 
 5. Se sua instalação já faz login normal e consulta o estado da senha, nenhum SQL novo é necessário. Se aparecer um erro sobre a etapa da senha, instale apenas o arquivo existente `supabase-schema-estado-senha.sql` no SQL Editor. Ele cria consultas de leitura, sem alterar contas ou papéis. Se o cadastro acusa falta de `reservar_convite`, siga `supabase-schema-correcao-convites.sql`, observando os pré-requisitos que o próprio script verifica. Não reaplique todos os scripts do pacote numa instalação que já funciona.
 
-6. Aguarde a publicação. Feche o aplicativo instalado, abra o site com internet e reabra o aplicativo. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v44`.
+6. Aguarde a publicação. Feche o aplicativo instalado, abra o site com internet e reabra o aplicativo. As versões novas são `auth.js?v=15`, `pwa.js?v=2`, `auth.css?v=8` e cache `imperium-v45`.
 
 O ZIP contém toda a plataforma. Os arquivos SQL, `supabase`, `tests` e documentos servem à administração; não precisam ser publicados na hospedagem estática.
 
