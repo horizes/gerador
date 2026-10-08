@@ -1,0 +1,9 @@
+/* Mesmo padrão das categorias existentes: texto, contador e linha dourada. */
+.page-categorias{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 22px;border-bottom:1px solid var(--rule)}
+.page-categorias button{display:flex;align-items:center;gap:9px;min-height:44px;margin-bottom:-1px;padding:12px 18px;background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-family:Oswald,sans-serif;font-size:13px;font-weight:400;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;text-align:left;line-height:1.5}
+.page-categorias button:hover{color:var(--cream);background:transparent;border-color:transparent}
+.page-categorias button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.page-categorias button:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.page-categoria-total{font-family:Barlow,sans-serif;font-size:12px;letter-spacing:0;line-height:1.5;min-width:22px;padding:0 6px;border-radius:10px;background:var(--panel-2);color:var(--gold-hi);text-align:center}
+[data-categoria-painel][hidden],[data-visivel-em][hidden]{display:none!important}
+@media(max-width:600px){.page-categorias button{padding:12px}.page-categorias{gap:2px}}

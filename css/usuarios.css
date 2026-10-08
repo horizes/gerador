@@ -13,6 +13,7 @@
   letter-spacing:.08em;text-transform:uppercase;color:var(--cream);
 }
 .usr-hint{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+.usr-link{background:transparent;border:0;padding:0;color:var(--gold-hi);font:inherit;text-decoration:underline;cursor:pointer}
 .usr-vazio{margin:22px 0;text-align:center;color:var(--muted);font-size:14px}
 
 /* aviso de configuração pendente / erro */

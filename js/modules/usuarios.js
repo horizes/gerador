@@ -1,9 +1,10 @@
 /* Usuários — módulo de administração (só aparece para quem é "admin").
-   Duas partes:
+   Três categorias:
    - Pessoas: lista todas as contas que existem no Supabase (Authentication > Users), mostra se cada
      uma PODE LOGAR de fato (conta ativa, e-mail confirmado, senha criada, não suspensa) e permite, ali mesmo,
      trocar o papel (admin/usuário), o CARGO, ligar/desligar cada ferramenta só para aquela pessoa e
      ativar/bloquear. Toda alteração é salva na hora (sem botão "Salvar").
+   - Convites: cria links de acesso com o papel e o cargo escolhidos e acompanha os pendentes.
    - Cargos: cada cargo reúne no mesmo lugar as FERRAMENTAS que libera (o que antes era o "nível") e o
      KIT de uniformes e EPIs (editado em Uniformes e EPIs > Cargos e kits). Mudar as ferramentas de um
      cargo vale para todo mundo que tem aquele cargo.
@@ -29,6 +30,7 @@ let convites = [];      // [{token,nome,criado_em}] — convites (só nome) aind
 let filtro = "todos";   // todos | logam | bloqueados | admins
 let busca = "";
 let toastTimer = null;
+let categorias = null;
 
 const q = sel => root && root.querySelector(sel);
 
@@ -84,8 +86,9 @@ function skel(){
     </div>
 
     <div id="usrAviso"></div>
-    <div class="usr-resumo" id="usrResumo"></div>
+    <div data-categorias-nav></div>
 
+    <div data-categoria-painel="convites" hidden>
     <div class="usr-card">
       <h2 class="usr-h">Criar acesso</h2>
       <p class="usr-hint">Informe o nome da pessoa e já escolha o papel e o cargo dela (os mesmos que dá pra mudar
@@ -105,16 +108,21 @@ function skel(){
       <div id="usrConviteResultado"></div>
       <div id="usrConvitesPendentes"></div>
     </div>
+    </div>
 
+    <div data-categoria-painel="pessoas">
+    <div class="usr-resumo" id="usrResumo"></div>
     <div class="usr-card">
       <h2 class="usr-h">Pessoas</h2>
-      <p class="usr-hint">Contas criadas pelo cartão "Criar acesso" acima (ou, à moda antiga, direto no painel do Supabase em Authentication &gt; Users) aparecem aqui sozinhas. Quem entrou pelo convite já chega com o papel/cargo escolhido lá; quem foi criado à moda antiga não tem acesso a nenhuma ferramenta até você liberar aqui.</p>
+      <p class="usr-hint">Veja as contas cadastradas e ajuste o papel, o cargo e as ferramentas de cada pessoa. Para criar um novo acesso, use a categoria <button class="usr-link" type="button" data-abrir-categoria="convites">Convites</button>.</p>
       <div class="usr-tools">
         <input type="search" id="usrBusca" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
       </div>
       <div id="usrLista" class="usr-lista"><p class="usr-hint">Carregando…</p></div>
     </div>
+    </div>
 
+    <div data-categoria-painel="cargos" hidden>
     <div class="usr-card">
       <h2 class="usr-h">Cargos</h2>
       <p class="usr-hint">Cada cargo junta, num lugar só, as <b>ferramentas</b> que libera e o <b>kit de uniformes e EPIs</b> de quem o tem. Marque as ferramentas de cada cargo aqui; mudar vale para todo mundo que tem aquele cargo. O kit de cada cargo é editado em <b>Uniformes e EPIs › Cargos e kits</b>. Admin vê tudo, com ou sem cargo.</p>
@@ -123,6 +131,7 @@ function skel(){
         <input type="text" id="usrNomeCargo" placeholder="Nome do novo cargo (ex.: Porteiro, Financeiro)" required maxlength="60">
         <button class="btn ghost" type="submit">+ Criar cargo</button>
       </form>
+    </div>
     </div>
 
     <div class="usr-toast" id="usrToast" role="status" aria-live="polite"></div>
@@ -158,6 +167,7 @@ function contagens(){
 
 function renderResumo(){
   const c = contagens();
+  categorias?.contagem("pessoas", c.todos);
   const item = (k, n, rotulo) =>
     `<button type="button" class="usr-stat ${filtro === k ? "on" : ""}" data-filtro="${k}" aria-pressed="${filtro === k}">` +
     `<b>${n}</b><span>${rotulo}</span></button>`;
@@ -219,7 +229,7 @@ async function criarConvite(nome, papel, cargoIdBruto){
   resEl.innerHTML = `
     <div class="usr-convite-ok">
       <p>Envie o link para ${esc(nome)}. A pessoa informa o e-mail, digita o código recebido e cria a senha
-        para entrar ${acesso ? `como <b>${esc(acesso)}</b>` : "sem cargo definido (ajuste depois na lista abaixo)"}.
+        para entrar ${acesso ? `como <b>${esc(acesso)}</b>` : "sem cargo definido (ajuste depois na categoria Pessoas)"}.
         A conta aparece em "Pessoas" com o estado de confirmação. O link inicial vale por 7 dias.</p>
       <div class="usr-link-row">
         <input type="text" readonly id="usrLinkGerado" value="${esc(linkConvite(data.token, nome))}" onfocus="this.select()">
@@ -246,6 +256,7 @@ async function carregarConvitesPendentes(){
 }
 
 function renderConvitesPendentes(){
+  categorias?.contagem("convites", convites.length);
   const el = q("#usrConvitesPendentes"); if(!el) return;
   if(!convites.length){ el.innerHTML = ""; return; }
   el.innerHTML = `
@@ -374,7 +385,7 @@ function renderPessoas(){
   const v = pessoasFiltradas();
   lista.innerHTML = v.length
     ? v.map(htmlPessoa).join("")
-    : `<p class="usr-vazio">${pessoas.length ? "Ninguém corresponde a esse filtro." : "Nenhuma conta ainda. Crie em Authentication &gt; Users no Supabase e clique em “Atualizar lista”."}</p>`;
+    : `<p class="usr-vazio">${pessoas.length ? "Ninguém corresponde a esse filtro." : "Nenhuma conta ainda. Gere um convite na categoria Convites."}</p>`;
 }
 
 // atualiza só o cartão de uma pessoa (não perde o foco da busca nem a posição da rolagem)
@@ -565,6 +576,7 @@ function htmlCargo(c){
 }
 
 function renderCargos(){
+  categorias?.contagem("cargos", cargos.length);
   const el = q("#usrCargos"); if(!el) return;
   // mantém abertos os cargos que já estavam abertos
   const abertos = new Set([...el.querySelectorAll("details[open]")].map(d => d.dataset.cg));
@@ -669,12 +681,15 @@ async function mount(el){
   filtro = "todos"; busca = "";
   root.classList.add("mod-usuarios");
   root.innerHTML = skel();
+  categorias = window.ImperiumCategorias.montar(root, { id: "usuarios", rotulo: "Categorias de usuários", inicial: "pessoas", itens: [
+    { id: "pessoas", nome: "Pessoas" }, { id: "convites", nome: "Convites" }, { id: "cargos", nome: "Cargos" }
+  ] });
   ligar();
   // cargos primeiro: o cartão de cada pessoa precisa saber o que o cargo dela libera
   await carregarCargos();
   await Promise.all([carregarPessoas(), carregarConvitesPendentes()]);
 }
-function unmount(){ clearTimeout(toastTimer); root = null; }
+function unmount(){ clearTimeout(toastTimer); categorias?.destruir(); categorias = null; root = null; }
 
 window.Platform.register({
   id: "usuarios",
