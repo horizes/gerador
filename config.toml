@@ -1,0 +1,17 @@
+project_id = "imperium-plataforma"
+
+# Cadastro sem sessão: autorização pelo convite consumido atomicamente no banco.
+[functions.completar-convite]
+verify_jwt = false
+
+# A própria função valida o JWT com auth.getUser e a permissão no banco.
+[functions.open-finance]
+verify_jwt = false
+
+# O usuário é validado com auth.getUser; o cron usa um segredo exclusivo conferido na função.
+[functions.push-notificacoes]
+verify_jwt = false
+
+# Agenda pública e retorno Google; ações de gestão validam sessão e permissão no servidor.
+[functions.agenda]
+verify_jwt = false

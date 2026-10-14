@@ -4,7 +4,7 @@ A agenda usa o funcionamento do modelo enviado, com as cores, tipografia, catego
 
 ## O que está incluído
 
-- Painel em **Agenda**, com as categorias **Calendário**, **Disponibilidade** e **Configurações**.
+- Painel em **Administração → Agenda**, com as categorias **Calendário**, **Disponibilidade** e **Configurações**.
 - Rotina semanal permanente, até quatro faixas por dia, intervalo entre reuniões, formatos online e presencial, horários extras, reservas internas e fechamento de um dia inteiro.
 - Link público `agenda.html`, formulário no computador/celular, protocolo, confirmação por e-mail, recuperação da mesma tentativa quando a conexão falha e prevenção de duas reservas no mesmo horário.
 - Google Agenda e uma sala Meet exclusiva por reserva online quando a integração estiver conectada e o Meet automático estiver ativado.
