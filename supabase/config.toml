@@ -11,3 +11,7 @@ verify_jwt = false
 # O usuário é validado com auth.getUser; o cron usa um segredo exclusivo conferido na função.
 [functions.push-notificacoes]
 verify_jwt = false
+
+# Agenda pública e retorno Google; ações de gestão validam sessão e permissão no servidor.
+[functions.agenda]
+verify_jwt = false

@@ -25,7 +25,7 @@ const CATEGORIAS = [
 const CATEGORIA_OUTROS = { id: "outros", nome: "Outras ferramentas" };
 // A sequência acompanha o trabalho: uso pessoal, organização do posto,
 // acompanhamento da equipe e documentação. Não depende da ordem dos scripts.
-const ORDEM_MODULOS = ["pendencias", "ponto_meu", "uniforme_solicitar", "clientes", "ponto_gestao", "uniforme_gestao", "uniforme_relatorios", "propostas", "fluxo", "usuarios"];
+const ORDEM_MODULOS = ["pendencias", "ponto_meu", "uniforme_solicitar", "clientes", "agenda_gestao", "ponto_gestao", "uniforme_gestao", "uniforme_relatorios", "propostas", "fluxo", "usuarios"];
 const ordemDe = m => { const i = ORDEM_MODULOS.indexOf(m.id); return i < 0 ? ORDEM_MODULOS.length : i; };
 
 const categoriaDe = m => CATEGORIAS.find(c => c.id === m.categoria) || CATEGORIA_OUTROS;
@@ -141,6 +141,7 @@ function gaveta(abrir){
 /* ---------- tela inicial ---------- */
 const escHome = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const HOME_ACOES = {
+  agenda_gestao: {titulo:"Agenda de atendimento",texto:"Organize horários e acompanhe reuniões online e presenciais.",acao:"Abrir agenda"},
   pendencias: {titulo:"Central de pendências",texto:"Confira o que precisa de ação e acompanhe seus pedidos.",acao:"Ver pendências"},
   clientes: {titulo:"Clientes e postos",texto:"Organize clientes e alocações da equipe.",acao:"Abrir cadastros"},
   uniforme_relatorios: {titulo:"Fechamento mensal",texto:"Prepare os comprovantes por posto para a contabilidade.",acao:"Gerar relatórios"},
