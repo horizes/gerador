@@ -18,7 +18,7 @@ test('SMTP incerto pede conferência e não afirma envio aceito',async()=>{
  await assert.rejects(()=>sender({id:'i'}, {email:'a@example.test'}, {id:'j',kind:'email'}),e=>e.code==='EMAIL_REVIEW');
 });
 test('agenda começa pausada, não revela contatos e respeita acesso por cargo',async()=>{
- const f=await fixture();try{assert.equal((await f.api('agendaInfo',{},null)).data.enabled,false);assert.equal((await f.api('adminAgenda',{},null)).status,401);assert.equal((await f.api('adminAgenda',{},'usuario')).status,403);assert.equal((await f.api('adminAgenda',{},'gestor')).status,200);assert.equal((await f.api('adminGoogleStart',{},'gestor')).status,403);
+ const f=await fixture();try{assert.equal((await f.api('agendaInfo',{},null)).data.enabled,false);assert.equal((await f.api('adminAgenda',{},null)).status,401);assert.equal((await f.api('adminAgenda',{},'usuario')).status,403);assert.equal((await f.api('adminAgenda',{},'gestor')).status,200);assert.equal((await f.api('adminGoogleConfigure',{},'gestor')).status,403);
  await f.pg.query('update auth.users set encrypted_password=\'\' where id=$1',[MANAGER]);assert.equal((await f.api('adminAgenda',{},'gestor')).status,403);
  }finally{await f.close();}
 });

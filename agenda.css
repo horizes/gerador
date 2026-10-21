@@ -357,3 +357,10 @@
 .imp-agenda .agenda-success-icon svg,.imp-agenda .agenda-intro-icon svg{width:32px;height:32px;stroke:currentColor;fill:none;stroke-width:1.8}
 @media(max-width:1100px){.imp-agenda .agenda-workspace{grid-template-columns:1fr}}
 @media(max-width:600px){.agenda-admin-native{padding:28px 16px 64px}.imp-agenda .admin-section{padding:16px}.imp-agenda .agenda-native-header h1{font-size:28px}.imp-agenda .agenda-calendar-day{min-height:62px;padding:6px 2px}.imp-agenda .agenda-day-badges small{font-size:9px}.imp-agenda .detail-grid{grid-template-columns:1fr}.imp-agenda .agenda-dialog{max-width:calc(100vw - 24px)}.imp-agenda .agenda-public-brand{padding:18px 16px}.imp-agenda .agenda-toolbar-actions .button{flex:1 1 140px}}
+
+/* Contexto do perfil fica disponível em todas as categorias da agenda. */
+.imp-agenda .agenda-profile-bar{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin:0 0 24px;padding:18px 20px;background:var(--panel);border:1px solid var(--rule);border-radius:12px}
+.imp-agenda .agenda-profile-bar[hidden]{display:none}
+.imp-agenda .agenda-profile-bar label{display:grid;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:600;max-width:460px}
+.imp-agenda .agenda-profile-bar select{width:100%;min-height:48px;padding:10px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--field);color:var(--cream);font:inherit}
+.imp-agenda .agenda-profile-bar p{flex:1;min-width:min(240px,100%);margin:0}

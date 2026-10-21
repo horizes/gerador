@@ -3,12 +3,14 @@ import {readFileSync} from 'node:fs';
 import {createAgendaService} from '../supabase/functions/agenda/service.ts';
 import {seal} from '../supabase/functions/agenda/google.ts';
 import {dateOnly,addDays} from '../supabase/functions/agenda/core.ts';
-export const ADMIN='11111111-1111-4111-8111-111111111111',MANAGER='22222222-2222-4222-8222-222222222222',USER='33333333-3333-4333-8333-333333333333';
-export async function fixture({smtp=false}={}){
+export const ADMIN='11111111-1111-4111-8111-111111111111',MANAGER='22222222-2222-4222-8222-222222222222',USER='33333333-3333-4333-8333-333333333333',ADMIN2='44444444-4444-4444-8444-444444444444';
+export async function fixture({smtp=false,profiles=true}={}){
  const {PGlite}=await import(process.env.IMPERIUM_PGLITE_PATH||'@electric-sql/pglite');const pg=new PGlite();
  await pg.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email_confirmed_at timestamptz,encrypted_password text);create table perfis(id uuid primary key,nome text,papel text,cargo_id uuid,ativo boolean);create table cargo_modulos(cargo_id uuid,modulo_id text);create table perfil_modulos(perfil_id uuid,modulo_id text);`);
  await pg.exec(readFileSync(new URL('../supabase-schema-agenda.sql',import.meta.url),'utf8'));
  await pg.exec(`insert into auth.users values('${ADMIN}',now(),'hash'),('${MANAGER}',now(),'hash'),('${USER}',now(),'hash');insert into perfis values('${ADMIN}','Admin','admin',null,true),('${MANAGER}','Gestor','usuario',null,true),('${USER}','Colaborador','usuario',null,true);insert into perfil_modulos values('${MANAGER}','agenda_gestao');`);
+ await pg.exec(`insert into auth.users values('${ADMIN2}',now(),'hash');insert into perfis values('${ADMIN2}','Outro administrador','admin',null,true);`);
+ if(profiles)await pg.exec(readFileSync(new URL('../supabase-schema-agenda-perfis.sql',import.meta.url),'utf8'));
  const logs=[],sent=[],events=new Map(),background=[];let googleFail=false,smtpFail=null;
  const qname=s=>{if(!/^[a-z_]+$/.test(s))throw Error('Identificador inválido');return '"'+s+'"';};
  const parameter=x=>x!==null&&typeof x==='object'?JSON.stringify(x):x;
@@ -28,7 +30,7 @@ export async function fixture({smtp=false}={}){
    const r=await pg.query(sql,values);return {data:single?(r.rows[0]||null):r.rows,error:null};
   }catch(error){return {data:null,error:{code:error.code,message:error.message}};}},then(a,b){return q.run().then(a,b)}
  };return q;}
- const db={from,auth:{async getUser(token){const id={admin:ADMIN,gestor:MANAGER,usuario:USER}[token];return id?{data:{user:{id,email_confirmed_at:new Date().toISOString()}},error:null}:{data:null,error:{message:'Sessão inválida'}};}},
+ const db={from,auth:{async getUser(token){const id={admin:ADMIN,admin2:ADMIN2,gestor:MANAGER,usuario:USER}[token];return id?{data:{user:{id,email_confirmed_at:new Date().toISOString()}},error:null}:{data:null,error:{message:'Sessão inválida'}};}},
   async rpc(name,args={}){try{const entries=Object.entries(args),sql='select '+qname(name)+'('+entries.map(([k],i)=>qname(k)+'=>$'+(i+1)).join(',')+') as data';return {data:(await pg.query(sql,entries.map(([,v])=>parameter(v)))).rows[0].data,error:null};}catch(e){return {data:null,error:{code:e.code,message:e.message}};}}};
  const env={SITE_URL:'https://imperium.test/',DATA_KEY:Buffer.alloc(32,1).toString('base64'),RATE_SALT:'test-only-salt',CRON_SECRET:'test-only-cron'};
  if(smtp)Object.assign(env,{SMTP_HOST:'smtp.example.test',SMTP_PORT:'465',SMTP_USER:'test',SMTP_PASS:'test-only-password',SMTP_FROM:'agenda@example.test'});
@@ -48,18 +50,18 @@ export async function fixture({smtp=false}={}){
   const r=await service.fetch(req),v=await r.json();return {status:r.status,...v};
  }
  async function flush(){while(background.length)await Promise.all(background.splice(0));}
- async function configured(){
-  let snapshot=(await db.rpc('agenda_snapshot',{p_from:dateOnly(new Date()),p_until:addDays(dateOnly(new Date()),90)})).data;
-  await api('saveAgendaSettings',{...snapshot.settings,enabled:true,noticeMinutes:0,onlineLink:'https://meet.google.com/abc-defg-hij'});
-  snapshot=(await db.rpc('agenda_snapshot',{p_from:dateOnly(new Date()),p_until:addDays(dateOnly(new Date()),90)})).data;
-  await api('saveWeeklyAgenda',{revision:snapshot.settings.revision,weeklyRevision:snapshot.weekly.revision,gap:0,modes:['online','presencial'],days:Array.from({length:7},(_,day)=>({day,enabled:true,ranges:[{from:'09:00',until:'12:00'},{from:'14:00',until:'17:00'}]}))});
+ async function configured(token='admin'){
+  let snapshot=(await api('adminAgenda',{},token)).data;const calendarId=snapshot.calendarId;
+  const saved=await api('saveAgendaSettings',{calendarId,...snapshot.settings,enabled:true,noticeMinutes:0,onlineLink:'https://meet.google.com/abc-defg-hij'},token);if(saved.error)throw Error(saved.error.message);
+  snapshot=(await api('adminAgenda',{calendarId},token)).data;
+  const routine=await api('saveWeeklyAgenda',{calendarId,revision:snapshot.settings.revision,weeklyRevision:snapshot.weekly.revision,gap:0,modes:['online','presencial'],days:Array.from({length:7},(_,day)=>({day,enabled:true,ranges:[{from:'09:00',until:'12:00'},{from:'14:00',until:'17:00'}]}))},token);if(routine.error)throw Error(routine.error.message);return calendarId;
  }
- async function connect(){
+ async function connect(token='admin',calendarId=undefined){
   await api('adminGoogleConfigure',{web:{client_id:'test.apps.googleusercontent.com',client_secret:'test-client-secret',redirect_uris:['https://imperium.test/agenda-google-callback.html']}});
-  const result=(await api('adminGoogleStart')).data,u=new URL(result.url);return api('googleCallback',{code:'test-code',state:u.searchParams.get('state'),browserSecret:result.browserSecret},null);
+  const result=(await api('adminGoogleStart',{calendarId},token)).data,u=new URL(result.url);return api('googleCallback',{code:'test-code',state:u.searchParams.get('state'),browserSecret:result.browserSecret},null);
  }
  async function bookPayload(change={}){
-  const info=(await api('agendaInfo',{},null)).data,date=addDays(dateOnly(new Date()),2),slot=info.slots.find(s=>s.date===date);
+  const info=(await api('agendaInfo',{calendarId:change.calendarId},null)).data,date=addDays(dateOnly(new Date()),2),slot=info.slots.find(s=>s.date===date);
   return {attempt:crypto.randomUUID(),proof:crypto.randomUUID(),revision:info.revision,slotId:slot.id,mode:'online',name:'Ana Pereira',whatsapp:'11999999999',email:'ana@example.test',company:'Condomínio Imperial',address:'Rua Imperial, 100',subject:'Conhecer os serviços da Imperium',notes:'',consent:true,...change};
  }
  return {pg,db,env,service,api,configured,connect,bookPayload,flush,sent,logs,events,setGoogleFailure(v){googleFail=v;},setSMTPFailure(e){smtpFail=e;},async close(){await flush();await pg.close();},async cipher(value){return seal(value,env.DATA_KEY);}};
