@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const $=id=>document.getElementById(id),API=window.ImperiumAgendaAPI,form=$('agenda-form'),key='imperium-agenda-attempt-v1';
+  const $=id=>document.getElementById(id),calendarId=new URLSearchParams(location.search).get('agenda'),API={call:(action,payload={})=>window.ImperiumAgendaAPI.call(action,{...payload,...(calendarId!==null?{calendarId}:{})})},form=$('agenda-form'),key='imperium-agenda-attempt-v1'+(calendarId!==null?':'+calendarId:'');
   let info=null,mode='online',selectedDate='',selectedId='',datePage=0,booking=null,pending=null,busy=false,meetTimer=null,meetChecking=false;
   const longDate=value=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'full',timeZone:'America/Sao_Paulo'}).format(new Date(value+'T12:00:00-03:00'));
   function notice(message){$('agenda-notice').textContent=message;$('agenda-notice').hidden=!message;}
@@ -31,7 +31,7 @@
     setBusy(busy);
   }
   async function load(){
-    info=await API.call('agendaInfo');$('agenda-host-name').textContent=info.hostName;
+    info=await API.call('agendaInfo');$('agenda-host-name').textContent=info.hostName;$('agenda-profile-public').textContent='Seu atendimento com '+info.hostName;
     const previousSubject=form.elements.subject.value;$('agenda-subject').replaceChildren();for(const [value,label] of Object.entries(info.subjects)){const option=document.createElement('option');option.value=value;option.textContent=label;$('agenda-subject').append(option);}if(Object.hasOwn(info.subjects,previousSubject))form.elements.subject.value=previousSubject;
     if(!info.enabled||!info.slots.length){form.hidden=true;notice(info.enabled?'Os próximos horários serão disponibilizados em breve. Fale com a equipe para combinar sua reunião.':'Nossa agenda está fechada no momento. Fale com a equipe para combinar sua reunião.');return;}
     if(!info.slots.some(slot=>slot.modes.includes(mode)))mode=info.slots[0].modes[0];form.hidden=false;notice('');render();
@@ -73,7 +73,7 @@
   $('agenda-calendar').addEventListener('click',()=>{
     if(!booking)return;try{const stamp=value=>new Date(value).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Imperium//Agenda//PT-BR','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+booking.id+'@imperium-agenda','DTSTAMP:'+stamp(Date.now()),'DTSTART:'+stamp(booking.startAt),'DTEND:'+stamp(booking.endAt),'SUMMARY:'+escapeICS('Conversa com '+booking.hostName),'DESCRIPTION:'+escapeICS(booking.subject+'\nProtocolo: '+booking.protocol+(booking.onlineLink?'\nAcesso: '+booking.onlineLink:'')),'LOCATION:'+escapeICS(booking.mode==='online'?(booking.onlineLink||'Online'):booking.location),'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'];const url=URL.createObjectURL(new Blob([lines.map(foldICS).join('\r\n')+'\r\n'],{type:'text/calendar;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='Imperium-'+booking.protocol+'.ics';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}catch{$('agenda-calendar-error').textContent='Não foi possível gerar o arquivo de calendário. Os detalhes da reunião estão acima.';}
   });
-  $('agenda-google-calendar').addEventListener('click',()=>{if(!booking)return;const stamp=value=>new Date(value).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');const u=new URL('https://calendar.google.com/calendar/render');u.search=new URLSearchParams({action:'TEMPLATE',text:'Reunião com '+booking.hostName,dates:stamp(booking.startAt)+'/'+stamp(booking.endAt),details:booking.subject+'\nProtocolo: '+booking.protocol+(booking.onlineLink?'\nAcesso: '+booking.onlineLink:''),location:booking.mode==='online'?(booking.onlineLink||'Online'):booking.location,ctz:'America/Sao_Paulo'}).toString();window.open(u.href,'_blank','noopener,noreferrer');});
+  $('agenda-google-calendar').addEventListener('click',()=>{if(!booking)return;const stamp=value=>new Date(value).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');const u=new URL('https://calendar.google.com/calendar/render');u.search=new URLSearchParams({action:'TEMPLATE',text:'Imperium · '+booking.contact.name+' · '+booking.contact.company,dates:stamp(booking.startAt)+'/'+stamp(booking.endAt),details:'Participante: '+booking.contact.name+'\nEmpresa/condomínio: '+booking.contact.company+'\nResponsável: '+booking.hostName+'\n'+booking.subject+'\nProtocolo: '+booking.protocol+(booking.onlineLink?'\nAcesso: '+booking.onlineLink:''),location:booking.mode==='online'?(booking.onlineLink||'Online'):booking.location,ctz:'America/Sao_Paulo'}).toString();window.open(u.href,'_blank','noopener,noreferrer');});
   window.addEventListener('pagehide',()=>clearTimeout(meetTimer));
   pending=readAttempt();if(pending){if(pending.payload)for(const [name,value]of Object.entries(pending.payload)){const field=form.elements[name];if(field&&typeof value==='string')field.value=value;}recover();}else load().catch(error=>notice(error.message));
 })();

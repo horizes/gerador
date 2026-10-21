@@ -17,7 +17,8 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
  async function one(table,id){const r=await db.from(table).select('*').eq('id',id).maybeSingle();if(r.error)throw new AgendaError('Não foi possível consultar a agenda.','UNAVAILABLE',503);return r.data;}
  async function bookingByProof(p){
   if(!uuid(p.attempt)||!uuid(p.proof))throw new AgendaError('A tentativa é inválida.','VALIDATION',400);
-  const r=await db.from('agenda_bookings').select('*').eq('attempt',p.attempt).eq('proof_hash',await hash(p.proof)).maybeSingle();if(r.error)throw new AgendaError('Não foi possível recuperar a tentativa.','UNAVAILABLE',503);return r.data;
+  const r=await db.from('agenda_bookings').select('*').eq('attempt',p.attempt).eq('proof_hash',await hash(p.proof)).maybeSingle();if(r.error)throw new AgendaError('Não foi possível recuperar a tentativa.','UNAVAILABLE',503);
+  if(r.data&&r.data.calendar_id!==await publicCalendar(p))throw new AgendaError('Esta tentativa pertence a outra agenda.','CONFLICT',409);return r.data;
  }
  async function display(b){return publicBooking(b,await unseal(b.contact_cipher,env.DATA_KEY));}
  async function queue(limit=3){
@@ -39,7 +40,11 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
  }
  function background(){const work=queue().catch(()=>{});if(defer)defer(work);return work;}
  function siteURL(file){if(!env.SITE_URL)throw new AgendaError('Configure o endereço da Imperium na agenda.','CONFIGURATION',503);return new URL(file,env.SITE_URL.endsWith('/')?env.SITE_URL:env.SITE_URL+'/').href;}
- async function snapshot(from,until){return rpc('agenda_snapshot',{p_from:from,p_until:until});}
+ async function publicCalendar(p){
+  if(p.calendarId!==undefined&&p.calendarId!==null&&!uuid(p.calendarId))throw new AgendaError('O link desta agenda é inválido.');
+  return p.calendarId?.toLowerCase()||await rpc('agenda_profile_legacy_id');
+ }
+ async function snapshot(calendarId,from,until,isPublic=false){return rpc('agenda_profile_snapshot',{p_calendar:calendarId,p_from:from,p_until:until,p_public:isPublic});}
  async function handle(action,p,req){
   const now=new Date(),today=dateOnly(now);
   if(action==='processQueue'){
@@ -47,8 +52,8 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
   }
   if(action==='googleCallback')return google.finish(p);
   if(action==='agendaInfo'){
-   const snap=await snapshot(today,addDays(today,90));
-   return {hostName:snap.settings.hostName,revision:snap.settings.revision,enabled:snap.settings.enabled,subjects:Object.fromEntries(SUBJECTS.map(s=>[s,s])),now:now.toISOString(),slots:snap.settings.enabled?slots(snap,today,addDays(today,90),now).filter(s=>s.available).map(({id,date,time,duration,modes})=>({id,date,time,duration,modes})):[]};
+   const calendarId=await publicCalendar(p),snap=await snapshot(calendarId,today,addDays(today,90),true);
+   return {calendarId,hostName:snap.settings.hostName,revision:snap.settings.revision,enabled:snap.settings.enabled,subjects:Object.fromEntries(SUBJECTS.map(s=>[s,s])),now:now.toISOString(),slots:snap.settings.enabled?slots(snap,today,addDays(today,90),now).filter(s=>s.available).map(({id,date,time,duration,modes})=>({id,date,time,duration,modes})):[]};
   }
   if(action==='agendaRecover'){
    let b=await bookingByProof(p);if(!b)return {exists:false};
@@ -60,20 +65,25 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
    const c=contact(p),fingerprint=await hash(JSON.stringify({contact:c,mode:p.mode,subject:p.subject,slotId:p.slotId}));
    const existing=await bookingByProof(p);
    if(existing){if(existing.fingerprint!==fingerprint)throw new AgendaError('Esta tentativa já foi usada com outros dados.','CONFLICT',409);background();return display(existing);}
-   const snap=await snapshot(today,addDays(today,90)),slot=slots(snap,today,addDays(today,90),now).find(s=>s.id===p.slotId);
+   const calendarId=await publicCalendar(p),snap=await snapshot(calendarId,today,addDays(today,90),true),slot=slots(snap,today,addDays(today,90),now).find(s=>s.id===p.slotId);
    if(!snap.settings.enabled||snap.settings.revision!==p.revision||!slot?.available||!slot.modes.includes(p.mode))throw new AgendaError('Este horário não está mais disponível. Escolha outro.','CONFLICT',409);
-   const row=await rpc('agenda_book',{p:{attempt:p.attempt,proof_hash:await hash(p.proof),fingerprint,email_hash:await hash(c.email),client_hash:await hash((req.headers.get('x-forwarded-for')||'desconhecido').split(',')[0]+env.RATE_SALT),
+   const row=await rpc('agenda_profile_book',{p:{calendar_id:calendarId,attempt:p.attempt,proof_hash:await hash(p.proof),fingerprint,email_hash:await hash(c.email),client_hash:await hash((req.headers.get('x-forwarded-for')||'desconhecido').split(',')[0]+env.RATE_SALT),
     revision:p.revision,slot_key:slot.id,date:slot.date,time:slot.time,start_at:slot.startAt,end_at:slot.endAt,duration:slot.duration,mode:p.mode,subject:p.subject,contact_cipher:await seal(c,env.DATA_KEY),email_configured:emailConfigured()}});
    background();return display(row);
   }
-  const googleAction=action.startsWith('adminGoogle');const actor=await permission(req,googleAction&&action!=='adminGoogleRetry');
-  if(action==='adminGoogleConfigure')return google.configure(p.web);
-  if(action==='adminGoogleStart')return google.start(actor.id);
+  const actor=await permission(req,action==='adminGoogleConfigure');
+  if(p.calendarId!==undefined&&p.calendarId!==null&&!uuid(p.calendarId))throw new AgendaError('Agenda inválida.');
+  const context=await rpc('agenda_profile_context',{p_actor:actor.id,p_calendar:p.calendarId||null}),calendarId=context.calendarId;
+  if(action==='adminGoogleConfigure')return google.configure(p.web,calendarId);
+  if(action==='adminGoogleStart'){
+   if(!context.canConfigureGoogle)throw new AgendaError('Somente o dono deste perfil pode conectar sua conta Google.','UNAUTHORIZED',403);
+   return google.start(actor.id,calendarId);
+  }
   if(action==='adminGoogleDisconnect'){
-   await rpc('agenda_disconnect_google',{p_actor:actor.id});return {ok:true};
+   await rpc('agenda_profile_disconnect_google',{p_actor:actor.id,p_calendar:calendarId});return {ok:true};
   }
   if(action==='adminGoogleRetry'){
-   if(!uuid(p.id))throw new AgendaError('Registro inválido.');const b=await one('agenda_bookings',p.id);if(!b||b.google.status==='manual')throw new AgendaError('Este agendamento não usa o Meet automático.');
+   if(!uuid(p.id))throw new AgendaError('Registro inválido.');const b=await one('agenda_bookings',p.id);if(!b||b.calendar_id!==calendarId)throw new AgendaError('Agendamento não encontrado nesta agenda.','NOT_FOUND',404);if(b.google.status==='manual')throw new AgendaError('Este agendamento não usa o Meet automático.');
    if(b.google.status==='failed'){
     const changed=await db.from('agenda_bookings').update({google:{...b.google,conferenceRequestId:crypto.randomUUID(),status:b.status==='canceled'?'cancel_pending':'pending'}}).eq('id',b.id);if(changed.error)throw new AgendaError('Não foi possível preparar a verificação.','UNAVAILABLE',503);
    }
@@ -81,7 +91,7 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
    await queue();return {ok:true};
   }
   if(action==='resendAgendaConfirmation'){
-   if(!uuid(p.id)||!uuid(p.attempt)||!emailConfigured())throw new AgendaError('Confira a configuração SMTP da agenda.');const b=await one('agenda_bookings',p.id);if(!b||b.status!=='confirmed'||Date.parse(b.start_at)<=Date.now())throw new AgendaError('Esta reunião não pode receber outra confirmação.');
+   if(!uuid(p.id)||!uuid(p.attempt)||!emailConfigured())throw new AgendaError('Confira a configuração SMTP da agenda.');const b=await one('agenda_bookings',p.id);if(!b||b.calendar_id!==calendarId)throw new AgendaError('Agendamento não encontrado nesta agenda.','NOT_FOUND',404);if(b.status!=='confirmed'||Date.parse(b.start_at)<=Date.now())throw new AgendaError('Esta reunião não pode receber outra confirmação.');
    const old=await one('agenda_jobs',p.attempt);if(old&&(old.booking_id!==p.id||old.kind!=='email'))throw new AgendaError('Tentativa inválida.');
    if(!old){const r=await db.from('agenda_jobs').insert({id:p.attempt,booking_id:p.id,kind:'email'});if(r.error&&r.error.code!=='23505')throw new AgendaError('Não foi possível preparar o envio.','UNAVAILABLE',503);}
    background();return {ok:true};
@@ -89,15 +99,15 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
   if(action==='adminAgenda'){
    const day=p.startDate||today,month=p.month||day.slice(0,7);
    if(!validDate(day)||!validDate(month+'-01')||day.slice(0,7)!==month||month<'2020-01'||month>'2100-12')throw new AgendaError('Selecione um mês e um dia válidos.');
-   const until=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),0,12)).toISOString().slice(0,10),snap=await snapshot(month+'-01',until),list=slots(snap,month+'-01',until,now);
+   const until=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),0,12)).toISOString().slice(0,10),snap=await snapshot(calendarId,month+'-01',until),list=slots(snap,month+'-01',until,now);
    const days={};for(let d=month+'-01';d<=until;d=addDays(d,1))days[d]={free:list.filter(s=>s.date===d&&s.available).length,bookings:snap.bookings.filter(b=>b.date===d&&b.status==='confirmed').length,holds:snap.holds.filter(h=>h.date===d).length,blocked:snap.blocked.includes(d)};
    const offset=p.cursor?Number(p.cursor):0;if(!Number.isInteger(offset)||offset<0||offset>10000)throw new AgendaError('Página inválida.');
    const bookings=snap.bookings.filter(b=>b.date===day);
-   return {today,now:now.toISOString(),startDate:day,adminMaxDate:addDays(today,365),publicUrl:siteURL('agenda.html'),settings:snap.settings,weekly:snap.weekly,slots:list,holds:snap.holds,calendar:{month,days},bookings:await Promise.all(bookings.slice(offset,offset+50).map(display)),cursor:bookings.length>offset+50?String(offset+50):null,google:await google.status(),emailConfigured:emailConfigured(),canConfigureGoogle:actor.admin};
+   return {...context,today,now:now.toISOString(),startDate:day,adminMaxDate:addDays(today,365),publicUrl:siteURL('agenda.html?agenda='+calendarId),settings:snap.settings,weekly:snap.weekly,slots:list,holds:snap.holds,calendar:{month,days},bookings:await Promise.all(bookings.slice(offset,offset+50).map(display)),cursor:bookings.length>offset+50?String(offset+50):null,google:await google.status(calendarId),emailConfigured:emailConfigured()};
   }
-  const snap=await snapshot(today,addDays(today,90));let sqlAction='',data=p,revision=p.revision;
+  const snap=await snapshot(calendarId,today,addDays(today,90));let sqlAction='',data=p,revision=p.revision;
   switch(action){
-   case 'saveAgendaSettings':sqlAction='saveSettings';data=settings(p,snap.settings,(await google.status()).connected);break;
+   case 'saveAgendaSettings':sqlAction='saveSettings';data=settings(p,snap.settings,(await google.status(calendarId)).connected);break;
    case 'saveWeeklyAgenda':sqlAction='saveWeekly';if(!uuid(p.weeklyRevision))throw new AgendaError('Atualize a rotina semanal.');data={...weekly(p,snap.settings.duration),weeklyRevision:p.weeklyRevision};break;
    case 'addAgendaExtra':sqlAction='addExtra';data=extra(p,snap.settings.duration,today);break;
    case 'removeAgendaSlot':sqlAction='removeExtra';revision=null;if(!uuid(p.id)||!uuid(p.revision))throw new AgendaError('Horário inválido.');break;
@@ -108,7 +118,7 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
    default:throw new AgendaError('Ação não disponível.','NOT_FOUND',404);
   }
   if(revision!==null&&!uuid(revision))throw new AgendaError('Atualize a agenda antes de salvar.');
-  const result=await rpc('agenda_mutate',{p_actor:actor.id,p_revision:revision,p_action:sqlAction,p_data:data});
+  const result=await rpc('agenda_profile_mutate',{p_actor:actor.id,p_calendar:calendarId,p_revision:revision,p_action:sqlAction,p_data:data});
   if(action==='changeAgendaBooking')background();return result;
  }
  return {handle,queue,google,rpc,async fetch(req){
