@@ -1,4 +1,39 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0A0A09"><title>Agende uma reunião — Imperium</title><link rel="icon" href="assets/icons/icon-192.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/base.css?v=2"><link rel="stylesheet" href="css/agenda.css?v=1"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script><script src="js/supabase.js?v=3" defer></script><script src="js/agenda-api.js?v=1" defer></script><script src="js/agenda-publica.js?v=1" defer></script></head><body class="imp-agenda agenda-page"><header class="agenda-public-brand"><a href="index.html"><img src="assets/logo.jpg" alt="Imperium"><span>Imperium<small>Agenda de atendimento</small></span></a></header><main id="agenda-main" class="agenda-container"><div class="agenda-intro"><div><p class="page-eyebrow">MAIS PERTO DE NOVAS OPORTUNIDADES</p><h1>Vamos conversar?</h1><p>Escolha o melhor horário para conhecer os serviços da Imperium.</p></div><div class="agenda-intro-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></div></div>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0A0A09">
+<meta name="description" content="Agende uma conversa online ou presencial com a equipe Imperium. Escolha seu horário e confirme seu atendimento.">
+<title>Agende uma reunião — Imperium</title>
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css?v=2">
+<link rel="stylesheet" href="css/agenda.css?v=1">
+<link rel="stylesheet" href="css/agenda-publica.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+<script src="js/supabase.js?v=3" defer></script>
+<script src="js/agenda-api.js?v=1" defer></script>
+<script src="js/agenda-publica.js?v=1" defer></script>
+</head>
+<body class="imp-agenda agenda-page">
+<a class="skip-link" href="#agenda-main">Ir para o agendamento</a>
+<header class="agenda-public-brand">
+  <a class="agenda-public-home" href="index.html" aria-label="Imperium — início">
+    <img class="agenda-public-logo" src="assets/logo.jpg" alt="Imperium Terceirização e Serviços" width="150" height="150" fetchpriority="high">
+    <div class="agenda-public-brand-copy"><p class="agenda-public-kicker">IMPERIUM · TERCEIRIZAÇÃO E SERVIÇOS</p><p class="agenda-public-brand-title">Agenda de atendimento</p><p class="agenda-public-brand-description">Um horário pensado para você.</p></div>
+  </a>
+  <div class="agenda-public-header-note"><span>ATENDIMENTO COM HORA MARCADA</span><small>Online ou presencial</small></div>
+</header>
+<main id="agenda-main" class="agenda-container" tabindex="-1">
+  <div class="agenda-intro">
+    <div><p class="page-eyebrow">SEU PRÓXIMO ENCONTRO COM A IMPERIUM</p><h1>Vamos conversar?</h1><p>Escolha o melhor horário para conhecer os serviços da Imperium.</p></div>
+    <div class="agenda-intro-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 5 2 2 4-4"/></svg></div>
+  </div>
+  <ol class="agenda-public-steps" aria-label="Como agendar"><li><span>1</span>Escolha o horário</li><li><span>2</span>Preencha seus dados</li><li><span>3</span>Confirme sua reunião</li></ol>
 <p id="agenda-notice" class="notice" role="status">Buscando os próximos horários…</p>
 <form id="agenda-form" class="agenda-card" hidden>
   <div class="agenda-form-heading"><span class="agenda-step">01</span><div><h2>Escolha como e quando</h2><p>Escolha a data e o horário da sua reunião. Todos os horários são de Brasília.</p></div></div>
@@ -15,4 +50,10 @@
 </form>
 <section id="agenda-confirmation" class="agenda-card agenda-confirmation" hidden tabindex="-1"><div class="agenda-success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg></div><p class="page-eyebrow" id="agenda-confirmation-eyebrow">AGENDAMENTO CONFIRMADO</p><h2 id="agenda-confirmation-title">Nos vemos em breve!</h2><p id="agenda-protocol" class="receipt-id"></p><dl id="agenda-confirmation-details" class="detail-grid"></dl><p id="agenda-access-note" class="notice"></p><p id="agenda-email-note" class="agenda-hint" role="status" hidden></p><a id="agenda-meeting-link" class="button primary" target="_blank" rel="noopener noreferrer" hidden>Acessar reunião online</a><button id="agenda-meet-refresh" class="button secondary" type="button" hidden>Verificar link do Meet</button><div class="agenda-confirmation-actions"><button id="agenda-google-calendar" class="button secondary" type="button">Adicionar ao Google Agenda</button><button id="agenda-calendar" class="button secondary" type="button">Adicionar ao calendário</button><button id="agenda-another" class="text-button" type="button">Agendar outra reunião</button></div><p class="agenda-hint">Para alterar ou cancelar, fale com a equipe e informe o protocolo.</p><p class="error" id="agenda-calendar-error" role="alert"></p></section>
 
-</main><footer class="agenda-public-footer">Imperium Terceirização e Serviços · <a href="index.html">Acessar a plataforma</a></footer></body></html>
+</main>
+<footer class="agenda-public-footer">
+  <div class="agenda-public-footer-brand"><img src="assets/logo.jpg" alt="Imperium Terceirização e Serviços" width="150" height="150" loading="lazy"><div><p>Conte com a Imperium.</p><small>Terceirização e Serviços</small></div></div>
+  <a class="agenda-public-team-link" href="index.html">Acessar a plataforma <span aria-hidden="true">↗</span></a>
+</footer>
+</body>
+</html>
