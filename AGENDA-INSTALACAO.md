@@ -28,12 +28,12 @@ No **SQL Editor**, execute `supabase-schema-agenda.sql` e, em seguida, `supabase
 2. Na pasta atualizada `imperium-plataforma`, publique a função:
 
 ```powershell
-npx supabase functions deploy agenda --project-ref abweepruixcyetrzefhk
+npx.cmd supabase functions deploy agenda --project-ref abweepruixcyetrzefhk
 ```
 
 3. Publique os arquivos do site. Se a alteração já foi publicada no GitHub, recarregue a plataforma após atualizar o Supabase.
 
-Mantenha os segredos atuais. Não gere outra chave `AGENDA_DATA_KEY`, não reconfigure o SMTP e não recrie o processamento da fila para esta atualização. Se o comando pedir autenticação, execute `npx supabase login` antes de publicar a função.
+Mantenha os segredos atuais. Não gere outra chave `AGENDA_DATA_KEY`, não reconfigure o SMTP e não recrie o processamento da fila para esta atualização. Se o comando pedir autenticação, execute `npx.cmd supabase login` antes de publicar a função.
 
 A agenda anterior é atribuída ao perfil que conectou a conta Google; se não houver um responsável elegível, usa o primeiro administrador ativo, depois um perfil com permissão de Agenda. Sem perfis elegíveis, o histórico é preservado e o link fica pausado. O link antigo `agenda.html` continua apontando para essa agenda. As novas agendas começam pausadas, e a migração não duplica reservas nem eventos. Confira o perfil responsável no seletor após instalar.
 
@@ -68,9 +68,9 @@ As Edge Functions bloqueiam as portas SMTP 25 e 587. Use a porta TLS 465 do prov
 Depois de preencher os dados, execute:
 
 ```powershell
-npx supabase login
-npx supabase secrets set --env-file "$env:LOCALAPPDATA\Imperium\configuracao-agenda\agenda.env" --project-ref abweepruixcyetrzefhk
-npx supabase functions deploy agenda --project-ref abweepruixcyetrzefhk
+npx.cmd supabase login
+npx.cmd supabase secrets set --env-file "$env:LOCALAPPDATA\Imperium\configuracao-agenda\agenda.env" --project-ref abweepruixcyetrzefhk
+npx.cmd supabase functions deploy agenda --project-ref abweepruixcyetrzefhk
 ```
 
 Os comandos correspondem ao projeto já presente em `js/supabase.js`. Se essa configuração mudar, use o identificador do novo projeto. O arquivo `supabase/config.toml` já inclui `functions.agenda` com `verify_jwt = false`: as ações públicas são abertas e as ações de gestão validam a sessão e a permissão no servidor.
