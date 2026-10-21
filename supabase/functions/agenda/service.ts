@@ -1,13 +1,13 @@
 import {AgendaError,SUBJECTS,dateOnly,addDays,validDate,minutes,instant,clean,settings,weekly,extra,slots,contact,publicBooking} from './core.ts';
 import {GoogleAgenda,hash,seal,unseal} from './google.ts';
-import {smtpOptions} from './mail.ts';
+import {mailOptions} from './mail.ts';
 const uuid=s=>typeof s==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(s);
 const publics=new Set(['agendaInfo','agendaBook','agendaRecover','googleCallback']);
 const errors={CONFLICT:['O horário ou as configurações mudaram. Atualize a agenda e tente novamente.',409],VALIDATION:['Confira os dados informados.',400],RATE_LIMIT:['Aguarde alguns minutos antes de tentar novamente.',429],UNAUTHORIZED:['Você não tem autorização para esta ação.',401],NOT_FOUND:['Agendamento não encontrado.',404]};
 export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{throw new AgendaError('SMTP indisponível.','MAIL_CONFIG',503);},defer=null}={}){
  async function rpc(name,args={}){const r=await db.rpc(name,args);if(r.error){const code=Object.keys(errors).find(k=>String(r.error.message).includes(k));if(code)throw new AgendaError(errors[code][0],code,errors[code][1]);throw new AgendaError('A agenda precisa ser instalada ou está temporariamente indisponível.','UNAVAILABLE',503);}return r.data;}
  const google=new GoogleAgenda(db,env,rpc,transport);
- function emailConfigured(){try{smtpOptions(env);return true;}catch{return false;}}
+ function emailConfigured(){try{mailOptions(env);return true;}catch{return false;}}
  async function permission(req,admin=false){
   const token=req.headers.get('authorization')?.replace(/^Bearer\s+/i,'');if(!token)throw new AgendaError('Entre na plataforma para gerenciar a agenda.','UNAUTHORIZED',401);
   const r=await db.auth.getUser(token);if(r.error||!r.data?.user?.email_confirmed_at)throw new AgendaError('Sua sessão expirou. Entre novamente.','UNAUTHORIZED',401);
@@ -53,7 +53,7 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
   if(action==='googleCallback')return google.finish(p);
   if(action==='agendaInfo'){
    const calendarId=await publicCalendar(p),snap=await snapshot(calendarId,today,addDays(today,90),true);
-   return {calendarId,hostName:snap.settings.hostName,revision:snap.settings.revision,enabled:snap.settings.enabled,subjects:Object.fromEntries(SUBJECTS.map(s=>[s,s])),now:now.toISOString(),slots:snap.settings.enabled?slots(snap,today,addDays(today,90),now).filter(s=>s.available).map(({id,date,time,duration,modes})=>({id,date,time,duration,modes})):[]};
+   return {calendarId,hostName:snap.settings.hostName,revision:snap.settings.revision,enabled:snap.settings.enabled,subjects:Object.fromEntries(SUBJECTS.map(s=>[s,s])),now:now.toISOString(),slots:snap.settings.enabled?slots(snap,today,addDays(today,90),now).filter(s=>s.available).map(({id,date,time,duration,availableModes})=>({id,date,time,duration,modes:availableModes})):[]};
   }
   if(action==='agendaRecover'){
    let b=await bookingByProof(p);if(!b)return {exists:false};
@@ -66,7 +66,7 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
    const existing=await bookingByProof(p);
    if(existing){if(existing.fingerprint!==fingerprint)throw new AgendaError('Esta tentativa já foi usada com outros dados.','CONFLICT',409);background();return display(existing);}
    const calendarId=await publicCalendar(p),snap=await snapshot(calendarId,today,addDays(today,90),true),slot=slots(snap,today,addDays(today,90),now).find(s=>s.id===p.slotId);
-   if(!snap.settings.enabled||snap.settings.revision!==p.revision||!slot?.available||!slot.modes.includes(p.mode))throw new AgendaError('Este horário não está mais disponível. Escolha outro.','CONFLICT',409);
+   if(!snap.settings.enabled||snap.settings.revision!==p.revision||!slot?.available||!slot.availableModes.includes(p.mode))throw new AgendaError('Este horário não está mais disponível. Escolha outro.','CONFLICT',409);
    const row=await rpc('agenda_profile_book',{p:{calendar_id:calendarId,attempt:p.attempt,proof_hash:await hash(p.proof),fingerprint,email_hash:await hash(c.email),client_hash:await hash((req.headers.get('x-forwarded-for')||'desconhecido').split(',')[0]+env.RATE_SALT),
     revision:p.revision,slot_key:slot.id,date:slot.date,time:slot.time,start_at:slot.startAt,end_at:slot.endAt,duration:slot.duration,mode:p.mode,subject:p.subject,contact_cipher:await seal(c,env.DATA_KEY),email_configured:emailConfigured()}});
    background();return display(row);
@@ -91,7 +91,7 @@ export function createAgendaService(db,env,{transport=fetch,sendMail=async()=>{t
    await queue();return {ok:true};
   }
   if(action==='resendAgendaConfirmation'){
-   if(!uuid(p.id)||!uuid(p.attempt)||!emailConfigured())throw new AgendaError('Confira a configuração SMTP da agenda.');const b=await one('agenda_bookings',p.id);if(!b||b.calendar_id!==calendarId)throw new AgendaError('Agendamento não encontrado nesta agenda.','NOT_FOUND',404);if(b.status!=='confirmed'||Date.parse(b.start_at)<=Date.now())throw new AgendaError('Esta reunião não pode receber outra confirmação.');
+   if(!uuid(p.id)||!uuid(p.attempt)||!emailConfigured())throw new AgendaError('Confira a configuração de e-mail do sistema.');const b=await one('agenda_bookings',p.id);if(!b||b.calendar_id!==calendarId)throw new AgendaError('Agendamento não encontrado nesta agenda.','NOT_FOUND',404);if(b.status!=='confirmed'||Date.parse(b.start_at)<=Date.now())throw new AgendaError('Esta reunião não pode receber outra confirmação.');
    const old=await one('agenda_jobs',p.attempt);if(old&&(old.booking_id!==p.id||old.kind!=='email'))throw new AgendaError('Tentativa inválida.');
    if(!old){const r=await db.from('agenda_jobs').insert({id:p.attempt,booking_id:p.id,kind:'email'});if(r.error&&r.error.code!=='23505')throw new AgendaError('Não foi possível preparar o envio.','UNAVAILABLE',503);}
    background();return {ok:true};

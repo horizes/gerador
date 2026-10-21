@@ -84,6 +84,16 @@ end $$;
 
 -- A linha da configuração serializa disponibilidade, bloqueios e reservas concorrentes.
 -- A revisão impede reservar uma faixa que outro gestor acabou de alterar.
+-- Manhã: antes das 12h. Tarde: das 12h até o fim do dia, em Brasília.
+-- start_at/end_at continuam sendo o horário real usado nos avisos e calendários.
+create or replace function public.agenda_booking_occupation(p_mode text,p_start timestamptz,p_end timestamptz) returns tstzrange
+language sql immutable strict set search_path=public as $$
+ select case when p_mode='presencial' then tstzrange(
+  (date_trunc('day',p_start at time zone 'America/Sao_Paulo')+case when extract(hour from p_start at time zone 'America/Sao_Paulo')<12 then interval '0 hours' else interval '12 hours' end) at time zone 'America/Sao_Paulo',
+  greatest(p_end,(date_trunc('day',p_start at time zone 'America/Sao_Paulo')+case when extract(hour from p_start at time zone 'America/Sao_Paulo')<12 then interval '12 hours' else interval '1 day' end) at time zone 'America/Sao_Paulo'),'[)')
+ else tstzrange(p_start,p_end,'[)') end;
+$$;
+
 create or replace function public.agenda_book(p jsonb) returns jsonb language plpgsql security definer set search_path=public as $$
 declare c agenda_config;b agenda_bookings;uid uuid:=gen_random_uuid();g jsonb;starttime timestamptz;endtime timestamptz;day date;begin
  select * into c from agenda_config where id for update;
@@ -98,8 +108,8 @@ declare c agenda_config;b agenda_bookings;uid uuid:=gen_random_uuid();g jsonb;st
  or endtime<>starttime+((p->>'duration')::int*interval '1 minute') or (p->>'duration')::int not in(15,30,45,60,90)
  or length(p->>'contact_cipher')<32 or p->>'proof_hash'!~'^[a-f0-9]{64}$' or p->>'fingerprint'!~'^[a-f0-9]{64}$' then raise exception 'VALIDATION';end if;
  if exists(select 1 from agenda_blocked where date=day)
- or exists(select 1 from agenda_holds where start_at<endtime and end_at>starttime)
- or exists(select 1 from agenda_bookings where status<>'canceled' and start_at<endtime and end_at>starttime) then raise exception 'CONFLICT';end if;
+ or exists(select 1 from agenda_holds where tstzrange(start_at,end_at,'[)') && agenda_booking_occupation(p->>'mode',starttime,endtime))
+ or exists(select 1 from agenda_bookings where status<>'canceled' and agenda_booking_occupation(mode,start_at,end_at) && agenda_booking_occupation(p->>'mode',starttime,endtime)) then raise exception 'CONFLICT';end if;
  if (select count(*) from agenda_bookings where email_hash=p->>'email_hash' and created_at>clock_timestamp()-interval '24 hours')>=5 then raise exception 'RATE_LIMIT';end if;
  g:=case when p->>'mode'='online' and (c.settings->>'autoMeet')::boolean and c.google_connection_id is not null then
  jsonb_build_object('status','pending','connectionId',c.google_connection_id,'eventId','imp'||replace(uid::text,'-',''),'conferenceRequestId',gen_random_uuid()) else jsonb_build_object('status','manual') end;
@@ -127,7 +137,7 @@ declare c agenda_config;b agenda_bookings;r jsonb;added int:=0;d date;starttime 
  for r in select value from jsonb_array_elements(p_data) loop
  starttime:=(r->>'start_at')::timestamptz;endtime:=(r->>'end_at')::timestamptz;
  if exists(select 1 from agenda_extras where start_at<endtime and end_at>starttime)
- or exists(select 1 from agenda_bookings where status<>'canceled' and start_at<endtime and end_at>starttime)
+ or exists(select 1 from agenda_bookings where status<>'canceled' and agenda_booking_occupation(mode,start_at,end_at) && tstzrange(starttime,endtime,'[)'))
  or exists(select 1 from agenda_holds where start_at<endtime and end_at>starttime) then raise exception 'CONFLICT';end if;
  insert into agenda_extras(id,date,time,duration,modes,start_at,end_at) values((r->>'id')::uuid,(r->>'date')::date,(r->>'time')::time,(r->>'duration')::int,r->'modes',starttime,endtime);added:=added+1;
  end loop;update agenda_config set revision=gen_random_uuid() where id;
@@ -144,7 +154,7 @@ declare c agenda_config;b agenda_bookings;r jsonb;added int:=0;d date;starttime 
  entity:=(p_data->>'id')::uuid;starttime:=(p_data->>'start_at')::timestamptz;endtime:=(p_data->>'end_at')::timestamptz;
  if exists(select 1 from agenda_holds where id=entity and start_at=starttime and end_at=endtime and reason=p_data->>'reason') then return '{}'::jsonb;end if;
  if exists(select 1 from agenda_holds where start_at<endtime and end_at>starttime)
- or exists(select 1 from agenda_bookings where status<>'canceled' and start_at<endtime and end_at>starttime) then raise exception 'CONFLICT';end if;
+ or exists(select 1 from agenda_bookings where status<>'canceled' and agenda_booking_occupation(mode,start_at,end_at) && tstzrange(starttime,endtime,'[)')) then raise exception 'CONFLICT';end if;
  insert into agenda_holds(id,date,start_at,end_at,reason) values(entity,(p_data->>'date')::date,starttime,endtime,p_data->>'reason');update agenda_config set revision=gen_random_uuid() where id;
  when 'releaseHold' then
  entity:=(p_data->>'id')::uuid;delete from agenda_holds where id=entity and revision=(p_data->>'holdRevision')::uuid;

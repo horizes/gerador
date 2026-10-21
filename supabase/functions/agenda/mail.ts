@@ -1,11 +1,11 @@
-// Mesmo SMTP e mesmo padrão visual dos e-mails atuais da Imperium.
+// Usa o Resend já configurado na plataforma; mantém SMTP para instalações anteriores.
 import {AgendaError,ZONE} from './core.ts';
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const escapeICS=s=>String(s||'').replace(/\\/g,'\\\\').replace(/\r\n|\r|\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
 const stamp=s=>new Date(s).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
 function fold(s){let out='',line='',size=0;for(const ch of s){const n=new TextEncoder().encode(ch).length;if(size+n>74){out+=line+'\r\n';line=' ';size=1;}line+=ch;size+=n;}return out+line;}
 export function calendarFile(b,contact){
- const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Imperium//Agenda//PT-BR','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:${b.id}@imperium-agenda`,`DTSTAMP:${stamp(Date.now())}`,`DTSTART:${stamp(b.start_at)}`,`DTEND:${stamp(b.end_at)}`,
+ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Imperium//Agenda//PT-BR','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:${b.id}@imperium-agenda`,`DTSTAMP:${stamp(b.created_at||b.start_at)}`,`DTSTART:${stamp(b.start_at)}`,`DTEND:${stamp(b.end_at)}`,
   'SUMMARY:'+escapeICS('Reunião com '+b.host_name),'DESCRIPTION:'+escapeICS(b.subject+'\nProtocolo: '+b.protocol+(b.online_link?'\nAcesso: '+b.online_link:'')),
   'LOCATION:'+escapeICS(b.mode==='online'?(b.online_link||'Online'):(b.location||contact.address||'')),'STATUS:CONFIRMED','END:VEVENT','END:VCALENDAR'];
  return lines.map(fold).join('\r\n')+'\r\n';
@@ -39,5 +39,28 @@ export function smtpSender(nodemailer,env){
    const safe=e.code==='EAUTH'||e.code==='EDNS'||e.code==='ECONNREFUSED'||e.command==='CONN'||(e.responseCode>=500&&e.responseCode<600);
    throw new AgendaError(safe?'Não foi possível encaminhar a confirmação. Confira o SMTP.':'O resultado do envio precisa ser conferido antes de reenviar.',safe?'MAIL_FAILED':'EMAIL_REVIEW',503);
   }finally{transport.close();}
+ };
+}
+export function mailOptions(env){
+ if(env.RESEND_API_KEY||env.RESEND_FROM_EMAIL){
+  if(!env.RESEND_API_KEY?.trim()||!env.RESEND_FROM_EMAIL?.trim()||/[\r\n]/.test(env.RESEND_FROM_EMAIL))throw new AgendaError('Confira o serviço de e-mail já configurado na plataforma.','MAIL_CONFIG',503);
+  return {provider:'resend',from:env.RESEND_FROM_EMAIL.trim()};
+ }
+ smtpOptions(env);return {provider:'smtp',from:env.SMTP_FROM};
+}
+export function mailSender(nodemailer,env,transport=fetch){
+ const smtp=smtpSender(nodemailer,env);
+ return async(b,contact,job)=>{
+  const options=mailOptions(env);if(options.provider==='smtp')return smtp(b,contact,job);
+  const content=mailContent(b,contact,job.kind),attachment=calendarFile(b,contact);
+  const body={from:options.from,to:[contact.email],...content,attachments:[{filename:'Imperium-'+b.protocol+'.ics',content:btoa(String.fromCharCode(...new TextEncoder().encode(attachment)))}]};
+  try{
+   const response=await transport('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY.trim(),'Content-Type':'application/json','Idempotency-Key':'agenda-'+b.id+'-'+job.id},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+   if(!response.ok)throw new AgendaError(response.status>=400&&response.status<500?'O serviço de e-mail não aceitou a confirmação. Confira a autorização do remetente e o limite de envio.':'O resultado do envio precisa ser conferido antes de reenviar.',response.status>=400&&response.status<500?'MAIL_FAILED':'EMAIL_REVIEW',503);
+   const result=await response.json();if(typeof result.id!=='string'||!result.id)throw new AgendaError('O resultado do envio precisa ser conferido antes de reenviar.','EMAIL_REVIEW',503);
+  }catch(error){
+   if(error instanceof AgendaError)throw error;
+   throw new AgendaError('O resultado do envio precisa ser conferido antes de reenviar.','EMAIL_REVIEW',503);
+  }
  };
 }

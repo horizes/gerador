@@ -13,18 +13,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css?v=2">
 <link rel="stylesheet" href="css/agenda.css?v=2">
-<link rel="stylesheet" href="css/agenda-publica.css?v=2">
+<link rel="stylesheet" href="css/agenda-publica.css?v=3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
 <script src="js/supabase.js?v=3" defer></script>
 <script src="js/agenda-api.js?v=1" defer></script>
-<script src="js/agenda-publica.js?v=2" defer></script>
+<script src="js/agenda-publica.js?v=3" defer></script>
 </head>
 <body class="imp-agenda agenda-page">
 <a class="skip-link" href="#agenda-main">Ir para o agendamento</a>
 <header class="agenda-public-brand">
-  <a class="agenda-public-home" href="index.html" aria-label="Imperium — início">
+  <div class="agenda-public-home">
     <img class="agenda-public-logo" src="assets/logo-agenda-imperium.png" alt="Imperium" width="1871" height="840" fetchpriority="high">
-  </a>
+  </div>
 </header>
 <main id="agenda-main" class="agenda-container" tabindex="-1">
   <div class="agenda-intro">
@@ -37,6 +37,7 @@
   <div class="agenda-form-heading"><span class="agenda-step">01</span><div><h2>Escolha como e quando</h2><p>Escolha a data e o horário da sua reunião. Todos os horários são de Brasília.</p></div></div>
   <fieldset id="agenda-inputs" class="agenda-plain-fieldset">
     <fieldset class="agenda-plain-fieldset"><legend>Formato da reunião</legend><div class="agenda-mode-options"><label><input type="radio" name="mode" value="online" checked><span>Online<small>Converse de onde estiver</small></span></label><label><input type="radio" name="mode" value="presencial"><span>Presencial<small>Encontre nossa equipe</small></span></label></div></fieldset>
+    <p id="agenda-period-note" class="agenda-hint" hidden>No presencial, reservamos toda a manhã (antes das 12h) ou toda a tarde (a partir das 12h). A reunião começa no horário escolhido.</p>
     <div class="agenda-date-heading"><h3>Escolha uma data</h3><div class="agenda-date-nav"><button id="agenda-dates-prev" type="button" class="agenda-nav-button" aria-label="Datas anteriores">‹</button><button id="agenda-dates-next" type="button" class="agenda-nav-button" aria-label="Próximas datas">›</button></div></div><div id="agenda-dates" class="agenda-date-options" role="group" aria-label="Datas disponíveis"></div>
     <h3>Horários disponíveis</h3><div id="agenda-hours" class="agenda-hour-options" role="group" aria-label="Horários disponíveis"></div><p id="agenda-selection" class="agenda-selection" role="status">Selecione uma data e um horário.</p>
     <div class="agenda-divider"></div><div class="agenda-form-heading"><span class="agenda-step">02</span><div><h2>Conte um pouco sobre você</h2><p>Preencha seus dados para confirmar o horário escolhido.</p></div></div>
@@ -50,8 +51,7 @@
 
 </main>
 <footer class="agenda-public-footer">
-  <div class="agenda-public-footer-brand"><img src="assets/logo.jpg" alt="Imperium Terceirização e Serviços" width="150" height="150" loading="lazy"><div><p>Conte com a Imperium.</p><small>Terceirização e Serviços</small></div></div>
-  <a class="agenda-public-team-link" href="index.html">Acessar a plataforma <span aria-hidden="true">↗</span></a>
+  <div class="agenda-public-footer-brand"><div><p>Conte com a Imperium.</p><small>Terceirização e Serviços</small></div></div>
 </footer>
 </body>
 </html>

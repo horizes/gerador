@@ -70,11 +70,8 @@
 .agenda-page .agenda-hint{font-size:15px!important;line-height:1.7;color:var(--agenda-public-muted)}
 .agenda-page .agenda-public-footer{display:flex;align-items:center;justify-content:space-between;gap:28px;max-width:1120px;padding:28px 28px 40px;border-color:rgba(215,178,71,.3);text-align:left}
 .agenda-page .agenda-public-footer-brand{display:flex;gap:22px;align-items:center;min-width:0}
-.agenda-page .agenda-public-footer-brand img{width:112px;height:112px;object-fit:contain;border:1px solid rgba(215,178,71,.2);border-radius:16px;background:#0D0D0C;flex:0 0 112px}
 .agenda-page .agenda-public-footer-brand p{font-family:Oswald,sans-serif;font-size:24px;line-height:1.3;color:var(--cream);margin:0 0 7px}
 .agenda-page .agenda-public-footer-brand small{font-size:15px;color:var(--agenda-public-muted)}
-.agenda-page .agenda-public-team-link{display:inline-flex;align-items:center;justify-content:center;gap:16px;min-height:48px;font-size:16px;text-decoration:none;border-bottom:1px solid rgba(215,178,71,.4)}
-.agenda-page .agenda-public-team-link span{font-size:24px}
 .agenda-page :is(.button,.text-button,.agenda-date-chip,.agenda-hour-chip,.agenda-nav-button):focus-visible{outline:2px solid var(--gold-hi);outline-offset:4px}
 @media(max-width:600px){
   .imp-agenda.agenda-page{font-size:16px}
@@ -115,9 +112,7 @@
   .agenda-page .agenda-confirmation-actions .button{width:100%}
   .agenda-page .agenda-public-footer{flex-direction:column;align-items:flex-start;gap:22px;padding:24px 18px 32px}
   .agenda-page .agenda-public-footer-brand{gap:18px}
-  .agenda-page .agenda-public-footer-brand img{width:100px;height:100px;flex-basis:100px}
   .agenda-page .agenda-public-footer-brand p{font-size:23px}
-  .agenda-page .agenda-public-team-link{align-self:stretch}
 }
 @media(max-width:360px){
   .agenda-page .agenda-public-brand .agenda-public-logo{width:240px;height:auto}

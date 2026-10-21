@@ -1,6 +1,6 @@
 # Agenda Imperium
 
-A agenda usa o funcionamento do modelo enviado, com as cores, tipografia, categorias, permissões e Supabase da Imperium. O restante da plataforma foi preservado. Os e-mails da agenda usam o mesmo SMTP e remetente que vocês já utilizam, com o padrão visual das confirmações atuais.
+A agenda usa o funcionamento do modelo enviado, com as cores, tipografia, categorias, permissões e Supabase da Imperium. O restante da plataforma foi preservado. Os e-mails usam prioritariamente o Resend e o remetente já configurados nas notificações do sistema, com o padrão visual das confirmações atuais. Instalações que usam somente SMTP continuam compatíveis.
 
 ## O que está incluído
 
@@ -41,7 +41,11 @@ O código do site, sozinho, não altera o banco nem publica a Edge Function. A a
 
 Não execute novamente os scripts de outros módulos para instalar esta atualização.
 
-## 2. Configurar a função e o SMTP atual
+## 2. Configurar a função e o serviço de e-mail atual
+
+Se o projeto já tem `RESEND_API_KEY` e `RESEND_FROM_EMAIL`, a agenda passa a usá-los automaticamente. Preserve esses segredos: não é necessário revelar a chave, copiá-la para o site, contratar outro serviço ou preencher SMTP. A correção precisa da versão atual dos arquivos `index.ts`, `mail.ts` e `service.ts` da função `agenda`.
+
+As instruções de SMTP abaixo são uma alternativa para instalações que não usam Resend. Em um projeto existente, mantenha as chaves de criptografia e a configuração da fila; não execute o gerador novamente apenas para atualizar a agenda.
 
 Instale Node.js caso ainda não esteja disponível. Na pasta `imperium-plataforma`, execute, substituindo o domínio pelo endereço real da pasta que contém o `index.html`:
 
