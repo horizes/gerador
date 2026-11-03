@@ -415,7 +415,7 @@ function cargoCard(key,c){
         <label class="f"><span>Postos</span><input type="number" min="1" step="1" data-c="${key}.postos" value="${c.postos}"></label>
         <label class="f"><span>Pessoas (total)</span><input type="number" min="1" step="1" data-c="${key}.func" value="${c.func}"></label>
         <label class="f"><span>Escala</span>
-          <select data-c="${key}.escala">${["6x1","5x2","5x1","12x36","44h sem.","3x por semana"].map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
+          <select data-c="${key}.escala">${["6x1","5x2","5x1","12x36","44h sem.","2x por semana","3x por semana"].map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
         </label>
       </div>
       <div class="tg" style="margin-top:2px">
@@ -561,7 +561,7 @@ function painel(){
     <div class="body">
       <label class="f"><span>Base da insalubridade (R$)</span><input type="number" step="0.01" min="0" data-p="salMin" value="${S.salMin}"></label>
       <p class="hint" style="margin:-4px 0 14px">Salário mínimo vigente (R$ 1.621,00 em 2026). Ao mudar, o R$ de insalubridade de todos os cargos é recalculado pelas suas %.</p>
-      <p class="hint" style="margin:-4px 0 14px">Informe o total de pessoas de cada serviço. O total mensal é o valor fixo do posto por pessoa multiplicado pela quantidade de pessoas. Para 3x por semana, escolha essa escala e informe o preço mensal combinado.</p>
+      <p class="hint" style="margin:-4px 0 14px">Informe o total de pessoas de cada serviço. O total mensal é o valor fixo do posto por pessoa multiplicado pela quantidade de pessoas. Para 2x ou 3x por semana, escolha essa escala e informe o preço mensal combinado.</p>
       ${CATALOGO.map(c=>cargoCard(c.id,S.cargos[c.id])).join("")}
       ${S.extras.map((c,i)=>cargoCard("x"+i,c)).join("")}
       <button class="btn ghost wide" id="addcargo">+ Cargo personalizado</button>
