@@ -20,8 +20,8 @@ const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, sal
    gen = gênero padrão (nome/curto abaixo estão nessa forma); alt = a outra forma, quando o cargo varia
    (cargos com o mesmo nome nos dois gêneros, como Recepcionista, não têm alt). */
 const CATALOGO = [
-  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Serviços Gerais", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"limpeza e conservação", gen:"F"},
-  {id:"jard",  nome:"Jardineiro",                      curto:"Jardineiro",          cbo:"6220-10", conf:true,  salario:1886.00, posto:6700.00, escala:"6x1", turno:"Diurno", frente:"jardinagem", gen:"M",
+  {id:"aux",   nome:"Auxiliar de Serviços Gerais",       curto:"Auxiliar de Serviços Gerais", cbo:"5143-20", conf:true,  salario:1805.43, posto:5798.25, escala:"42h semanais", turno:"Diurno", frente:"limpeza e conservação", gen:"F"},
+  {id:"jard",  nome:"Jardineiro",                      curto:"Jardineiro",          cbo:"6220-10", conf:true,  salario:1886.00, posto:6700.00, escala:"42h semanais", turno:"Diurno", frente:"jardinagem", gen:"M",
     alt:{nome:"Jardineira", curto:"Jardineira"}},
   {id:"zel",   nome:"Zelador Predial",                   curto:"Zelador",             cbo:"5141-20", conf:true,  salario:2144.33, posto:6693.75, escala:"5x2", turno:"Diurno", frente:"zeladoria", gen:"M",
     alt:{nome:"Zeladora Predial", curto:"Zeladora"}},
@@ -29,7 +29,7 @@ const CATALOGO = [
     alt:{nome:"Porteira e Controladora de Acesso", curto:"Porteira"}},
   {id:"recep", nome:"Recepcionista",                     curto:"Recepcionista",       cbo:"4221-05", conf:false, salario:2144.33, posto:6700.00, escala:"5x2", turno:"Diurno", frente:"recepção", gen:"F"},
   {id:"manut", nome:"Manutencista Predial",              curto:"Manutencista",        cbo:"5143-10", conf:false, salario:2300.00, posto:7000.00, escala:"5x2", turno:"Diurno", frente:"manutenção predial", gen:"M"},
-  {id:"copa",  nome:"Copeira",                           curto:"Copeira",             cbo:"5134-25", conf:false, salario:1805.43, posto:5798.25, escala:"6x1", turno:"Diurno", frente:"copa", gen:"F",
+  {id:"copa",  nome:"Copeira",                           curto:"Copeira",             cbo:"5134-25", conf:false, salario:1805.43, posto:5798.25, escala:"42h semanais", turno:"Diurno", frente:"copa", gen:"F",
     alt:{nome:"Copeiro", curto:"Copeiro"}},
   {id:"mens",  nome:"Mensageiro",                        curto:"Mensageiro",          cbo:"4122-05", conf:false, salario:1805.43, posto:5798.25, escala:"5x2", turno:"Diurno", frente:"mensageria", gen:"M",
     alt:{nome:"Mensageira", curto:"Mensageira"}}
@@ -108,11 +108,13 @@ const ESTADO_INICIAL = () => ({
 const r2 = v => Math.round((+v||0)*100)/100;
 const calcInsal = (base, pct) => r2((+base||0) * (+pct||0) / 100);
 const fmtPct = p => String(Math.round((+p||0)*100)/100);
+const ESCALAS_PROPOSTA = ["5x2","12x36","42h semanais","2x por semana","3x por semana"];
+const escalaAtual = escala => ["6x1","5x1","44h sem."].includes(escala) ? "42h semanais" : escala;
 
 function novoCargo(base, salMin){
   const sm = salMin > 0 ? salMin : PAD.salMin;
   return {on:false, acum:false, genero:base.gen || "F", nome:base.nome, curto:base.curto, cbo:base.cbo, conf:base.conf, frente:base.frente,
-    postos:1, func:1, escala:base.escala, turno:base.turno, posto:base.posto,
+    postos:1, func:1, escala:escalaAtual(base.escala), turno:base.turno, posto:base.posto,
     salario:base.salario, premio:PAD.premio, insalPct:PAD.insalPct, insal:calcInsal(sm, PAD.insalPct), acumPct:PAD.acumPct, acumVal:r2((+base.salario||0)*PAD.acumPct/100), plr:PAD.plr,
     vr:PAD.vr, vt:PAD.vt, va:PAD.va, equipamentos:[]};
 }
@@ -139,6 +141,7 @@ function cargoPadrao(c, base, salMin){
     if(["on","postos","func","acum","equipamentos"].includes(k)) return;
     if(c && typeof c[k] === typeof novo[k] && (typeof c[k] !== "number" || Number.isFinite(c[k]))) novo[k] = c[k];
   });
+  novo.escala = escalaAtual(novo.escala);
   novo.equipamentos = Array.isArray(c&&c.equipamentos) ? c.equipamentos.filter(objeto).map(e=>
     Object.assign(equipamentoNormalizado(e),{quantidade:1})) : [];
   return novo;
@@ -415,7 +418,7 @@ function cargoCard(key,c){
         <label class="f"><span>Postos</span><input type="number" min="1" step="1" data-c="${key}.postos" value="${c.postos}"></label>
         <label class="f"><span>Pessoas (total)</span><input type="number" min="1" step="1" data-c="${key}.func" value="${c.func}"></label>
         <label class="f"><span>Escala</span>
-          <select data-c="${key}.escala">${["6x1","5x2","5x1","12x36","44h sem.","2x por semana","3x por semana"].map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
+          <select data-c="${key}.escala">${ESCALAS_PROPOSTA.map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
         </label>
       </div>
       <div class="tg" style="margin-top:2px">
@@ -718,7 +721,8 @@ const FOOT = `<div class="pfoot"><a href="https://www.imperiumservicos.com">www.
 const HEAD = `<div class="phead">${WM("sm")}</div>`;
 const page = (inner,cls="") => `<section class="paper ${cls}">${inner}${FOOT}</section>`;
 
-const FRASE_CAPA_ABERTURA = "a pessoa certa, no lugar certo, faz a diferença.";
+const LOGO_ABERTURA_IMPERIUM = "assets/logo-agenda-imperium.png";
+const FRASE_CAPA_ABERTURA = "A PESSOA CERTA, NO LUGAR CERTO, FAZ A DIFERENÇA.";
 function pgCapaAbertura(){
   return `<section class="paper capa-abertura">
     <svg class="capa-abertura-grafismo" viewBox="0 0 794 1123" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -733,12 +737,11 @@ function pgCapaAbertura(){
       <path d="M733 839L794 778" stroke="#D7B247" stroke-width="2" opacity=".7"/>
     </svg>
     <div class="capa-abertura-marca">
-      <div class="capa-abertura-nome">IMPERIUM</div>
-      <div class="capa-abertura-servicos">Terceirização e Serviços</div>
+      <img class="capa-abertura-logo" src="${LOGO_ABERTURA_IMPERIUM}" alt="Imperium — Terceirização e Serviços" width="1871" height="840">
     </div>
     <div class="capa-abertura-mensagem">
       <p class="capa-abertura-rotulo">Proposta de parceria</p>
-      <h1 aria-label="${esc(FRASE_CAPA_ABERTURA)}"><span class="capa-abertura-frase">a pessoa certa,</span><span class="capa-abertura-frase capa-abertura-frase-deslocada">no lugar certo,</span><span class="capa-abertura-frase capa-abertura-frase-ouro">faz a diferença.</span></h1>
+      <h1 aria-label="${esc(FRASE_CAPA_ABERTURA)}"><span class="capa-abertura-frase">A PESSOA CERTA,</span><span class="capa-abertura-frase capa-abertura-frase-deslocada">NO LUGAR CERTO,</span><span class="capa-abertura-frase capa-abertura-frase-ouro">FAZ A DIFERENÇA.</span></h1>
       <div class="capa-abertura-linha" aria-hidden="true"></div>
     </div>
     <div class="capa-abertura-dados">
@@ -757,7 +760,7 @@ function pgCapa(){
     <div style="text-align:center;padding-top:6mm;display:flex;flex-direction:column;align-items:center;flex:1;width:100%">
       <img class="cover-logo-imperium" src="${LOGO_CAPA_IMPERIUM}" alt="Imperium — Terceirização e Serviços">
       <p class="site">www.imperiumservicos.com</p>
-      <div class="cover-motto">A pessoa certa no lugar certo faz a diferença</div>
+      <div class="cover-motto">A PESSOA CERTA NO LUGAR CERTO FAZ A DIFERENÇA</div>
       <p class="ttl">PROPOSTA DE PARCERIA</p>
       <p class="sub">${esc(nomeCliente())} — ${esc(S.localCliente)}</p>
       ${S.fotoLocal?`<div class="cover-foto" style="height:${fotoAjuste().alt}mm"><img src="${S.fotoLocal}" alt="" style="${fotoEstilo()}"></div>`:""}
@@ -1521,9 +1524,11 @@ const IMAGENS_WORD_OPERACAO = {
 };
 
 let logoDocxId=0;
-function logoDocx(cx,align="right"){
-  const cy=Math.round(cx*260/580),id=++logoDocxId;
-  return `<w:p><w:pPr><w:spacing w:after="200"/><w:jc w:val="${align}"/></w:pPr><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Logo Imperium" descr="Imperium — Terceirização e Serviços"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="logo-proposta.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+function logoDocx(cx,align="right",abertura=false){
+  const cy=Math.round(cx*(abertura?840/1871:260/580)),id=++logoDocxId;
+  const imagem = abertura ? "logo-abertura.png" : "logo-proposta.png";
+  const relacao = abertura ? "rIdLogoAbertura" : "rIdLogo";
+  return `<w:p><w:pPr><w:spacing w:after="200"/><w:jc w:val="${align}"/></w:pPr><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Logo Imperium" descr="Imperium — Terceirização e Serviços"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="${imagem}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relacao}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 }
 const MARCA = () => logoDocx(1440000);
 const BULLET = (t,d) => P([R("•  ",{b:true,color:"C9A227"}),R(t,{b:true}),R(d?": "+d:"")],{ind:200});
@@ -1549,12 +1554,11 @@ function capaAberturaWord(){
   const texto = (t,o={}) => R(t,Object.assign({color:"FFFFFF"},o)).replace("<w:rPr>",'<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>');
   const paragrafos = [
     fundo,
-    P([texto("IMPERIUM",{b:true,sz:72,color:"D7B247"})],{after:40}),
-    P([texto("TERCEIRIZAÇÃO E SERVIÇOS",{sz:19})],{after:0}),
-    P([texto("PROPOSTA DE PARCERIA",{sz:21,color:"D7B247"})],{before:2000,after:350}),
-    P([texto("a pessoa certa,",{b:true,sz:88})],{after:20}),
-    P([texto("no lugar certo,",{b:true,sz:88})],{ind:360,after:20}),
-    P([texto("faz a diferença.",{b:true,sz:88,color:"D7B247"})],{after:0})
+    logoDocx(3000000,"left",true),
+    P([texto("PROPOSTA DE PARCERIA",{sz:21,color:"D7B247"})],{before:1600,after:350}),
+    P([texto("A PESSOA CERTA,",{b:true,sz:78})],{after:20}),
+    P([texto("NO LUGAR CERTO,",{b:true,sz:78})],{ind:360,after:20}),
+    P([texto("FAZ A DIFERENÇA.",{b:true,sz:78,color:"D7B247"})],{after:0})
   ];
   if(S.cliente.trim()) paragrafos.push(P([texto(nomeCliente(),{sz:29})],{before:2300,after:100}));
   paragrafos.push(P([texto([S.localCliente,dataExt(S.data)].filter(Boolean).join(" · "),{sz:21,color:"B7B7B7"})],{before:S.cliente.trim()?0:2300,after:0}));
@@ -1584,7 +1588,7 @@ function docBody(){
   /* capa */
   P_.push(logoDocx(4082400,"center"));
   P_.push(P([R("www.imperiumservicos.com",{sz:28})],{align:"center",after:320}));
-  P_.push(P([R("A pessoa certa no lugar certo faz a diferença",{b:true,sz:33,color:"C9A227"})],{align:"center",after:480}));
+  P_.push(P([R("A PESSOA CERTA NO LUGAR CERTO FAZ A DIFERENÇA",{b:true,sz:33,color:"C9A227"})],{align:"center",after:480}));
   P_.push(P([R("PROPOSTA DE PARCERIA",{b:true,sz:55})],{align:"center",after:120}));
   P_.push(P([R(nomeCliente()+" — "+S.localCliente,{sz:33,color:"555555"})],{align:"center",after:400}));
   P_.push(H("Nossos Serviços",{sz:43,align:"center"}));
@@ -1699,7 +1703,10 @@ function docBody(){
   return P_.join("");
 }
 
-function docxBlob(){
+async function docxBlob(){
+  const respostaLogo = await fetch(LOGO_ABERTURA_IMPERIUM);
+  if(!respostaLogo.ok) throw new Error("Não foi possível carregar a logo da capa. Atualize a página e tente novamente.");
+  const logoAbertura = new Uint8Array(await respostaLogo.arrayBuffer());
   const enc=new TextEncoder();
   const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${docBody()}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1021" w:bottom="1134" w:left="1021" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`;
@@ -1713,7 +1720,8 @@ function docxBlob(){
     {name:"[Content_Types].xml", data:enc.encode(ct)},
     {name:"_rels/.rels", data:enc.encode(rels)},
     {name:"word/document.xml", data:enc.encode(doc)},
-    {name:"word/_rels/document.xml.rels",data:enc.encode('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo-proposta.png"/>'+relacoesOperacao+'</Relationships>')},
+    {name:"word/_rels/document.xml.rels",data:enc.encode('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo-proposta.png"/><Relationship Id="rIdLogoAbertura" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo-abertura.png"/>'+relacoesOperacao+'</Relationships>')},
+    {name:"word/media/logo-abertura.png",data:logoAbertura},
     {name:"word/media/logo-proposta.png",data:Uint8Array.from(atob(LOGO_CAPA_IMPERIUM.split(',')[1]),c=>c.charCodeAt(0))},
     ...imagensOperacao
   ]);
@@ -1727,7 +1735,7 @@ async function exportarWord(){
   const btn=document.getElementById("word"); const txt=btn?btn.textContent:"";
   try{
     if(btn){ btn.textContent="Gerando..."; btn.disabled=true; }
-    const blob = docxBlob();
+    const blob = await docxBlob();
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download=nomeArquivo()+".docx"; document.body.appendChild(a); a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
