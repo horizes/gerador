@@ -11,10 +11,9 @@ const ouvintes = [];
 function on(tipo, fn){ ouvintes.push([tipo, fn]); }
 
 /* insalubridade = % × base. Base padrão = salário mínimo de 2026 (R$ 1.621,00); 20% dá os R$ 324,20 de antes. */
-const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, salMin:1621, insalPct:20, acumPct:20, fator:1.7};
+const PAD = {premio:200, plr:326.04, vr:26.03, vt:13, va:205.91, dias:23.33, salMin:1621, insalPct:20, acumPct:20};
 /* acumPct: a lei não fixa um % de acúmulo de função (é definido em contrato/convenção coletiva ou arbitrado pela Justiça;
-   na prática costuma ficar entre 10% e 40% do salário) — 20% é só ponto de partida, editável por cargo.
-   fator: quanto cada R$ 1,00 de adicional salarial (insalubridade, acúmulo) pesa no valor do posto, já com encargos. */
+   na prática costuma ficar entre 10% e 40% do salário) — 20% é só ponto de partida, editável por cargo. */
 
 /* Catálogo de cargos. confirmado:true = CBO retirado da sua proposta atual.
    Os demais vêm do site/uso de mercado e ficam editáveis para conferência.
@@ -96,7 +95,6 @@ const ESTADO_INICIAL = () => ({
   cargoAssinante:"Diretor/Presidente",
   dias:PAD.dias,
   salMin:PAD.salMin,
-  fator:PAD.fator,
   secoes:{capa:true,carta:true,suporte:true,cbo:true,ponto:true,clientes:true,valores:true,aceite:true},
   difs:JSON.parse(JSON.stringify(DIF_PADRAO)),
   fidelidade:false,
@@ -110,8 +108,6 @@ const ESTADO_INICIAL = () => ({
 const r2 = v => Math.round((+v||0)*100)/100;
 const calcInsal = (base, pct) => r2((+base||0) * (+pct||0) / 100);
 const fmtPct = p => String(Math.round((+p||0)*100)/100);
-/* insalubridade embutida no valor base do posto do catálogo (20% × salário mínimo de referência) */
-const INSAL_REF = calcInsal(PAD.salMin, PAD.insalPct);
 
 function novoCargo(base, salMin){
   const sm = salMin > 0 ? salMin : PAD.salMin;
@@ -129,7 +125,7 @@ function equipamentoNormalizado(e){
     valor:Number.isFinite(valor) ? r2(Math.max(0,valor)) : 0};
 }
 
-const CAMPOS_PADRAO = ["cidade","base","assinante","cargoAssinante","dias","salMin","fator","secoes","difs","fidelidade","condicoesContratuais","clientes","logoConnect","logoFlash","logoV"];
+const CAMPOS_PADRAO = ["cidade","base","assinante","cargoAssinante","dias","salMin","secoes","difs","fidelidade","condicoesContratuais","clientes","logoConnect","logoFlash","logoV"];
 const objeto = v => v && typeof v === "object" && !Array.isArray(v);
 const copiar = v => JSON.parse(JSON.stringify(v));
 function estadoBase(){
@@ -290,16 +286,19 @@ function nomeDoc(c){ return c.nome + (c.acum ? " com acúmulo de função" : "")
 /* acúmulo de função só conta quando a caixa está marcada */
 function valAcum(c){ return c.acum ? (+c.acumVal||0) : 0; }
 function remun(c){ return (+c.salario||0)+(+c.premio||0)+(+c.insal||0)+valAcum(c)+(+c.plr||0); }
-/* valor por posto cobrado na proposta = valor base do posto (que já embute a insalubridade padrão)
-   + a diferença de insalubridade e o acúmulo de função, de cada pessoa do posto, × fator de encargos.
-   Insalubridade e acúmulo têm natureza salarial: refletem em 13º, férias + 1/3, FGTS, INSS etc. */
+/* Preço mensal fixo por pessoa, definido na proposta.
+   Remuneração, benefícios e escala continuam descrevendo o serviço contratado. */
 function valorPosto(c){
-  const fator = (+S.fator>0) ? +S.fator : 1;
-  const adic = ((+c.insal||0) - INSAL_REF + valAcum(c)) * Math.max(1, +c.func||1);
-  return r2((+c.posto||0) + adic*fator);
+  const valor = Number(c.posto);
+  return Number.isFinite(valor) ? r2(Math.max(0,valor)) : 0;
 }
+function quantidadePessoas(c){
+  const quantidade = Number(c.func);
+  return Number.isFinite(quantidade) ? Math.max(0,Math.floor(quantidade)) : 0;
+}
+function totalCargo(c){ return r2(valorPosto(c)*quantidadePessoas(c)); }
 function benef(c){ return ((+c.vr||0)+(+c.vt||0))*(+S.dias||0) + (+c.va||0); }
-function totalServicos(){ return listaCargos().reduce((s,c)=>s+valorPosto(c)*(+c.postos||0),0); }
+function totalServicos(){ return r2(listaCargos().reduce((s,c)=>s+totalCargo(c),0)); }
 function listaEquipamentos(){
   return listaCargos().flatMap(c=>(Array.isArray(c.equipamentos)?c.equipamentos:[]).filter(objeto)
     .map(equipamentoNormalizado).filter(e=>e.on&&e.nome.trim()).map(e=>
@@ -414,9 +413,9 @@ function cargoCard(key,c){
     <div class="cfg">
       <div class="grid3">
         <label class="f"><span>Postos</span><input type="number" min="1" step="1" data-c="${key}.postos" value="${c.postos}"></label>
-        <label class="f"><span>Pessoas</span><input type="number" min="1" step="1" data-c="${key}.func" value="${c.func}"></label>
+        <label class="f"><span>Pessoas (total)</span><input type="number" min="1" step="1" data-c="${key}.func" value="${c.func}"></label>
         <label class="f"><span>Escala</span>
-          <select data-c="${key}.escala">${["6x1","5x2","5x1","12x36","44h sem."].map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
+          <select data-c="${key}.escala">${["6x1","5x2","5x1","12x36","44h sem.","3x por semana"].map(e=>`<option ${c.escala===e?"selected":""}>${e}</option>`).join("")}</select>
         </label>
       </div>
       <div class="tg" style="margin-top:2px">
@@ -448,10 +447,10 @@ function cargoCard(key,c){
         <label class="f"><span>Insalub. R$</span><input type="number" step="0.01" data-c="${key}.insal" value="${(+c.insal||0).toFixed(2)}"></label>
         <label class="f"><span>PLR anual</span><input type="number" step="0.01" data-c="${key}.plr" value="${c.plr}"></label>
       </div>
-      <p class="hint">Mudar a % recalcula o R$ (base da insalubridade em "Cargos e quantidades"). Mudar o R$ recalcula a %. O acúmulo de função é calculado à parte (sobre o salário) e só entra quando a caixa está marcada.</p>
+      <p class="hint">Mudar a % recalcula o R$ (base da insalubridade em "Cargos e quantidades"). Mudar o R$ recalcula a %. O acúmulo de função compõe a remuneração quando a caixa está marcada. O preço cobrado é o valor fixo informado abaixo.</p>
       <div class="mini">Valor cobrado</div>
       <div class="grid2">
-        <label class="f"><span>Valor base do posto (R$)</span><input type="number" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
+        <label class="f"><span>Valor fixo do posto / pessoa (R$)</span><input type="number" min="0" step="0.01" data-c="${key}.posto" value="${c.posto}"></label>
       </div>
       <p class="hint" data-final="${key}"></p>
       ${equipamentosEditor(key,c)}
@@ -562,8 +561,7 @@ function painel(){
     <div class="body">
       <label class="f"><span>Base da insalubridade (R$)</span><input type="number" step="0.01" min="0" data-p="salMin" value="${S.salMin}"></label>
       <p class="hint" style="margin:-4px 0 14px">Salário mínimo vigente (R$ 1.621,00 em 2026). Ao mudar, o R$ de insalubridade de todos os cargos é recalculado pelas suas %.</p>
-      <label class="f"><span>Fator de encargos sobre adicionais</span><input type="number" step="0.01" min="1" data-p="fator" value="${S.fator}"></label>
-      <p class="hint" style="margin:-4px 0 14px">Quanto cada R$ 1,00 de insalubridade ou acúmulo pesa no valor do posto (13º, férias + 1/3, FGTS, INSS, RAT/terceiros, provisões, mais sua margem e tributos). Ajuste ao seu custo real.</p>
+      <p class="hint" style="margin:-4px 0 14px">Informe o total de pessoas de cada serviço. O total mensal é o valor fixo do posto por pessoa multiplicado pela quantidade de pessoas. Para 3x por semana, escolha essa escala e informe o preço mensal combinado.</p>
       ${CATALOGO.map(c=>cargoCard(c.id,S.cargos[c.id])).join("")}
       ${S.extras.map((c,i)=>cargoCard("x"+i,c)).join("")}
       <button class="btn ghost wide" id="addcargo">+ Cargo personalizado</button>
@@ -909,9 +907,9 @@ function pgTabelas(){
 
     <p style="font-weight:700;margin-bottom:4px">Escopo e valores da proposta</p>
     <table class="dt">
-      <thead><tr><th>Função</th><th>Escala</th><th>Turno</th><th>Postos</th><th>Pessoas</th><th>Valor por posto</th><th>Valor total</th></tr></thead>
+      <thead><tr><th>Função</th><th>Escala</th><th>Turno</th><th>Postos</th><th>Pessoas</th><th>Valor por pessoa</th><th>Valor total</th></tr></thead>
       <tbody>
-        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${c.func}</td><td class="moeda">${brl(valorPosto(c))}</td><td class="moeda">${brl(valorPosto(c)*(+c.postos||0))}</td></tr>`).join("")}
+        ${cs.map(c=>`<tr><td class="fn">${esc(c.curto||c.nome)}</td><td>${esc(c.escala)}</td><td>${esc(c.turno)}</td><td>${c.postos}</td><td>${quantidadePessoas(c)}</td><td class="moeda">${brl(valorPosto(c))}</td><td class="moeda">${brl(totalCargo(c))}</td></tr>`).join("")}
         <tr class="totrow"><td colspan="6" style="text-align:right">${equipamentos.length?"Serviços / mês":"Mensal"}</td><td class="v moeda">${brl(totalServicos())}</td></tr>
       </tbody>
     </table>${tabelaEquipamentos()}`, "pg-tabelas");
@@ -927,7 +925,7 @@ function pgAceite(){
   return page(`${HEAD}
     <h2 class="dt" style="font-size:24px">TERMO DE ACEITE</h2>
     <p class="lead">O ${S.tipoCliente==="Empresa"?"":"Condomínio "}<b>${esc(nomeCliente())}</b> – ${esc(S.localCliente)}, com seu responsável legal faz o aceite da proposta da qual passará pelos ajustes jurídicos de contrato e após o início dos trabalhos conforme acertado entre as partes.</p>
-    <p class="pill-note">Valor mensal acordado: <b>${brl(totalMensal())}</b> — ${listaCargos().reduce((s,c)=>s+(+c.postos||0),0)} posto(s) de trabalho.</p>
+    <p class="pill-note">Valor mensal acordado: <b>${brl(totalMensal())}</b> — ${listaCargos().reduce((s,c)=>s+quantidadePessoas(c),0)} pessoa(s), em ${listaCargos().reduce((s,c)=>s+(+c.postos||0),0)} posto(s) de trabalho.</p>
     <p style="margin-top:40px;color:#444">${esc(S.cidade)}, ${esc(dataExt(S.data))}</p>
     <div class="assin">
       <div class="line"></div>
@@ -1132,14 +1130,14 @@ function agendarTransbordo(){
   _transbordoAgendado = setTimeout(()=>{ _transbordoAgendado = null; ajustarTransbordo(); }, 200);
 }
 
-/* mostra em cada cargo quanto ele vai custar por posto na proposta (base + adicionais com encargos) */
+/* Mostra o mesmo cálculo mensal usado nas tabelas e nos documentos exportados. */
 function atualizarFinais(){
   if(!root) return;
   todosCargos().forEach(([k,o])=>{
     const el = root.querySelector(`[data-final="${k}"]`); if(!el || !o) return;
-    const fin = valorPosto(o), ad = r2(fin - (+o.posto||0));
-    el.textContent = "Valor por posto na proposta: " + brl(fin) + " (base " + brl(o.posto) +
-      (ad ? (ad>0 ? " + " : " − ") + brl(Math.abs(ad)) + " de adicionais com encargos" : "") + ")";
+    const quantidade = quantidadePessoas(o);
+    el.textContent = brl(valorPosto(o)) + " por pessoa × " + quantidade +
+      (quantidade===1 ? " pessoa = " : " pessoas = ") + brl(totalCargo(o)) + " / mês";
   });
 }
 
@@ -1219,7 +1217,11 @@ on("input", e=>{
   if(t.dataset.c){
     const [key,campo] = t.dataset.c.split(".");
     const o = refCargo(key); if(!o) return;
-    const v = t.type==="number" ? (parseFloat(t.value)||0) : t.value;
+    let v = t.type==="number" ? (parseFloat(t.value)||0) : t.value;
+    if(campo==="func" || campo==="postos"){
+      v = Number.isFinite(v) ? Math.max(0,Math.floor(v)) : 0;
+      if(t.value!=="") t.value = String(v);
+    }
     o[campo] = v;
     // as tabelas/PDF e o Word sempre exibem "curto" antes de "nome" (c.curto||c.nome);
     // por isso o campo "Nome no documento" precisa manter os dois em sincronia — senão
@@ -1674,8 +1676,8 @@ function docBody(){
   P_.push(P([R("Média mensal de benefícios por "+co.un+": "+brl(mediaBen),{sz:24,color:"555555"})]));
 
   P_.push(P([R("Escopo e valores da proposta",{b:true})],{after:60}));
-  P_.push(TBL([TR(["Função","Escala","Turno","Postos","Pessoas","Valor por posto","Valor total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
-    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(c.escala),TD(c.turno),TD(String(c.postos)),TD(String(c.func)),TD(brl(valorPosto(c))),TD(brl(valorPosto(c)*(+c.postos||0)))])))
+  P_.push(TBL([TR(["Função","Escala","Turno","Postos","Pessoas","Valor por pessoa","Valor total"].map(t=>TD(t,{b:true,shade:"111111",color:"D7B247"})))]
+    .concat(cs.map(c=>TR([TD(c.curto||c.nome,{b:true,align:"left"}),TD(c.escala),TD(c.turno),TD(String(c.postos)),TD(String(quantidadePessoas(c))),TD(brl(valorPosto(c))),TD(brl(totalCargo(c)))])))
     .concat([TR([TD(listaEquipamentos().length?"Serviços / mês":"Mensal",{b:true,span:6,align:"right",shade:"111111",color:"FFFFFF"}),TD(brl(totalServicos()),{b:true,shade:"111111",color:"D7B247"})])])));
   P_.push(equipamentosWord());
 
@@ -1686,7 +1688,7 @@ function docBody(){
   if(S.secoes.aceite){
     P_.push(BRK, MARCA(), H("TERMO DE ACEITE",{sz:33}));
     P_.push(P([R("O "+(S.tipoCliente==="Empresa"?"":"Condomínio ")),R(nomeCliente(),{b:true}),R(" – "+S.localCliente+", com seu responsável legal faz o aceite da proposta da qual passará pelos ajustes jurídicos de contrato e após o início dos trabalhos conforme acertado entre as partes.")],{align:"both"}));
-    P_.push(P([R("Valor mensal acordado: "),R(brl(totalMensal()),{b:true}),R(" — "+cs.reduce((s,c)=>s+(+c.postos||0),0)+" posto(s) de trabalho.")],{before:200}));
+    P_.push(P([R("Valor mensal acordado: "),R(brl(totalMensal()),{b:true}),R(" — "+cs.reduce((s,c)=>s+quantidadePessoas(c),0)+" pessoa(s), em "+cs.reduce((s,c)=>s+(+c.postos||0),0)+" posto(s) de trabalho.")],{before:200}));
     P_.push(P([R(S.cidade+", "+dataExt(S.data),{color:"444444"})],{before:600}));
     P_.push(P([R("____________________________________")],{before:600,after:0}));
     P_.push(P([R(S.tratamento+" "+(S.responsavel||"________"))],{after:0}));
